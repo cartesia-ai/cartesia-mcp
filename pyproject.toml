@@ -1,0 +1,11 @@
+[project]
+name = "cartesia-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cartesia>=2.0.2",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.7.1",
+]
