@@ -27,19 +27,9 @@ Add the following to your MCP settings file such as `claude_desktop_config.json`
 }
 ```
 
-### Running From Source
-
-- Clone this repo 
-
-```
-git clone https://github.com/cartesia-ai/cartesia-mcp.git
-```
-
-- Create a virtual enviornment and install all needed dependencies
-
-```
-cd cartesia-mcp
-uv venv
-source ./venv/bin/activate
-uv pip install .
-```
+Try asking Claude to 
+- list all feminine, masculine, or gender neutral Cartesia voices
+- to provide more information about voice X
+- to convert a text phrase to audio using a particular voice
+- to generate audio to connect two existing audio segments (specify file paths)
+- to create a new voice from an existing voice

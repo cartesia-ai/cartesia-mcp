@@ -24,14 +24,10 @@ CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY")
 if not CARTESIA_API_KEY:
     raise ValueError("CARTESIA_API_KEY is required")
 
-OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY")
-
-if not OUTPUT_DIRECTORY:
-    raise Exception("OUTPUT_DIRECTORY is required")
+OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
 client = Cartesia(api_key=CARTESIA_API_KEY)
 mcp = FastMCP("Cartesia")
-
 
 @mcp.tool(description="""
         Generate audio that smoothly connects two existing audio segments. This is useful for inserting new speech between existing speech segments while maintaining natural transitions.
@@ -397,7 +393,7 @@ def text_to_speech(
 
 
 @mcp.tool(description="""
-        Parameters
+        Paramete
         ----------
         limit : typing.Optional[int]
             The number of Voices to return per page, ranging between 1 and 100.

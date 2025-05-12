@@ -8,8 +8,7 @@ def create_output_file(output_directory: str, tool_type: ToolType,
                        extension: OutputFormatContainer) -> Path:
     dir_path = Path(output_directory)
 
-    if not (dir_path.exists()):
-        dir_path.mkdir(parents=True, exist_ok=True)
+    dir_path.mkdir(parents=True, exist_ok=True)
 
     if not os.access(dir_path, os.W_OK):
         raise Exception(
