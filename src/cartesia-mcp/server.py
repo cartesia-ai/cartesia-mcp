@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from custom_types import GeneratedAudioResult, DeleteVoiceResult
 from cartesia import Cartesia
+from cartesia.core.pagination import SyncPager
 from cartesia.voices.requests import LocalizeDialectParams
 from cartesia.voices.types import VoiceMetadata, GenderPresentation, Gender, CloneMode, Voice
 from cartesia.voice_changer.types import OutputFormatContainer
@@ -154,26 +155,23 @@ def voice_change(
     output_format_bit_rate: typing.Optional[int] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    try:
-        result = client.voice_changer.bytes(
-            clip=open(file_path, "rb"),
-            voice_id=voice_id,
-            output_format_container=output_format_container,
-            output_format_sample_rate=output_format_sample_rate,
-            output_format_encoding=output_format_encoding,
-            output_format_bit_rate=output_format_bit_rate,
-            request_options=request_options)
+    result = client.voice_changer.bytes(
+        clip=open(file_path, "rb"),
+        voice_id=voice_id,
+        output_format_container=output_format_container,
+        output_format_sample_rate=output_format_sample_rate,
+        output_format_encoding=output_format_encoding,
+        output_format_bit_rate=output_format_bit_rate,
+        request_options=request_options)
 
-        output_file = create_output_file(OUTPUT_DIRECTORY, "voice_change",
-                                         output_format_container)
+    output_file = create_output_file(OUTPUT_DIRECTORY, "voice_change",
+                                        output_format_container)
 
-        audio_bytes = b"".join(result)
-        with output_file.open("wb") as f:
-            f.write(audio_bytes)
+    audio_bytes = b"".join(result)
+    with output_file.open("wb") as f:
+        f.write(audio_bytes)
 
-        return GeneratedAudioResult(file_path=output_file)
-    except Exception as e:
-        raise Exception(f"Error changing voice: {e}")
+    return GeneratedAudioResult(file_path=output_file)
 
 
 @mcp.tool(description="""
@@ -208,18 +206,15 @@ def localize_voice(
     dialect: typing.Optional[LocalizeDialectParams] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    try:
-        result = client.voices.localize(
-            voice_id=voice_id,
-            name=name,
-            description=description,
-            language=language,
-            original_speaker_gender=original_speaker_gender,
-            dialect=dialect,
-            request_options=request_options)
-        return VoiceMetadata(**result.dict())
-    except Exception as e:
-        raise Exception(f"Error localizing voice: {e}")
+    result = client.voices.localize(
+        voice_id=voice_id,
+        name=name,
+        description=description,
+        language=language,
+        original_speaker_gender=original_speaker_gender,
+        dialect=dialect,
+        request_options=request_options)
+    return VoiceMetadata(**result.dict())
 
 
 @mcp.tool(description="""
@@ -235,12 +230,9 @@ def delete_voice(
     voice_id: str,
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
-    try:
-        result = client.voices.delete(id=voice_id,
-                                      request_options=request_options)
-        return DeleteVoiceResult(**result.dict())
-    except Exception as e:
-        raise Exception(f"Error deleting voice: {e}")
+    result = client.voices.delete(id=voice_id,
+                                    request_options=request_options)
+    return DeleteVoiceResult(**result.dict())
 
 
 @mcp.tool(description="""
@@ -256,11 +248,8 @@ def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    try:
-        result = client.voices.get(id=voice_id, request_options=request_options)
-        return Voice(**result.dict())
-    except Exception as e:
-        raise Exception(f"Error getting voice: {e}")
+    result = client.voices.get(id=voice_id, request_options=request_options)
+    return Voice(**result.dict())
 
 
 @mcp.tool(description="""
@@ -283,14 +272,11 @@ def update_voice(
         description: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> VoiceMetadata:
-    try:
-        result = client.voices.update(id=voice_id,
-                                      name=name,
-                                      description=description,
-                                      request_options=request_options)
-        return VoiceMetadata(**result.dict())
-    except Exception as e:
-        raise Exception(f"Error updating voice: {e}")
+    result = client.voices.update(id=voice_id,
+                                    name=name,
+                                    description=description,
+                                    request_options=request_options)
+    return VoiceMetadata(**result.dict())
 
 
 @mcp.tool(description="""
@@ -328,16 +314,13 @@ def clone_voice(
     description: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    try:
-        result = client.voices.clone(clip=open(file_path, "rb"),
-                                     name=name,
-                                     language=language,
-                                     mode=mode,
-                                     description=description,
-                                     request_options=request_options)
-        return VoiceMetadata(**result.dict())
-    except Exception as e:
-        raise Exception(f"Error cloning voice: {e}")
+    result = client.voices.clone(clip=open(file_path, "rb"),
+                                    name=name,
+                                    language=language,
+                                    mode=mode,
+                                    description=description,
+                                    request_options=request_options)
+    return VoiceMetadata(**result.dict())
 
 
 @mcp.tool(description="""
@@ -371,29 +354,26 @@ def text_to_speech(
     duration: typing.Optional[float] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    try:
-        result = client.tts.bytes(transcript=transcript,
-                                  voice=voice,
-                                  output_format=output_format,
-                                  model_id=model_id,
-                                  language=language,
-                                  duration=duration,
-                                  request_options=request_options)
+    result = client.tts.bytes(transcript=transcript,
+                                voice=voice,
+                                output_format=output_format,
+                                model_id=model_id,
+                                language=language,
+                                duration=duration,
+                                request_options=request_options)
 
-        output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
-                                         output_format["container"])
+    output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
+                                        output_format["container"])
 
-        audio_bytes = b"".join(result)
-        with output_file.open("wb") as f:
-            f.write(audio_bytes)
+    audio_bytes = b"".join(result)
+    with output_file.open("wb") as f:
+        f.write(audio_bytes)
 
-        return GeneratedAudioResult(file_path=output_file)
-    except Exception as e:
-        raise Exception(f"Error generating audio: {e}")
+    return GeneratedAudioResult(file_path=output_file)
 
 
 @mcp.tool(description="""
-        Paramete
+        Parameters
         ----------
         limit : typing.Optional[int]
             The number of Voices to return per page, ranging between 1 and 100.
@@ -430,19 +410,15 @@ def list_voices(
     is_starred: typing.Optional[bool] = None,
     gender: typing.Optional[GenderPresentation] = None,
     request_options: typing.Optional[RequestOptions] = None,
-) -> list[Voice]:
-    try:
-        result = client.voices.list(limit=limit,
-                                    gender=gender,
-                                    is_owner=is_owner,
-                                    is_starred=is_starred,
-                                    starting_after=starting_after,
-                                    ending_before=ending_before,
-                                    request_options=request_options)
-        return [Voice(**voice.dict()) for voice in result.items]
-    except Exception as e:
-        raise Exception(f"Error listing voices: {e}")
-
+) -> SyncPager[Voice]:
+    result = client.voices.list(limit=limit,
+                                gender=gender,
+                                is_owner=is_owner,
+                                is_starred=is_starred,
+                                starting_after=starting_after,
+                                ending_before=ending_before,
+                                request_options=request_options)
+    return result
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

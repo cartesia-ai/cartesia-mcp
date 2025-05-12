@@ -1,7 +1,7 @@
 [project]
 name = "cartesia-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "The official Cartesia MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
