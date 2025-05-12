@@ -4,7 +4,7 @@ This is the official Cartesia MCP server which allows other MCP clients such as 
 
 ### Cartesia Setup
 
-Ensure that you have created an account on Cartesia and gotten your API key. There is a free tier with 10,000 credits per month.
+Ensure that you have created an account on Cartesia and gotten your API key. There is a free tier with 20,000 credits per month.
 
 ### Installation
 
