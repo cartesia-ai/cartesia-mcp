@@ -1,0 +1,18 @@
+[project]
+name = "cartesia-mcp"
+version = "0.1.6"
+description = "The official Cartesia MCP server"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cartesia>=2.0.2",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.7.1",
+]
+
+[project.scripts]
+cartesia-mcp = "cartesia_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
