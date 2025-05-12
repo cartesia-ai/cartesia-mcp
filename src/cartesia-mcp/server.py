@@ -31,6 +31,54 @@ client = Cartesia(api_key=CARTESIA_API_KEY)
 mcp = FastMCP("Cartesia")
 
 @mcp.tool(description="""
+        Parameters
+        ----------
+        transcript : str
+
+        voice : TtsRequestVoiceSpecifierParams
+
+        output_format : OutputFormatParams
+
+        model_id : str
+            The ID of the model to use for the generation. See [Models](/build-with-cartesia/models) for available models.
+
+        language : typing.Optional[SupportedLanguage]
+
+        duration : typing.Optional[float]
+            The maximum duration of the audio in seconds. You do not usually need to specify this.
+            If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+
+          """)
+def text_to_speech(
+    transcript: str,
+    voice: TtsRequestVoiceSpecifierParams,
+    output_format: OutputFormatParams,
+    model_id: typing.Optional[str] = "sonic-2",
+    language: typing.Optional[SupportedLanguage] = None,
+    duration: typing.Optional[float] = None,
+    request_options: typing.Optional[RequestOptions] = None,
+) -> GeneratedAudioResult:
+    result = client.tts.bytes(transcript=transcript,
+                            voice=voice,
+                            output_format=output_format,
+                            model_id=model_id,
+                            language=language,
+                            duration=duration,
+                            request_options=request_options)
+
+    output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
+                                        output_format["container"])
+
+    audio_bytes = b"".join(result)
+    with output_file.open("wb") as f:
+        f.write(audio_bytes)
+
+        return GeneratedAudioResult(file_path=output_file)
+
+@mcp.tool(description="""
         Generate audio that smoothly connects two existing audio segments. This is useful for inserting new speech between existing speech segments while maintaining natural transitions.
 
         **The cost is 1 credit per character of the infill text plus a fixed cost of 300 credits.**
@@ -315,54 +363,6 @@ def clone_voice(
                                 description=description,
                                 request_options=request_options)
     return VoiceMetadata(**result.dict())
-
-@mcp.tool(description="""
-        Parameters
-        ----------
-        transcript : str
-
-        voice : TtsRequestVoiceSpecifierParams
-
-        output_format : OutputFormatParams
-
-        model_id : str
-            The ID of the model to use for the generation. See [Models](/build-with-cartesia/models) for available models.
-
-        language : typing.Optional[SupportedLanguage]
-
-        duration : typing.Optional[float]
-            The maximum duration of the audio in seconds. You do not usually need to specify this.
-            If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
-
-          """)
-def text_to_speech(
-    transcript: str,
-    voice: TtsRequestVoiceSpecifierParams,
-    output_format: OutputFormatParams,
-    model_id: typing.Optional[str] = "sonic-2",
-    language: typing.Optional[SupportedLanguage] = None,
-    duration: typing.Optional[float] = None,
-    request_options: typing.Optional[RequestOptions] = None,
-) -> GeneratedAudioResult:
-    result = client.tts.bytes(transcript=transcript,
-                            voice=voice,
-                            output_format=output_format,
-                            model_id=model_id,
-                            language=language,
-                            duration=duration,
-                            request_options=request_options)
-
-    output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
-                                        output_format["container"])
-
-    audio_bytes = b"".join(result)
-    with output_file.open("wb") as f:
-        f.write(audio_bytes)
-
-        return GeneratedAudioResult(file_path=output_file)
 
 @mcp.tool(description="""
         Parameters
