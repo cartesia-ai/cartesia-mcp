@@ -91,35 +91,32 @@ def infill(
     right_audio_file_path: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    try:
-        left_audio = open(left_audio_file_path,
-                          "rb") if left_audio_file_path else None
-        right_audio = open(right_audio_file_path,
-                           "rb") if right_audio_file_path else None
+    left_audio = open(left_audio_file_path,
+                        "rb") if left_audio_file_path else None
+    right_audio = open(right_audio_file_path,
+                        "rb") if right_audio_file_path else None
 
-        result = client.infill.bytes(
-            model_id="sonic-2",
-            language=language,
-            transcript=transcript,
-            voice_id=voice_id,
-            output_format_container=output_format_container,
-            output_format_sample_rate=output_format_sample_rate,
-            output_format_encoding=output_format_encoding,
-            output_format_bit_rate=output_format_bit_rate,
-            left_audio=left_audio,
-            right_audio=right_audio,
-            request_options=request_options)
+    result = client.infill.bytes(
+        model_id="sonic-2",
+        language=language,
+        transcript=transcript,
+        voice_id=voice_id,
+        output_format_container=output_format_container,
+        output_format_sample_rate=output_format_sample_rate,
+        output_format_encoding=output_format_encoding,
+        output_format_bit_rate=output_format_bit_rate,
+        left_audio=left_audio,
+        right_audio=right_audio,
+        request_options=request_options)
 
-        output_file = create_output_file(OUTPUT_DIRECTORY, "infill",
-                                         output_format_container)
+    output_file = create_output_file(OUTPUT_DIRECTORY, "infill",
+                                        output_format_container)
 
-        audio_bytes = b"".join(result)
-        with output_file.open("wb") as f:
-            f.write(audio_bytes)
+    audio_bytes = b"".join(result)
+    with output_file.open("wb") as f:
+        f.write(audio_bytes)
 
-        return GeneratedAudioResult(file_path=output_file)
-    except Exception as e:
-        raise Exception(f"Error infilling: {e}")
+    return GeneratedAudioResult(file_path=output_file)
 
 
 @mcp.tool(description="""
@@ -171,8 +168,7 @@ def voice_change(
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
-    return GeneratedAudioResult(file_path=output_file)
-
+        return GeneratedAudioResult(file_path=output_file)
 
 @mcp.tool(description="""
         Create a new voice from an existing voice localized to a new language and dialect.
@@ -231,9 +227,8 @@ def delete_voice(
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
     result = client.voices.delete(id=voice_id,
-                                    request_options=request_options)
+                                request_options=request_options)
     return DeleteVoiceResult(**result.dict())
-
 
 @mcp.tool(description="""
         Parameters
@@ -273,11 +268,10 @@ def update_voice(
         request_options: typing.Optional[RequestOptions] = None
 ) -> VoiceMetadata:
     result = client.voices.update(id=voice_id,
-                                    name=name,
-                                    description=description,
-                                    request_options=request_options)
+                                name=name,
+                                description=description,
+                                request_options=request_options)
     return VoiceMetadata(**result.dict())
-
 
 @mcp.tool(description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
@@ -315,13 +309,12 @@ def clone_voice(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
     result = client.voices.clone(clip=open(file_path, "rb"),
-                                    name=name,
-                                    language=language,
-                                    mode=mode,
-                                    description=description,
-                                    request_options=request_options)
+                                name=name,
+                                language=language,
+                                mode=mode,
+                                description=description,
+                                request_options=request_options)
     return VoiceMetadata(**result.dict())
-
 
 @mcp.tool(description="""
         Parameters
@@ -355,12 +348,12 @@ def text_to_speech(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
     result = client.tts.bytes(transcript=transcript,
-                                voice=voice,
-                                output_format=output_format,
-                                model_id=model_id,
-                                language=language,
-                                duration=duration,
-                                request_options=request_options)
+                            voice=voice,
+                            output_format=output_format,
+                            model_id=model_id,
+                            language=language,
+                            duration=duration,
+                            request_options=request_options)
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
                                         output_format["container"])
@@ -369,8 +362,7 @@ def text_to_speech(
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
-    return GeneratedAudioResult(file_path=output_file)
-
+        return GeneratedAudioResult(file_path=output_file)
 
 @mcp.tool(description="""
         Parameters
