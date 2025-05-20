@@ -1,4 +1,5 @@
 # Cartesia MCP Server
+[![smithery badge](https://smithery.ai/badge/@cartesia-ai/cartesia-mcp)](https://smithery.ai/server/@cartesia-ai/cartesia-mcp)
 
 The Cartesia MCP server provides a way for clients such as Cursor, Claude Desktop, and OpenAI agents to interact with Cartesia's API. Users can localize speech, convert text to audio, infill voice clips etc. 
 
@@ -8,6 +9,15 @@ Ensure that you have created an account on [Cartesia](https://play.cartesia.ai/s
 
 ## Installation
 
+### Installing via Smithery
+
+To install Cartesia MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@cartesia-ai/cartesia-mcp):
+
+```bash
+npx -y @smithery/cli install @cartesia-ai/cartesia-mcp --client claude
+```
+
+### Manual Installation
 ```sh
 pip install cartesia-mcp
 which cartesia-mcp # absolute path to executable
