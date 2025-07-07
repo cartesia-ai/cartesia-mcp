@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/cartesia-ai-cartesia-mcp-badge.png)](https://mseep.ai/app/cartesia-ai-cartesia-mcp)
+
 # Cartesia MCP Server
 
 The Cartesia MCP server provides a way for clients such as Cursor, Claude Desktop, and OpenAI agents to interact with Cartesia's API. Users can localize speech, convert text to audio, infill voice clips etc. 
