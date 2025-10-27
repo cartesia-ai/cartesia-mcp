@@ -56,7 +56,7 @@ def text_to_speech(
     transcript: str,
     voice: TtsRequestVoiceSpecifierParams,
     output_format: OutputFormatParams,
-    model_id: typing.Optional[str] = "sonic-2",
+    model_id: typing.Optional[str] = "sonic-3",
     language: typing.Optional[SupportedLanguage] = None,
     duration: typing.Optional[float] = None,
     request_options: typing.Optional[RequestOptions] = None,
@@ -82,8 +82,6 @@ def text_to_speech(
         Generate audio that smoothly connects two existing audio segments. This is useful for inserting new speech between existing speech segments while maintaining natural transitions.
 
         **The cost is 1 credit per character of the infill text plus a fixed cost of 300 credits.**
-
-        Infilling is only available on `sonic-2` at this time.
 
         At least one of `left_audio` or `right_audio` must be provided.
 
@@ -145,7 +143,7 @@ def infill(
                         "rb") if right_audio_file_path else None
 
     result = client.infill.bytes(
-        model_id="sonic-2",
+        model_id="sonic-3",
         language=language,
         transcript=transcript,
         voice_id=voice_id,
