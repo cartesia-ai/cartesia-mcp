@@ -1,0 +1,24 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({command: 'cartesia-mcp', args: [], env: {CARTESIA_API_KEY: config.cartesiaApiKey, OUTPUT_DIRECTORY: config.outputDirectory}})
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - cartesiaApiKey
+    properties:
+      cartesiaApiKey:
+        type: string
+        description: Cartesia API key for authenticating with the Cartesia service
+      outputDirectory:
+        type: string
+        default: .
+        description: Directory to store generated files
+  exampleConfig:
+    cartesiaApiKey: sk-test-1234567890abcdef
+    outputDirectory: /outputs
