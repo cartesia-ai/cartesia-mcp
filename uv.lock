@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [[package]]
@@ -133,7 +133,7 @@ version = "2.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "audioop-lts", marker = "python_full_version < '4.0'" },
+    { name = "audioop-lts", marker = "python_full_version < '4'" },
     { name = "httpx" },
     { name = "httpx-sse" },
     { name = "iterators" },
@@ -150,8 +150,8 @@ wheels = [
 
 [[package]]
 name = "cartesia-mcp"
-version = "0.1.0"
-source = { virtual = "." }
+version = "0.1.6"
+source = { editable = "." }
 dependencies = [
     { name = "cartesia" },
     { name = "httpx" },
@@ -160,7 +160,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", specifier = ">=2.0.2" },
+    { name = "cartesia", specifier = ">=2.0.2,<3.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.7.1" },
 ]
