@@ -1,43 +1,92 @@
 # Cartesia MCP Server
 
-The Cartesia MCP server provides a way for clients such as Cursor, Claude Desktop, and OpenAI agents to interact with Cartesia's API. Users can localize speech, convert text to audio, infill voice clips etc. 
+The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS**, clone voices, infill audio, and more—without one-off scripts.
 
-## Cartesia Setup 
+**Documentation:** [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) (overview and links back to this README).
 
-Ensure that you have created an account on [Cartesia](https://play.cartesia.ai/sign-in), there is a free tier with 20,000 credits per month. Once in the Cartesia playground, create an API key under API Keys --> New.
+## Requirements
+
+- **Python 3.13+** (required; enforced in [`pyproject.toml`](./pyproject.toml))
+- A **[Cartesia API key](https://play.cartesia.ai/keys)** — create one under **API Keys** after signing in at the [playground](https://play.cartesia.ai/sign-in). Free tier includes 20,000 credits per month.
 
 ## Installation
 
+### pip
+
 ```sh
 pip install cartesia-mcp
-which cartesia-mcp # absolute path to executable
+which cartesia-mcp   # copy absolute path for MCP config below
 ```
 
-## Claude Desktop Integration
+### uv (recommended for ephemeral runs)
 
-Add the following to `claude_desktop_config.json` which can be found through Settings --> Developer --> Edit Config.
+If you use [uv](https://docs.astral.sh/uv/), you can run the published package without a global install:
 
+```sh
+uvx cartesia-mcp
 ```
+
+Use `which uvx` or `command -v uvx` if your MCP client needs an absolute path to `uvx`. Some clients invoke MCP via `command` + `args` (see [Cursor](#cursor-integration)).
+
+## Environment
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CARTESIA_API_KEY` | Yes | Your Cartesia API key |
+| `OUTPUT_DIRECTORY` | No | Directory for generated audio files (defaults to `.`) |
+
+## Claude Desktop integration
+
+Edit **Settings → Developer → Edit Config** (`claude_desktop_config.json`).
+
+Use either the **installed executable** (from `pip install`) or **`uvx`**:
+
+### Installed `cartesia-mcp`
+
+```json
 {
   "mcpServers": {
     "cartesia-mcp": {
-      "command": "<absolute-path-to-executable>",
+      "command": "/absolute/path/to/cartesia-mcp",
       "env": {
-        "CARTESIA_API_KEY": "<insert-your-api-key-here>",
-        "OUTPUT_DIRECTORY": // directory to store generated files (optional)
+        "CARTESIA_API_KEY": "<your-api-key>",
+        "OUTPUT_DIRECTORY": "/absolute/path/to/output"
       }
     }
   }
 }
 ```
 
-Try asking Claude to 
+Omit `OUTPUT_DIRECTORY` to write files to the process working directory.
+
+### uvx
+
+```json
+{
+  "mcpServers": {
+    "cartesia-mcp": {
+      "command": "uvx",
+      "args": ["cartesia-mcp"],
+      "env": {
+        "CARTESIA_API_KEY": "<your-api-key>"
+      }
+    }
+  }
+}
+```
+
+### Try asking Claude to…
+
 - List all available Cartesia voices
-- To convert a text phrase into audio using a particular voice
-- To localize an existing voice into a different language
-- To infill audio between two existing audio segments (specify absolute paths to audio files)
-- To change an audio file to use a different voice
+- Convert text to audio with a chosen voice
+- Localize an existing voice into another language
+- Infill audio between two segments (provide absolute paths to audio files)
+- Change an audio file to use a different voice
 
-## Cursor Integration
+## Cursor integration
 
-Create either a `.cursor/mcp.json` in your project or a global `~/.cursor/mcp.json`. The same config as for Claude can be used. 
+Create **`.cursor/mcp.json`** in your project or **`~/.cursor/mcp.json`** globally. You can use the same shapes as [Claude Desktop](#claude-desktop-integration) (`command` pointing at the installed binary, or `uvx` + `args`).
+
+## Tools
+
+The server registers MCP tools for TTS (`text_to_speech`), voice listing and management (`list_voices`, `get_voice`, `clone_voice`, etc.), **infill**, **voice change**, and **localize voice**. See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for the authoritative list and parameters.
