@@ -1,13 +1,11 @@
 # Publishes to PyPI using a project-scoped API token stored as a GitHub secret.
 # Add PYPI_API_TOKEN under Settings → Secrets and variables → Actions.
 #
-# Triggered when a GitHub release is published (e.g. by release-please).
-# Can also be run manually to re-publish if a prior run failed.
+# Normally publish runs as a job in release-please.yml after a release is created.
+# workflow_dispatch is kept for manual re-publishes if a prior run failed.
 name: Publish PyPI
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
