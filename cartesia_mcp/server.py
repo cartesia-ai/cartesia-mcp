@@ -56,7 +56,7 @@ def text_to_speech(
     transcript: str,
     voice: TtsRequestVoiceSpecifierParams,
     output_format: OutputFormatParams,
-    model_id: typing.Optional[str] = "sonic-3.5",
+    model_id: typing.Optional[str] = "sonic-3",
     language: typing.Optional[SupportedLanguage] = None,
     duration: typing.Optional[float] = None,
     request_options: typing.Optional[RequestOptions] = None,
@@ -143,7 +143,7 @@ def infill(
                         "rb") if right_audio_file_path else None
 
     result = client.infill.bytes(
-        model_id="sonic-3.5",
+        model_id="sonic-3",
         language=language,
         transcript=transcript,
         voice_id=voice_id,
