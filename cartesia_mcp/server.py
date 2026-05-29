@@ -14,7 +14,6 @@ from cartesia_mcp.custom_types import (
     ListVoicesResult,
     PronunciationDictItemParams,
 )
-from cartesia import Cartesia
 from cartesia.voices.requests import LocalizeDialectParams
 from cartesia.voices.types import VoiceMetadata, GenderPresentation, Gender, CloneMode, Voice
 from cartesia.voice_changer.types import OutputFormatContainer
@@ -26,7 +25,9 @@ from cartesia.stt.types.timestamp_granularity import TimestampGranularity
 from cartesia.stt.types.transcription_response import TranscriptionResponse
 from cartesia.core.request_options import RequestOptions
 
-from cartesia_mcp.rest_client import CartesiaRestClient, UsageInterval
+from cartesia_mcp import extra_api
+from cartesia_mcp.extra_api import UsageInterval
+from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
 from cartesia_mcp.utils import (
     build_list_voices_request_options,
     create_output_file,
@@ -43,8 +44,8 @@ if not CARTESIA_API_KEY:
 
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
-client = Cartesia(api_key=CARTESIA_API_KEY)
-rest_client = CartesiaRestClient(api_key=CARTESIA_API_KEY)
+client = create_cartesia_client(CARTESIA_API_KEY)
+http = get_http(client)
 mcp = FastMCP("Cartesia")
 
 
@@ -572,7 +573,8 @@ def get_credit_usage(
     interval: typing.Optional[UsageInterval] = None,
     api_key_id: typing.Optional[str] = None,
 ) -> dict[str, typing.Any]:
-    return rest_client.get_usage_credits(
+    return extra_api.get_usage_credits(
+        http,
         start_ts=start_ts,
         end_ts=end_ts,
         interval=interval,
@@ -599,7 +601,8 @@ def list_pronunciation_dicts(
     starting_after: typing.Optional[str] = None,
     ending_before: typing.Optional[str] = None,
 ) -> ListPronunciationDictsResult:
-    payload = rest_client.list_pronunciation_dicts(
+    payload = extra_api.list_pronunciation_dicts(
+        http,
         limit=limit,
         starting_after=starting_after,
         ending_before=ending_before,
@@ -621,7 +624,7 @@ def create_pronunciation_dict(
     name: str,
     items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
 ) -> dict[str, typing.Any]:
-    return rest_client.create_pronunciation_dict(name=name, items=items)
+    return extra_api.create_pronunciation_dict(http, name=name, items=items)
 
 
 @mcp.tool(description="""
@@ -631,7 +634,7 @@ def create_pronunciation_dict(
             Pronunciation dictionary ID.
         """)
 def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
-    return rest_client.get_pronunciation_dict(dict_id)
+    return extra_api.get_pronunciation_dict(http, dict_id)
 
 
 @mcp.tool(description="""
@@ -650,7 +653,7 @@ def update_pronunciation_dict(
     name: typing.Optional[str] = None,
     items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
 ) -> dict[str, typing.Any]:
-    return rest_client.update_pronunciation_dict(dict_id, name=name, items=items)
+    return extra_api.update_pronunciation_dict(http, dict_id, name=name, items=items)
 
 
 @mcp.tool(description="""
@@ -660,7 +663,7 @@ def update_pronunciation_dict(
             Pronunciation dictionary ID to delete.
         """)
 def delete_pronunciation_dict(dict_id: str) -> DeletePronunciationDictResult:
-    rest_client.delete_pronunciation_dict(dict_id)
+    extra_api.delete_pronunciation_dict(http, dict_id)
     return DeletePronunciationDictResult(success=True)
 
 

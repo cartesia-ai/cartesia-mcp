@@ -101,4 +101,4 @@ Tools like `speech_to_text`, `infill`, and `voice_change` need paths to existing
 
 ### API version
 
-Pronunciation dictionary and usage endpoints use `CARTESIA_VERSION` (default `2024-11-13`) and `CARTESIA_API_BASE` (default `https://api.cartesia.ai`). Set these in `env` if you need a different API version.
+All tools send `Cartesia-Version` (default `2026-03-01`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.
