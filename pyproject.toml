@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     # SDK v3 moved modules (e.g. cartesia.core); server still targets v2 APIs — pin until migrated.
-    "cartesia>=2.0.2,<3.0.0",
+    "cartesia>=2.0.17,<3.0.0",
     "httpx>=0.28.1",
     "mcp[cli]>=1.7.1",
 ]

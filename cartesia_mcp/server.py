@@ -6,16 +6,35 @@ import os
 import typing
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from cartesia_mcp.custom_types import GeneratedAudioResult, DeleteVoiceResult, ListVoicesResult
-from cartesia import Cartesia
+from cartesia_mcp.custom_types import (
+    DeletePronunciationDictResult,
+    DeleteVoiceResult,
+    GeneratedAudioResult,
+    ListPronunciationDictsResult,
+    ListVoicesResult,
+    PronunciationDictItemParams,
+)
 from cartesia.voices.requests import LocalizeDialectParams
 from cartesia.voices.types import VoiceMetadata, GenderPresentation, Gender, CloneMode, Voice
 from cartesia.voice_changer.types import OutputFormatContainer
 from cartesia.tts.types import SupportedLanguage, RawEncoding
 from cartesia.tts.requests import OutputFormatParams, TtsRequestVoiceSpecifierParams
+from cartesia.tts.requests.generation_config import GenerationConfigParams
+from cartesia.stt.types.stt_encoding import SttEncoding
+from cartesia.stt.types.timestamp_granularity import TimestampGranularity
+from cartesia.stt.types.transcription_response import TranscriptionResponse
 from cartesia.core.request_options import RequestOptions
 
-from cartesia_mcp.utils import create_output_file, build_list_voices_request_options, voice_list_page_to_result
+from cartesia_mcp.constants import DEFAULT_MODEL_ID
+from cartesia_mcp import extra_api
+from cartesia_mcp.extra_api import UsageInterval
+from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
+from cartesia_mcp.utils import (
+    build_list_voices_request_options,
+    create_output_file,
+    pronunciation_dict_list_to_result,
+    voice_list_page_to_result,
+)
 
 load_dotenv()
 
@@ -26,8 +45,27 @@ if not CARTESIA_API_KEY:
 
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
-client = Cartesia(api_key=CARTESIA_API_KEY)
+client = create_cartesia_client(CARTESIA_API_KEY)
+http = get_http(client)
 mcp = FastMCP("Cartesia")
+
+
+def _build_generation_config(
+    *,
+    speed: typing.Optional[float] = None,
+    volume: typing.Optional[float] = None,
+    emotion: typing.Optional[str] = None,
+) -> typing.Optional[GenerationConfigParams]:
+    if speed is None and volume is None and emotion is None:
+        return None
+    config: GenerationConfigParams = {}
+    if speed is not None:
+        config["speed"] = speed
+    if volume is not None:
+        config["volume"] = volume
+    if emotion is not None:
+        config["emotion"] = emotion
+    return config
 
 @mcp.tool(description="""
         Parameters
@@ -47,6 +85,18 @@ mcp = FastMCP("Cartesia")
             The maximum duration of the audio in seconds. You do not usually need to specify this.
             If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
 
+        speed : typing.Optional[float]
+            Speech speed multiplier (0.6–1.5). Applies to Sonic 3+ via `generation_config`.
+
+        volume : typing.Optional[float]
+            Volume multiplier (0.5–2.0). Applies to Sonic 3+ via `generation_config`.
+
+        emotion : typing.Optional[str]
+            Emotional guidance for the generation (e.g. `neutral`, `excited`, `sad`). Applies to Sonic 3+.
+
+        pronunciation_dict_id : typing.Optional[str]
+            Pronunciation dictionary ID to apply for this generation only.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
 
@@ -55,107 +105,37 @@ def text_to_speech(
     transcript: str,
     voice: TtsRequestVoiceSpecifierParams,
     output_format: OutputFormatParams,
-    model_id: typing.Optional[str] = "sonic-3.5",
+    model_id: typing.Optional[str] = DEFAULT_MODEL_ID,
     language: typing.Optional[SupportedLanguage] = None,
     duration: typing.Optional[float] = None,
+    speed: typing.Optional[float] = None,
+    volume: typing.Optional[float] = None,
+    emotion: typing.Optional[str] = None,
+    pronunciation_dict_id: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    result = client.tts.bytes(transcript=transcript,
-                            voice=voice,
-                            output_format=output_format,
-                            model_id=model_id,
-                            language=language,
-                            duration=duration,
-                            request_options=request_options)
+    generation_config = _build_generation_config(
+        speed=speed,
+        volume=volume,
+        emotion=emotion,
+    )
+    tts_kwargs: dict[str, typing.Any] = {
+        "transcript": transcript,
+        "voice": voice,
+        "output_format": output_format,
+        "model_id": model_id,
+        "language": language,
+        "duration": duration,
+        "request_options": request_options,
+    }
+    if generation_config is not None:
+        tts_kwargs["generation_config"] = generation_config
+    if pronunciation_dict_id is not None:
+        tts_kwargs["pronunciation_dict_id"] = pronunciation_dict_id
+    result = client.tts.bytes(**tts_kwargs)
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
                                         output_format["container"])
-
-    audio_bytes = b"".join(result)
-    with output_file.open("wb") as f:
-        f.write(audio_bytes)
-
-    return GeneratedAudioResult(file_path=str(output_file))
-
-@mcp.tool(description="""
-        Generate audio that smoothly connects two existing audio segments. This is useful for inserting new speech between existing speech segments while maintaining natural transitions.
-
-        **The cost is 1 credit per character of the infill text plus a fixed cost of 300 credits.**
-
-        At least one of `left_audio` or `right_audio` must be provided.
-
-        As with all generative models, there's some inherent variability, but here's some tips we recommend to get the best results from infill:
-        - Use longer infill transcripts
-          - This gives the model more flexibility to adapt to the rest of the audio
-        - Target natural pauses in the audio when deciding where to clip
-          - This means you don't need word-level timestamps to be as precise
-        - Clip right up to the start and end of the audio segment you want infilled, keeping as much silence in the left/right audio segments as possible
-          - This helps the model generate more natural transitions
-
-        Parameters
-        ----------
-        language : str
-            The language of the transcript
-
-        transcript : str
-            The infill text to generate
-
-        voice_id : str
-            The ID of the voice to use for generating audio
-
-        output_format_container : OutputFormatContainer
-            The format of the output audio
-
-        output_format_sample_rate : int
-            The sample rate of the output audio
-
-        output_format_encoding : typing.Optional[RawEncoding]
-            Required for `raw` and `wav` containers.
-
-        output_format_bit_rate : typing.Optional[int]
-            Required for `mp3` containers.
-
-        left_file_path : typing.Optional[str]
-            The absolute path to the left audio file to infill.
-
-        right_file_path : typing.Optional[str]
-            The absolute path to the right audio file to infill.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
-          """)
-def infill(
-    language: SupportedLanguage,
-    transcript: str,
-    voice_id: str,
-    output_format_container: OutputFormatContainer,
-    output_format_sample_rate: int,
-    output_format_encoding: typing.Optional[RawEncoding] = None,
-    output_format_bit_rate: typing.Optional[int] = None,
-    left_audio_file_path: typing.Optional[str] = None,
-    right_audio_file_path: typing.Optional[str] = None,
-    request_options: typing.Optional[RequestOptions] = None,
-) -> GeneratedAudioResult:
-    left_audio = open(left_audio_file_path,
-                        "rb") if left_audio_file_path else None
-    right_audio = open(right_audio_file_path,
-                        "rb") if right_audio_file_path else None
-
-    result = client.infill.bytes(
-        model_id="sonic-3.5",
-        language=language,
-        transcript=transcript,
-        voice_id=voice_id,
-        output_format_container=output_format_container,
-        output_format_sample_rate=output_format_sample_rate,
-        output_format_encoding=output_format_encoding,
-        output_format_bit_rate=output_format_bit_rate,
-        left_audio=left_audio,
-        right_audio=right_audio,
-        request_options=request_options)
-
-    output_file = create_output_file(OUTPUT_DIRECTORY, "infill",
-                                        output_format_container)
 
     audio_bytes = b"".join(result)
     with output_file.open("wb") as f:
@@ -432,6 +412,180 @@ def list_voices(
         request_options=merged_request_options,
     )
     return voice_list_page_to_result(pager)
+
+
+@mcp.tool(description="""
+        Transcribe a pre-recorded audio file to text using Cartesia batch STT (`POST /stt`).
+
+        **Pricing:** 1 credit per 2 seconds of audio.
+
+        **Supported file formats:** flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm
+
+        Parameters
+        ----------
+        file_path : str
+            Absolute path to the audio file.
+
+        model : str
+            STT model ID (default `ink-whisper`).
+
+        language : typing.Optional[str]
+            ISO-639-1 language code (defaults to `en`).
+
+        encoding : typing.Optional[SttEncoding]
+            Required for raw PCM without a container header.
+
+        sample_rate : typing.Optional[int]
+            Sample rate in Hz when `encoding` is set.
+
+        timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
+            Pass `["word"]` for word-level timestamps.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+        """)
+def speech_to_text(
+    file_path: str,
+    model: str = "ink-whisper",
+    language: typing.Optional[str] = None,
+    encoding: typing.Optional[SttEncoding] = None,
+    sample_rate: typing.Optional[int] = None,
+    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]] = None,
+    request_options: typing.Optional[RequestOptions] = None,
+) -> TranscriptionResponse:
+    with open(file_path, "rb") as audio_file:
+        kwargs: dict[str, typing.Any] = {
+            "file": audio_file,
+            "model": model,
+            "request_options": request_options,
+        }
+        if language is not None:
+            kwargs["language"] = language
+        if encoding is not None:
+            kwargs["encoding"] = encoding
+        if sample_rate is not None:
+            kwargs["sample_rate"] = sample_rate
+        if timestamp_granularities is not None:
+            kwargs["timestamp_granularities"] = list(timestamp_granularities)
+        return client.stt.transcribe(**kwargs)
+
+
+@mcp.tool(description="""
+        Returns credit usage over time (`GET /usage/credits`).
+
+        Requires an **admin** API key. Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
+        `interval` buckets results by `day`, `week`, or `month`.
+
+        Parameters
+        ----------
+        start_ts : typing.Optional[str]
+
+        end_ts : typing.Optional[str]
+
+        interval : typing.Optional[UsageInterval]
+
+        api_key_id : typing.Optional[str]
+            Limit usage to a specific API key ID.
+        """)
+def get_credit_usage(
+    start_ts: typing.Optional[str] = None,
+    end_ts: typing.Optional[str] = None,
+    interval: typing.Optional[UsageInterval] = None,
+    api_key_id: typing.Optional[str] = None,
+) -> dict[str, typing.Any]:
+    return extra_api.get_usage_credits(
+        http,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        interval=interval,
+        api_key_id=api_key_id,
+    )
+
+
+@mcp.tool(description="""
+        List pronunciation dictionaries for the authenticated user.
+
+        Parameters
+        ----------
+        limit : typing.Optional[int]
+            Number of dictionaries per page (1–100).
+
+        starting_after : typing.Optional[str]
+            Cursor: dictionary ID to start after.
+
+        ending_before : typing.Optional[str]
+            Cursor: dictionary ID to end before.
+        """)
+def list_pronunciation_dicts(
+    limit: typing.Optional[int] = 10,
+    starting_after: typing.Optional[str] = None,
+    ending_before: typing.Optional[str] = None,
+) -> ListPronunciationDictsResult:
+    payload = extra_api.list_pronunciation_dicts(
+        http,
+        limit=limit,
+        starting_after=starting_after,
+        ending_before=ending_before,
+    )
+    return pronunciation_dict_list_to_result(payload)
+
+
+@mcp.tool(description="""
+        Create a pronunciation dictionary.
+
+        Parameters
+        ----------
+        name : str
+
+        items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
+            Mappings of `text` to `pronunciation` (IPA or sounds-like).
+        """)
+def create_pronunciation_dict(
+    name: str,
+    items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
+) -> dict[str, typing.Any]:
+    return extra_api.create_pronunciation_dict(http, name=name, items=items)
+
+
+@mcp.tool(description="""
+        Parameters
+        ----------
+        dict_id : str
+            Pronunciation dictionary ID.
+        """)
+def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
+    return extra_api.get_pronunciation_dict(http, dict_id)
+
+
+@mcp.tool(description="""
+        Update a pronunciation dictionary.
+
+        Parameters
+        ----------
+        dict_id : str
+
+        name : typing.Optional[str]
+
+        items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
+        """)
+def update_pronunciation_dict(
+    dict_id: str,
+    name: typing.Optional[str] = None,
+    items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
+) -> dict[str, typing.Any]:
+    return extra_api.update_pronunciation_dict(http, dict_id, name=name, items=items)
+
+
+@mcp.tool(description="""
+        Parameters
+        ----------
+        dict_id : str
+            Pronunciation dictionary ID to delete.
+        """)
+def delete_pronunciation_dict(dict_id: str) -> DeletePronunciationDictResult:
+    extra_api.delete_pronunciation_dict(http, dict_id)
+    return DeletePronunciationDictResult(success=True)
+
 
 def main():
     mcp.run(transport="stdio")

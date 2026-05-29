@@ -2,7 +2,11 @@ import os
 import datetime
 import typing
 from pathlib import Path
-from cartesia_mcp.custom_types import ToolType, ListVoicesResult
+from cartesia_mcp.custom_types import (
+    ListPronunciationDictsResult,
+    ListVoicesResult,
+    ToolType,
+)
 from cartesia.core.pagination import SyncPager
 from cartesia.core.request_options import RequestOptions
 from cartesia.voice_changer.types import OutputFormatContainer
@@ -50,4 +54,19 @@ def voice_list_page_to_result(pager: SyncPager[Voice]) -> ListVoicesResult:
     result: ListVoicesResult = {"data": data, "has_more": pager.has_next}
     if pager.has_next and data:
         result["next_page"] = data[-1]["id"]
+    return result
+
+
+def pronunciation_dict_list_to_result(
+    payload: dict[str, typing.Any],
+) -> ListPronunciationDictsResult:
+    result: ListPronunciationDictsResult = {
+        "data": payload.get("data", []),
+        "has_more": bool(payload.get("has_more", False)),
+    }
+    next_page = payload.get("next_page")
+    if next_page:
+        result["next_page"] = next_page
+    elif result["has_more"] and result["data"]:
+        result["next_page"] = result["data"][-1]["id"]
     return result

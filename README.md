@@ -2,7 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
-The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS**, clone voices, infill audio, and more—without one-off scripts.
+The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
 
 **Documentation:** [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)
 
@@ -41,24 +41,32 @@ Restart the client (or refresh MCP in Cursor) and confirm **cartesia-mcp** is co
 Ask your agent things like:
 
 - List all available Cartesia voices
-- Convert text to audio with a chosen voice
+- Convert text to audio with a chosen voice (speed, volume, emotion)
+- Transcribe an audio file to text
+- Create a pronunciation dictionary and use it in TTS
+- Check credit usage for your account
 - Localize an existing voice into another language
-- Infill audio between two existing audio segments
 - Change an audio file to use a different voice
 
 ## Tools
 
 | Tool | Description |
 |------|-------------|
-| `text_to_speech` | Convert text to audio with a chosen voice and model |
-| `list_voices` | List available voices (optionally filter by language or gender) |
+| `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict |
+| `speech_to_text` | Batch-transcribe an audio file (`ink-whisper`) |
+| `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
 | `clone_voice` | Clone a voice from an audio sample |
 | `update_voice` | Update a cloned voice's name or description |
 | `delete_voice` | Delete a cloned voice |
-| `infill` | Generate audio between two existing audio segments |
 | `voice_change` | Re-render audio with a different voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
+| `list_pronunciation_dicts` | List pronunciation dictionaries |
+| `create_pronunciation_dict` | Create a pronunciation dictionary |
+| `get_pronunciation_dict` | Get a pronunciation dictionary by ID |
+| `update_pronunciation_dict` | Update a pronunciation dictionary |
+| `delete_pronunciation_dict` | Delete a pronunciation dictionary |
+| `get_credit_usage` | Credit usage over time (admin API key) |
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
@@ -70,7 +78,7 @@ Smoke-test all tools (requires `CARTESIA_API_KEY`):
 uv run python scripts/test_all_tools.py
 ```
 
-The script creates temporary cloned/localized voices and deletes only those. It does not delete catalog or other existing voices.
+The script creates temporary cloned/localized voices and pronunciation dictionaries, then deletes only those. It does not delete catalog or other existing resources.
 
 ## Advanced
 
@@ -87,4 +95,8 @@ By default, generated audio is written to the server's working directory. To cho
 
 ### Local audio files
 
-Tools like `infill` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
+Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
+
+### API version
+
+All tools send `Cartesia-Version` (default `2026-03-01`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.

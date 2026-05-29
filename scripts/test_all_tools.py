@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Smoke-test all cartesia-mcp tool handlers (direct function calls).
 
-Safety: only delete voices created in this run (clone/localize). Never delete
-catalog or pre-existing user voices — use public voice IDs for read/generation
-only, then create ephemeral test voices and delete those by ID.
+Safety: only delete voices and pronunciation dicts created in this run (clone/localize/create).
+Never delete catalog or pre-existing user resources — use public voice IDs for read/generation
+only, then create ephemeral test resources and delete those by ID.
 """
 
 from __future__ import annotations
@@ -19,12 +19,13 @@ from typing import Any
 OUTPUT_DIR = os.environ.get(
     "OUTPUT_DIRECTORY", os.path.join(os.path.dirname(__file__), "..", "test-output")
 )
-# Public catalog voices — read / TTS / infill / voice_change only; never delete.
+# Public catalog voices — read / TTS / voice_change only; never delete.
 SAMPLE_VOICE_ID = "ef191366-f52f-447a-a398-ed8c0f2943a1"  # Archie
 ALT_VOICE_ID = "47c38ca4-5f35-497b-b1a3-415245fb35e1"  # Daniel
 PROTECTED_VOICE_IDS = frozenset({SAMPLE_VOICE_ID, ALT_VOICE_ID})
 TEST_VOICE_NAME_PREFIX = "MCP Test"
 TEST_LOCALIZED_NAME_PREFIX = "MCP Localized"
+TEST_DICT_NAME_PREFIX = "MCP Test Dict"
 WAV_FORMAT = {
     "container": "wav",
     "encoding": "pcm_s16le",
@@ -48,6 +49,11 @@ def assert_safe_to_delete(voice_id: str, name: str, *, created_this_run: bool) -
         raise RuntimeError(f"refusing to delete voice not created in this run: {voice_id}")
     if not (name.startswith(TEST_VOICE_NAME_PREFIX) or name.startswith(TEST_LOCALIZED_NAME_PREFIX)):
         raise RuntimeError(f"refusing to delete voice with unexpected name {name!r}")
+
+
+def assert_safe_to_delete_dict(dict_id: str, *, created_this_run: bool) -> None:
+    if not created_this_run:
+        raise RuntimeError(f"refusing to delete dict not created in this run: {dict_id}")
 
 
 def assert_str_path(result: dict[str, Any], tool: str) -> str:
@@ -75,15 +81,20 @@ def main() -> int:
     cloned_voice_name: str | None = None
     localized_voice_id: str | None = None
     localized_voice_name: str | None = None
+    dict_id: str | None = None
+    dict_name: str | None = None
     tts_path: str | None = None
     run_id = str(int(time.time()))
 
-    def run(name: str, fn) -> Any:
+    def run(name: str, fn, *, optional: bool = False) -> Any:
         try:
             result = fn()
             ok(name)
             return result
         except Exception as e:  # noqa: BLE001
+            if optional:
+                print(f"  SKIP {name} — {e}")
+                return None
             fail(name, e)
             failures.append(name)
             return None
@@ -126,6 +137,8 @@ def main() -> int:
             voice={"mode": "id", "id": SAMPLE_VOICE_ID},
             output_format=WAV_FORMAT,
             language="en",
+            speed=1.0,
+            emotion="neutral",
         ),
     )
     if tts_result:
@@ -135,6 +148,64 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001
             fail("text_to_speech validation", e)
             failures.append("text_to_speech(validation)")
+
+    if tts_path and os.path.isfile(tts_path):
+        stt_result = run(
+            "speech_to_text",
+            lambda: s.speech_to_text(file_path=tts_path, language="en"),
+        )
+        if stt_result is not None:
+            text = getattr(stt_result, "text", None) or (
+                stt_result.get("text") if isinstance(stt_result, dict) else None
+            )
+            if not text:
+                failures.append("speech_to_text(empty)")
+                print("  FAIL speech_to_text: empty transcript")
+
+    run(
+        "get_credit_usage",
+        lambda: s.get_credit_usage(),
+        optional=True,
+    )
+
+    dict_name = f"{TEST_DICT_NAME_PREFIX} {run_id}"
+    create_dict = run(
+        "create_pronunciation_dict",
+        lambda: s.create_pronunciation_dict(
+            name=dict_name,
+            items=[{"text": "Cartesia", "pronunciation": "kar-TEE-zhuh"}],
+        ),
+    )
+    if create_dict:
+        dict_id = create_dict.get("id")
+        ok("create_pronunciation_dict", f"id={dict_id}")
+
+        if dict_id:
+            run(
+                "get_pronunciation_dict",
+                lambda: s.get_pronunciation_dict(dict_id),
+            )
+            run(
+                "list_pronunciation_dicts",
+                lambda: s.list_pronunciation_dicts(limit=5),
+            )
+            run(
+                "update_pronunciation_dict",
+                lambda: s.update_pronunciation_dict(
+                    dict_id,
+                    name=f"{dict_name} (updated)",
+                    items=[{"text": "Cartesia", "pronunciation": "kar-TEE-zha"}],
+                ),
+            )
+            run(
+                "text_to_speech(pronunciation_dict)",
+                lambda: s.text_to_speech(
+                    transcript="Welcome to Cartesia.",
+                    voice={"mode": "id", "id": SAMPLE_VOICE_ID},
+                    output_format=WAV_FORMAT,
+                    pronunciation_dict_id=dict_id,
+                ),
+            )
 
     # clone_voice needs ~5s+ audio; use TTS output when available.
     sample_wav = tts_path or os.path.abspath(
@@ -182,25 +253,6 @@ def main() -> int:
                 output_format_encoding="pcm_s16le",
             ),
         )
-        infill_result = run(
-            "infill",
-            lambda: s.infill(
-                language="en",
-                transcript=" and ",
-                voice_id=SAMPLE_VOICE_ID,
-                output_format_container="wav",
-                output_format_sample_rate=44100,
-                output_format_encoding="pcm_s16le",
-                left_audio_file_path=tts_path,
-                right_audio_file_path=tts_path,
-            ),
-        )
-        if infill_result:
-            try:
-                assert_str_path(infill_result, "infill")
-            except Exception as e:  # noqa: BLE001
-                fail("infill validation", e)
-                failures.append("infill(validation)")
 
     localized_name = f"{TEST_LOCALIZED_NAME_PREFIX} {run_id}"
     loc_result = run(
@@ -217,6 +269,17 @@ def main() -> int:
         localized_voice_id = getattr(loc_result, "id", None)
         localized_voice_name = getattr(loc_result, "name", localized_name)
         ok("localize_voice", f"id={localized_voice_id}")
+
+    if dict_id:
+        try:
+            assert_safe_to_delete_dict(dict_id, created_this_run=True)
+            run(
+                "delete_pronunciation_dict",
+                lambda: s.delete_pronunciation_dict(dict_id),
+            )
+        except RuntimeError as e:
+            fail("delete_pronunciation_dict precheck", e)
+            failures.append("delete_pronunciation_dict")
 
     # Only delete voices we created above — never catalog or existing user voices.
     for vid, name, label in [
