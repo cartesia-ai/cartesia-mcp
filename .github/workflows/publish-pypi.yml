@@ -1,0 +1,36 @@
+# Publishes to PyPI using a Trusted Publisher (OIDC) — no long-lived API token in CI.
+# Configure at https://pypi.org/manage/project/cartesia-mcp/publishing/
+#
+# Triggered when a GitHub release is published (e.g. by release-please).
+# Can also be run manually to re-publish if a prior run failed.
+name: Publish PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+    environment: pypi
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+        with:
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
