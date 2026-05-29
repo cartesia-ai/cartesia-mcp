@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.12...cartesia-mcp-v0.2.0) (2026-05-29)
+
+
+### Features
+
+* default TTS and infill to sonic-3.5 ([#19](https://github.com/cartesia-ai/cartesia-mcp/issues/19)) ([fbaa311](https://github.com/cartesia-ai/cartesia-mcp/commit/fbaa311f1d6f65f15bcd21ca9ff933d7a4108bb5))
+
 ## [0.1.12](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.11...cartesia-mcp-v0.1.12) (2026-05-29)
 
 
