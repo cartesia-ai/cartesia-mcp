@@ -1,7 +1,7 @@
 """
 HTTP helpers for Cartesia endpoints not generated on the Fern v2 Python SDK.
 
-The pinned `cartesia` 2.x client exposes tts, stt, voices, infill, and voice_changer
+The pinned `cartesia` 2.x client exposes tts, stt, voices, and voice_changer
 only — not pronunciation dictionaries or usage/credits. These thin wrappers call the
 same httpx stack as the SDK (shared auth, base URL, and Cartesia-Version header).
 """

@@ -2,7 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
-The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, infill audio, and more—without one-off scripts.
+The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
 
 **Documentation:** [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)
 
@@ -46,7 +46,6 @@ Ask your agent things like:
 - Create a pronunciation dictionary and use it in TTS
 - Check credit usage for your account
 - Localize an existing voice into another language
-- Infill audio between two existing audio segments
 - Change an audio file to use a different voice
 
 ## Tools
@@ -60,7 +59,6 @@ Ask your agent things like:
 | `clone_voice` | Clone a voice from an audio sample |
 | `update_voice` | Update a cloned voice's name or description |
 | `delete_voice` | Delete a cloned voice |
-| `infill` | Generate audio between two existing audio segments |
 | `voice_change` | Re-render audio with a different voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |
@@ -97,7 +95,7 @@ By default, generated audio is written to the server's working directory. To cho
 
 ### Local audio files
 
-Tools like `speech_to_text`, `infill`, and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
+Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
 
 ### API version
 

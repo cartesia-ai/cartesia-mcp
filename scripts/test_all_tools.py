@@ -19,15 +19,13 @@ from typing import Any
 OUTPUT_DIR = os.environ.get(
     "OUTPUT_DIRECTORY", os.path.join(os.path.dirname(__file__), "..", "test-output")
 )
-# Public catalog voices — read / TTS / infill / voice_change only; never delete.
+# Public catalog voices — read / TTS / voice_change only; never delete.
 SAMPLE_VOICE_ID = "ef191366-f52f-447a-a398-ed8c0f2943a1"  # Archie
 ALT_VOICE_ID = "47c38ca4-5f35-497b-b1a3-415245fb35e1"  # Daniel
 PROTECTED_VOICE_IDS = frozenset({SAMPLE_VOICE_ID, ALT_VOICE_ID})
 TEST_VOICE_NAME_PREFIX = "MCP Test"
 TEST_LOCALIZED_NAME_PREFIX = "MCP Localized"
 TEST_DICT_NAME_PREFIX = "MCP Test Dict"
-# sonic-3.5 (azure-disco) does not support infill on the API yet; use sonic-3 for this test.
-INFILL_TEST_MODEL_ID = "sonic-3"
 WAV_FORMAT = {
     "container": "wav",
     "encoding": "pcm_s16le",
@@ -255,26 +253,6 @@ def main() -> int:
                 output_format_encoding="pcm_s16le",
             ),
         )
-        infill_result = run(
-            "infill",
-            lambda: s.infill(
-                language="en",
-                transcript=" and ",
-                voice_id=SAMPLE_VOICE_ID,
-                model_id=INFILL_TEST_MODEL_ID,
-                output_format_container="wav",
-                output_format_sample_rate=44100,
-                output_format_encoding="pcm_s16le",
-                left_audio_file_path=tts_path,
-                right_audio_file_path=tts_path,
-            ),
-        )
-        if infill_result:
-            try:
-                assert_str_path(infill_result, "infill")
-            except Exception as e:  # noqa: BLE001
-                fail("infill validation", e)
-                failures.append("infill(validation)")
 
     localized_name = f"{TEST_LOCALIZED_NAME_PREFIX} {run_id}"
     loc_result = run(
