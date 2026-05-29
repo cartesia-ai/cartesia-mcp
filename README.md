@@ -1,6 +1,7 @@
 # Cartesia MCP Server
 
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
+[![Python](https://img.shields.io/pypi/pyversions/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
 The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS**, clone voices, infill audio, and more—without one-off scripts.
 
@@ -87,8 +88,52 @@ Omit `OUTPUT_DIRECTORY` to write files to the process working directory.
 
 ## Cursor integration
 
-Create **`.cursor/mcp.json`** in your project or **`~/.cursor/mcp.json`** globally. You can use the same shapes as [Claude Desktop](#claude-desktop-integration) (`command` pointing at the installed binary, or `uvx` + `args`).
+Create **`.cursor/mcp.json`** in your project or **`~/.cursor/mcp.json`** globally.
+
+### Installed `cartesia-mcp`
+
+```json
+{
+  "mcpServers": {
+    "cartesia-mcp": {
+      "command": "/absolute/path/to/cartesia-mcp",
+      "env": {
+        "CARTESIA_API_KEY": "<your-api-key>",
+        "OUTPUT_DIRECTORY": "/absolute/path/to/output"
+      }
+    }
+  }
+}
+```
+
+### uvx
+
+```json
+{
+  "mcpServers": {
+    "cartesia-mcp": {
+      "command": "uvx",
+      "args": ["cartesia-mcp"],
+      "env": {
+        "CARTESIA_API_KEY": "<your-api-key>"
+      }
+    }
+  }
+}
+```
 
 ## Tools
 
-The server registers MCP tools for TTS (`text_to_speech`), voice listing and management (`list_voices`, `get_voice`, `clone_voice`, etc.), **infill**, **voice change**, and **localize voice**. See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for the authoritative list and parameters.
+| Tool | Description |
+|------|-------------|
+| `text_to_speech` | Convert text to audio with a chosen voice and model |
+| `list_voices` | List available voices (optionally filter by language or gender) |
+| `get_voice` | Fetch metadata for a voice by ID |
+| `clone_voice` | Clone a voice from an audio sample |
+| `update_voice` | Update a cloned voice's name or description |
+| `delete_voice` | Delete a cloned voice |
+| `infill` | Generate audio between two existing audio segments |
+| `voice_change` | Re-render audio with a different voice |
+| `localize_voice` | Adapt a voice to another language or dialect |
+
+See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
