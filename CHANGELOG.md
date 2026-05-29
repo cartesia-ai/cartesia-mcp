@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.9](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.8...cartesia-mcp-v0.1.9) (2026-05-29)
+
+
+### Documentation
+
+* **readme:** expand Cursor config and tools reference ([fcce146](https://github.com/cartesia-ai/cartesia-mcp/commit/fcce146cffb3176f4047dc414313c52aa82b1b09))
+* **readme:** expand Cursor config and tools reference ([e6dc507](https://github.com/cartesia-ai/cartesia-mcp/commit/e6dc5074a6567433cc36fd898cd2cc3f068ac3a6))
+
 ## [0.1.8](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.7...cartesia-mcp-v0.1.8) (2026-05-29)
 
 
