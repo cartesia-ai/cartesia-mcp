@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.3.0...cartesia-mcp-v0.4.0) (2026-05-29)
+
+
+### Features
+
+* add STT, pronunciation dicts, credit usage, and TTS controls ([#23](https://github.com/cartesia-ai/cartesia-mcp/issues/23)) ([795feac](https://github.com/cartesia-ai/cartesia-mcp/commit/795feac2a1454c7a9db2d3e4709f37707c0e0cd0))
+
 ## [0.3.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.2.0...cartesia-mcp-v0.3.0) (2026-05-29)
 
 
