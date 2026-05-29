@@ -1,0 +1,34 @@
+# Publishes to PyPI using a project-scoped API token stored as a GitHub secret.
+# Add PYPI_API_TOKEN under Settings → Secrets and variables → Actions.
+#
+# Triggered when a GitHub release is published (e.g. by release-please).
+# Can also be run manually to re-publish if a prior run failed.
+name: Publish PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
