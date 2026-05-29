@@ -1,5 +1,5 @@
-# Publishes to PyPI using a Trusted Publisher (OIDC) — no long-lived API token in CI.
-# Configure at https://pypi.org/manage/project/cartesia-mcp/publishing/
+# Publishes to PyPI using a project-scoped API token stored as a GitHub secret.
+# Add PYPI_API_TOKEN to the repo (or pypi environment) under Settings → Secrets.
 #
 # Triggered when a GitHub release is published (e.g. by release-please).
 # Can also be run manually to re-publish if a prior run failed.
@@ -11,7 +11,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
@@ -31,6 +30,6 @@ jobs:
         run: uv build
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist/
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
