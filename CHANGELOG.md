@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.9...cartesia-mcp-v0.1.10) (2026-05-29)
+
+
+### Documentation
+
+* **readme:** remove redundant Python version badge ([f3f5d2d](https://github.com/cartesia-ai/cartesia-mcp/commit/f3f5d2de4fed21dbe1bbc2c237a37032940144fb))
+* **readme:** remove redundant Python version badge ([0c199f7](https://github.com/cartesia-ai/cartesia-mcp/commit/0c199f7039bc9fb45635773ca093f889628f8abe))
+
 ## [0.1.9](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.8...cartesia-mcp-v0.1.9) (2026-05-29)
 
 
