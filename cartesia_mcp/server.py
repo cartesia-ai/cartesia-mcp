@@ -76,7 +76,7 @@ def text_to_speech(
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
-        return GeneratedAudioResult(file_path=output_file)
+    return GeneratedAudioResult(file_path=str(output_file))
 
 @mcp.tool(description="""
         Generate audio that smoothly connects two existing audio segments. This is useful for inserting new speech between existing speech segments while maintaining natural transitions.
@@ -162,7 +162,7 @@ def infill(
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
-    return GeneratedAudioResult(file_path=output_file)
+    return GeneratedAudioResult(file_path=str(output_file))
 
 
 @mcp.tool(description="""
@@ -198,23 +198,24 @@ def voice_change(
     output_format_bit_rate: typing.Optional[int] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    result = client.voice_changer.bytes(
-        clip=open(file_path, "rb"),
-        voice_id=voice_id,
-        output_format_container=output_format_container,
-        output_format_sample_rate=output_format_sample_rate,
-        output_format_encoding=output_format_encoding,
-        output_format_bit_rate=output_format_bit_rate,
-        request_options=request_options)
+    with open(file_path, "rb") as clip:
+        result = client.voice_changer.bytes(
+            clip=clip,
+            voice_id=voice_id,
+            output_format_container=output_format_container,
+            output_format_sample_rate=output_format_sample_rate,
+            output_format_encoding=output_format_encoding,
+            output_format_bit_rate=output_format_bit_rate,
+            request_options=request_options,
+        )
+        audio_bytes = b"".join(result)
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "voice_change",
                                         output_format_container)
-
-    audio_bytes = b"".join(result)
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
-        return GeneratedAudioResult(file_path=output_file)
+    return GeneratedAudioResult(file_path=str(output_file))
 
 @mcp.tool(description="""
         Create a new voice from an existing voice localized to a new language and dialect.
@@ -248,15 +249,15 @@ def localize_voice(
     dialect: typing.Optional[LocalizeDialectParams] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    result = client.voices.localize(
+    return client.voices.localize(
         voice_id=voice_id,
         name=name,
         description=description,
         language=language,
         original_speaker_gender=original_speaker_gender,
         dialect=dialect,
-        request_options=request_options)
-    return VoiceMetadata(**result.dict())
+        request_options=request_options,
+    )
 
 
 @mcp.tool(description="""
@@ -272,9 +273,8 @@ def delete_voice(
     voice_id: str,
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
-    result = client.voices.delete(id=voice_id,
-                                request_options=request_options)
-    return DeleteVoiceResult(**result.dict())
+    client.voices.delete(id=voice_id, request_options=request_options)
+    return DeleteVoiceResult(success=True)
 
 @mcp.tool(description="""
         Parameters
@@ -289,8 +289,7 @@ def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    result = client.voices.get(id=voice_id, request_options=request_options)
-    return Voice(**result.dict())
+    return client.voices.get(id=voice_id, request_options=request_options)
 
 
 @mcp.tool(description="""
@@ -312,12 +311,13 @@ def update_voice(
         name: str,
         description: str,
         request_options: typing.Optional[RequestOptions] = None
-) -> VoiceMetadata:
-    result = client.voices.update(id=voice_id,
-                                name=name,
-                                description=description,
-                                request_options=request_options)
-    return VoiceMetadata(**result.dict())
+) -> Voice:
+    return client.voices.update(
+        id=voice_id,
+        name=name,
+        description=description,
+        request_options=request_options,
+    )
 
 @mcp.tool(description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
@@ -354,13 +354,15 @@ def clone_voice(
     description: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    result = client.voices.clone(clip=open(file_path, "rb"),
-                                name=name,
-                                language=language,
-                                mode=mode,
-                                description=description,
-                                request_options=request_options)
-    return VoiceMetadata(**result.dict())
+    with open(file_path, "rb") as clip:
+        return client.voices.clone(
+            clip=clip,
+            name=name,
+            language=language,
+            mode=mode,
+            description=description,
+            request_options=request_options,
+        )
 
 @mcp.tool(description="""
         Parameters
