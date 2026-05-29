@@ -1,5 +1,5 @@
 # Publishes to PyPI using a project-scoped API token stored as a GitHub secret.
-# Add PYPI_API_TOKEN to the repo (or pypi environment) under Settings → Secrets.
+# Add PYPI_API_TOKEN under Settings → Secrets and variables → Actions.
 #
 # Triggered when a GitHub release is published (e.g. by release-please).
 # Can also be run manually to re-publish if a prior run failed.
@@ -17,7 +17,6 @@ jobs:
   publish:
     name: publish
     runs-on: ubuntu-latest
-    environment: pypi
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
