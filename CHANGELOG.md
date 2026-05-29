@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.11](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.10...cartesia-mcp-v0.1.11) (2026-05-29)
+
+
+### Documentation
+
+* **readme:** simplify setup to uv-only quick start ([82e9693](https://github.com/cartesia-ai/cartesia-mcp/commit/82e9693922fb42d959eef299c5c22576d036ac6e))
+* **readme:** simplify setup to uv-only quick start ([e7567ed](https://github.com/cartesia-ai/cartesia-mcp/commit/e7567ed28bc2604e5b11b1ccc9f4d998962eba4a))
+
 ## [0.1.10](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.9...cartesia-mcp-v0.1.10) (2026-05-29)
 
 
