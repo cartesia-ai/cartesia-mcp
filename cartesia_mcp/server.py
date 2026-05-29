@@ -25,6 +25,7 @@ from cartesia.stt.types.timestamp_granularity import TimestampGranularity
 from cartesia.stt.types.transcription_response import TranscriptionResponse
 from cartesia.core.request_options import RequestOptions
 
+from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import UsageInterval
 from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
@@ -104,7 +105,7 @@ def text_to_speech(
     transcript: str,
     voice: TtsRequestVoiceSpecifierParams,
     output_format: OutputFormatParams,
-    model_id: typing.Optional[str] = "sonic-3.5",
+    model_id: typing.Optional[str] = DEFAULT_MODEL_ID,
     language: typing.Optional[SupportedLanguage] = None,
     duration: typing.Optional[float] = None,
     speed: typing.Optional[float] = None,
@@ -168,6 +169,11 @@ def text_to_speech(
         voice_id : str
             The ID of the voice to use for generating audio
 
+        model_id : str
+            TTS model for infill (default `sonic-3.5`). Note: infill is not yet supported on
+            the `sonic-3.5` backend; use `sonic-3` or a dated Sonic 3 checkpoint if the API
+            returns a model does not support infill error.
+
         output_format_container : OutputFormatContainer
             The format of the output audio
 
@@ -195,6 +201,7 @@ def infill(
     voice_id: str,
     output_format_container: OutputFormatContainer,
     output_format_sample_rate: int,
+    model_id: str = DEFAULT_MODEL_ID,
     output_format_encoding: typing.Optional[RawEncoding] = None,
     output_format_bit_rate: typing.Optional[int] = None,
     left_audio_file_path: typing.Optional[str] = None,
@@ -207,7 +214,7 @@ def infill(
                         "rb") if right_audio_file_path else None
 
     result = client.infill.bytes(
-        model_id="sonic-3-2026-01-12",
+        model_id=model_id,
         language=language,
         transcript=transcript,
         voice_id=voice_id,

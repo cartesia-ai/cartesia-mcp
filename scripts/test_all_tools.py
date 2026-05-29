@@ -26,6 +26,8 @@ PROTECTED_VOICE_IDS = frozenset({SAMPLE_VOICE_ID, ALT_VOICE_ID})
 TEST_VOICE_NAME_PREFIX = "MCP Test"
 TEST_LOCALIZED_NAME_PREFIX = "MCP Localized"
 TEST_DICT_NAME_PREFIX = "MCP Test Dict"
+# sonic-3.5 (azure-disco) does not support infill on the API yet; use sonic-3 for this test.
+INFILL_TEST_MODEL_ID = "sonic-3"
 WAV_FORMAT = {
     "container": "wav",
     "encoding": "pcm_s16le",
@@ -259,6 +261,7 @@ def main() -> int:
                 language="en",
                 transcript=" and ",
                 voice_id=SAMPLE_VOICE_ID,
+                model_id=INFILL_TEST_MODEL_ID,
                 output_format_container="wav",
                 output_format_sample_rate=44100,
                 output_format_encoding="pcm_s16le",
