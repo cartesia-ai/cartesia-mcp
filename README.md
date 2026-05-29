@@ -62,6 +62,16 @@ Ask your agent things like:
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
+## Testing
+
+Smoke-test all tools (requires `CARTESIA_API_KEY`):
+
+```sh
+uv run python scripts/test_all_tools.py
+```
+
+The script creates temporary cloned/localized voices and deletes only those. It does not delete catalog or other existing voices.
+
 ## Advanced
 
 ### Output directory

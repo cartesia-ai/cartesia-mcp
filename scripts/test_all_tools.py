@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Smoke-test all cartesia-mcp tool handlers (direct function calls)."""
+"""Smoke-test all cartesia-mcp tool handlers (direct function calls).
+
+Safety: only delete voices created in this run (clone/localize). Never delete
+catalog or pre-existing user voices — use public voice IDs for read/generation
+only, then create ephemeral test voices and delete those by ID.
+"""
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -15,8 +19,12 @@ from typing import Any
 OUTPUT_DIR = os.environ.get(
     "OUTPUT_DIRECTORY", os.path.join(os.path.dirname(__file__), "..", "test-output")
 )
+# Public catalog voices — read / TTS / infill / voice_change only; never delete.
 SAMPLE_VOICE_ID = "ef191366-f52f-447a-a398-ed8c0f2943a1"  # Archie
 ALT_VOICE_ID = "47c38ca4-5f35-497b-b1a3-415245fb35e1"  # Daniel
+PROTECTED_VOICE_IDS = frozenset({SAMPLE_VOICE_ID, ALT_VOICE_ID})
+TEST_VOICE_NAME_PREFIX = "MCP Test"
+TEST_LOCALIZED_NAME_PREFIX = "MCP Localized"
 WAV_FORMAT = {
     "container": "wav",
     "encoding": "pcm_s16le",
@@ -31,6 +39,15 @@ def ok(name: str, detail: str = "") -> None:
 def fail(name: str, err: BaseException) -> None:
     print(f"  FAIL {name}: {err}")
     traceback.print_exc()
+
+
+def assert_safe_to_delete(voice_id: str, name: str, *, created_this_run: bool) -> None:
+    if voice_id in PROTECTED_VOICE_IDS:
+        raise RuntimeError(f"refusing to delete protected catalog voice {voice_id}")
+    if not created_this_run:
+        raise RuntimeError(f"refusing to delete voice not created in this run: {voice_id}")
+    if not (name.startswith(TEST_VOICE_NAME_PREFIX) or name.startswith(TEST_LOCALIZED_NAME_PREFIX)):
+        raise RuntimeError(f"refusing to delete voice with unexpected name {name!r}")
 
 
 def assert_str_path(result: dict[str, Any], tool: str) -> str:
@@ -55,7 +72,9 @@ def main() -> int:
 
     failures: list[str] = []
     cloned_voice_id: str | None = None
+    cloned_voice_name: str | None = None
     localized_voice_id: str | None = None
+    localized_voice_name: str | None = None
     tts_path: str | None = None
     run_id = str(int(time.time()))
 
@@ -111,7 +130,7 @@ def main() -> int:
     )
 
     if tts_path and os.path.isfile(tts_path):
-        clone_name = f"MCP Test Clone {run_id}"
+        clone_name = f"{TEST_VOICE_NAME_PREFIX} Clone {run_id}"
         clone_result = run(
             "clone_voice",
             lambda: s.clone_voice(
@@ -124,6 +143,7 @@ def main() -> int:
         )
         if clone_result:
             cloned_voice_id = getattr(clone_result, "id", None)
+            cloned_voice_name = getattr(clone_result, "name", clone_name)
             ok("clone_voice", f"id={cloned_voice_id}")
 
             if cloned_voice_id:
@@ -170,11 +190,12 @@ def main() -> int:
                 fail("infill validation", e)
                 failures.append("infill(validation)")
 
+    localized_name = f"{TEST_LOCALIZED_NAME_PREFIX} {run_id}"
     loc_result = run(
         "localize_voice",
         lambda: s.localize_voice(
             voice_id=SAMPLE_VOICE_ID,
-            name=f"MCP Localized {run_id}",
+            name=localized_name,
             description="Temporary localized voice from MCP test",
             language="es",
             original_speaker_gender="male",
@@ -182,17 +203,26 @@ def main() -> int:
     )
     if loc_result:
         localized_voice_id = getattr(loc_result, "id", None)
+        localized_voice_name = getattr(loc_result, "name", localized_name)
         ok("localize_voice", f"id={localized_voice_id}")
 
-    for vid, label in [
-        (localized_voice_id, "localized"),
-        (cloned_voice_id, "cloned"),
+    # Only delete voices we created above — never catalog or existing user voices.
+    for vid, name, label in [
+        (localized_voice_id, localized_voice_name, "localized"),
+        (cloned_voice_id, cloned_voice_name, "cloned"),
     ]:
-        if vid:
-            run(
-                f"delete_voice({label})",
-                lambda voice_id=vid: s.delete_voice(voice_id=voice_id),
-            )
+        if not vid or not name:
+            continue
+        try:
+            assert_safe_to_delete(vid, name, created_this_run=True)
+        except RuntimeError as e:
+            fail(f"delete_voice({label}) precheck", e)
+            failures.append(f"delete_voice({label})")
+            continue
+        run(
+            f"delete_voice({label})",
+            lambda voice_id=vid: s.delete_voice(voice_id=voice_id),
+        )
 
     print()
     if failures:
