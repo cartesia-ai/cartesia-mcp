@@ -6,9 +6,8 @@ import os
 import typing
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from cartesia_mcp.custom_types import GeneratedAudioResult, DeleteVoiceResult
+from cartesia_mcp.custom_types import GeneratedAudioResult, DeleteVoiceResult, ListVoicesResult
 from cartesia import Cartesia
-from cartesia.core.pagination import SyncPager
 from cartesia.voices.requests import LocalizeDialectParams
 from cartesia.voices.types import VoiceMetadata, GenderPresentation, Gender, CloneMode, Voice
 from cartesia.voice_changer.types import OutputFormatContainer
@@ -16,7 +15,7 @@ from cartesia.tts.types import SupportedLanguage, RawEncoding
 from cartesia.tts.requests import OutputFormatParams, TtsRequestVoiceSpecifierParams
 from cartesia.core.request_options import RequestOptions
 
-from cartesia_mcp.utils import create_output_file
+from cartesia_mcp.utils import create_output_file, build_list_voices_request_options, voice_list_page_to_result
 
 load_dotenv()
 
@@ -391,6 +390,17 @@ def clone_voice(
         gender : typing.Optional[GenderPresentation]
             The gender presentation of the voices to return.
 
+        language : typing.Optional[str]
+            Filter voices by language or locale, such as `en`, `it`, or `en_GB`.
+            A locale returns accents for that region; a language alone returns all accents
+            for that language. Both `-` and `_` separators are accepted.
+
+        q : typing.Optional[str]
+            Search voices by name, description, or voice ID.
+
+        expand : typing.Optional[typing.Sequence[str]]
+            Additional fields to include in the response, such as `preview_file_url`.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
         """)
@@ -401,16 +411,27 @@ def list_voices(
     is_owner: typing.Optional[bool] = None,
     is_starred: typing.Optional[bool] = None,
     gender: typing.Optional[GenderPresentation] = None,
+    language: typing.Optional[str] = None,
+    q: typing.Optional[str] = None,
+    expand: typing.Optional[typing.Sequence[str]] = None,
     request_options: typing.Optional[RequestOptions] = None,
-) -> SyncPager[Voice]:
-    result = client.voices.list(limit=limit,
-                                gender=gender,
-                                is_owner=is_owner,
-                                is_starred=is_starred,
-                                starting_after=starting_after,
-                                ending_before=ending_before,
-                                request_options=request_options)
-    return result
+) -> ListVoicesResult:
+    merged_request_options = build_list_voices_request_options(
+        request_options,
+        language=language,
+        q=q,
+        expand=expand,
+    )
+    pager = client.voices.list(
+        limit=limit,
+        gender=gender,
+        is_owner=is_owner,
+        is_starred=is_starred,
+        starting_after=starting_after,
+        ending_before=ending_before,
+        request_options=merged_request_options,
+    )
+    return voice_list_page_to_result(pager)
 
 def main():
     mcp.run(transport="stdio")

@@ -90,14 +90,26 @@ def main() -> int:
 
     print(f"Output directory: {os.environ['OUTPUT_DIRECTORY']}\n")
 
-    pager = run("list_voices", lambda: s.list_voices(limit=3))
-    if pager is not None:
-        items = list(pager.items) if hasattr(pager, "items") else list(pager)
+    result = run("list_voices", lambda: s.list_voices(limit=3))
+    if result is not None:
+        items = result.get("data", []) if isinstance(result, dict) else []
         if not items:
             failures.append("list_voices(empty)")
             print("  FAIL list_voices: no items")
         else:
             ok("list_voices", f"{len(items)} voices")
+
+    it_result = run(
+        "list_voices(language=it)",
+        lambda: s.list_voices(language="it", is_owner=False, limit=20),
+    )
+    if it_result is not None:
+        items = it_result.get("data", [])
+        if not items or any(v.get("language") != "it" for v in items):
+            failures.append("list_voices(language=it)")
+            print("  FAIL list_voices(language=it): missing or non-Italian voices")
+        else:
+            ok("list_voices(language=it)", f"{len(items)} Italian catalog voices")
 
     run(
         "get_voice",
