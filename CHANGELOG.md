@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.11...cartesia-mcp-v0.1.12) (2026-05-29)
+
+
+### Bug Fixes
+
+* MCP tool return types and smoke test for all tools ([c2e2ffd](https://github.com/cartesia-ai/cartesia-mcp/commit/c2e2ffd57c468c74ef32c3bcd6c45e2b4ce99b90))
+
 ## [0.1.11](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.10...cartesia-mcp-v0.1.11) (2026-05-29)
 
 
