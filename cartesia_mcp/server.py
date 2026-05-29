@@ -207,7 +207,7 @@ def infill(
                         "rb") if right_audio_file_path else None
 
     result = client.infill.bytes(
-        model_id="sonic-3.5",
+        model_id="sonic-3-2026-01-12",
         language=language,
         transcript=transcript,
         voice_id=voice_id,
@@ -539,15 +539,20 @@ def speech_to_text(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> TranscriptionResponse:
     with open(file_path, "rb") as audio_file:
-        return client.stt.transcribe(
-            file=audio_file,
-            model=model,
-            language=language,
-            encoding=encoding,
-            sample_rate=sample_rate,
-            timestamp_granularities=timestamp_granularities,
-            request_options=request_options,
-        )
+        kwargs: dict[str, typing.Any] = {
+            "file": audio_file,
+            "model": model,
+            "request_options": request_options,
+        }
+        if language is not None:
+            kwargs["language"] = language
+        if encoding is not None:
+            kwargs["encoding"] = encoding
+        if sample_rate is not None:
+            kwargs["sample_rate"] = sample_rate
+        if timestamp_granularities is not None:
+            kwargs["timestamp_granularities"] = list(timestamp_granularities)
+        return client.stt.transcribe(**kwargs)
 
 
 @mcp.tool(description="""

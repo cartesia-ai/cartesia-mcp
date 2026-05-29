@@ -27,3 +27,5 @@ def _apply_api_version(wrapper) -> None:
         return headers
 
     wrapper.get_headers = get_headers
+    # HttpClient stores base_headers at init; refresh so extra_api routes pick up the version.
+    wrapper.httpx_client.base_headers = wrapper.get_headers

@@ -55,7 +55,7 @@ def list_pronunciation_dicts(
     if ending_before is not None:
         params["ending_before"] = ending_before
     return _json_response(
-        http.request("pronunciation-dicts/", method="GET", params=params)
+        http.request("pronunciation-dicts", method="GET", params=params)
     )
 
 
@@ -69,7 +69,7 @@ def create_pronunciation_dict(
     if items is not None:
         body["items"] = list(items)
     return _json_response(
-        http.request("pronunciation-dicts/", method="POST", json=body)
+        http.request("pronunciation-dicts", method="POST", json=body)
     )
 
 
