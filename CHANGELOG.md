@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.2.0...cartesia-mcp-v0.3.0) (2026-05-29)
+
+
+### Features
+
+* add language and search filters to list_voices ([#21](https://github.com/cartesia-ai/cartesia-mcp/issues/21)) ([73d908d](https://github.com/cartesia-ai/cartesia-mcp/commit/73d908de545013f110e07532e581a850a6fab63d))
+
 ## [0.2.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.1.12...cartesia-mcp-v0.2.0) (2026-05-29)
 
 
