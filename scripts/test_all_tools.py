@@ -162,7 +162,7 @@ def main() -> int:
                 failures.append("speech_to_text(empty)")
                 print("  FAIL speech_to_text: empty transcript")
 
-    if os.environ.get("CARTESIA_ADMIN_API_KEY"):
+    if s.admin_http is not None:
         run("get_credit_usage", lambda: s.get_credit_usage())
     else:
         print("  SKIP get_credit_usage — set CARTESIA_ADMIN_API_KEY to test")
