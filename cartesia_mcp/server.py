@@ -42,8 +42,16 @@ from cartesia_mcp.utils import (
 
 load_dotenv()
 
-CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY")
-CARTESIA_ADMIN_API_KEY = os.getenv("CARTESIA_ADMIN_API_KEY")
+
+def _env_or_none(name: str) -> str | None:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return None
+    return value.strip()
+
+
+CARTESIA_API_KEY = _env_or_none("CARTESIA_API_KEY")
+CARTESIA_ADMIN_API_KEY = _env_or_none("CARTESIA_ADMIN_API_KEY")
 
 if not CARTESIA_API_KEY:
     raise ValueError("CARTESIA_API_KEY is required")
