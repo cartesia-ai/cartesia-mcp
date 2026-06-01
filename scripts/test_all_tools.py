@@ -66,7 +66,9 @@ def assert_str_path(result: dict[str, Any], tool: str) -> str:
 
 
 def main() -> int:
-    if not os.environ.get("CARTESIA_API_KEY"):
+    from cartesia_mcp.config import env_or_none
+
+    if env_or_none("CARTESIA_API_KEY", os.environ) is None:
         print("CARTESIA_API_KEY is required", file=sys.stderr)
         return 1
 
