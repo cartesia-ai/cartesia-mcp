@@ -73,6 +73,13 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 
 ## Testing
 
+Unit tests (no API keys):
+
+```sh
+uv sync --dev
+uv run pytest
+```
+
 Smoke-test all tools (requires `CARTESIA_API_KEY`):
 
 ```sh

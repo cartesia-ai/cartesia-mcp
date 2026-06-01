@@ -28,11 +28,8 @@ from cartesia.core.request_options import RequestOptions
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import UsageInterval
-from cartesia_mcp.sdk_setup import (
-    create_cartesia_client,
-    get_http,
-    is_admin_api_key,
-)
+from cartesia_mcp.config import ensure_admin_http, env_or_none, validate_api_keys
+from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
 from cartesia_mcp.utils import (
     build_list_voices_request_options,
     create_output_file,
@@ -42,30 +39,10 @@ from cartesia_mcp.utils import (
 
 load_dotenv()
 
-
-def _env_or_none(name: str) -> str | None:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        return None
-    return value.strip()
-
-
-CARTESIA_API_KEY = _env_or_none("CARTESIA_API_KEY")
-CARTESIA_ADMIN_API_KEY = _env_or_none("CARTESIA_ADMIN_API_KEY")
-
-if not CARTESIA_API_KEY:
-    raise ValueError("CARTESIA_API_KEY is required")
-
-if is_admin_api_key(CARTESIA_API_KEY):
-    raise ValueError(
-        "CARTESIA_API_KEY must be a standard API key (sk_car_...), not an admin key. "
-        "Use CARTESIA_ADMIN_API_KEY for admin-only tools such as get_credit_usage."
-    )
-
-if CARTESIA_ADMIN_API_KEY is not None and not is_admin_api_key(CARTESIA_ADMIN_API_KEY):
-    raise ValueError(
-        "CARTESIA_ADMIN_API_KEY must be an admin API key (sk_car_admin_...)."
-    )
+CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
+    env_or_none("CARTESIA_API_KEY"),
+    env_or_none("CARTESIA_ADMIN_API_KEY"),
+)
 
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
@@ -80,13 +57,7 @@ mcp = FastMCP("Cartesia")
 
 
 def _require_admin_http():
-    if admin_http is None:
-        raise ValueError(
-            "This tool requires CARTESIA_ADMIN_API_KEY. Admin keys are separate from "
-            "standard API keys and only work on management endpoints (e.g. GET /usage/credits). "
-            "Create one in the Playground under Keys → Admin."
-        )
-    return admin_http
+    return ensure_admin_http(admin_http)
 
 
 def _build_generation_config(
