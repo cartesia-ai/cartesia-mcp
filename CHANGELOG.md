@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.4.0...cartesia-mcp-v0.5.0) (2026-06-01)
+
+
+### Features
+
+* add optional CARTESIA_ADMIN_API_KEY for admin-only tools ([#27](https://github.com/cartesia-ai/cartesia-mcp/issues/27)) ([69a4722](https://github.com/cartesia-ai/cartesia-mcp/commit/69a47223086428903b238e20d7fc3ca582695b83))
+* add optional CARTESIA_ADMIN_API_KEY for admin-only tools ([#27](https://github.com/cartesia-ai/cartesia-mcp/issues/27)) ([89cc2d4](https://github.com/cartesia-ai/cartesia-mcp/commit/89cc2d4b1259e68ecbdf51262df1e718c2b7dac1))
+
 ## [0.4.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.3.0...cartesia-mcp-v0.4.0) (2026-05-29)
 
 
