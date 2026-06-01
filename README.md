@@ -71,6 +71,10 @@ Ask your agent things like:
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
+## Releases
+
+Versions and PyPI publishes are driven by [Conventional Commits](https://www.conventionalcommits.org/) on `main` via release-please. Use PR titles like `feat: …` or `fix: …` (especially when squash merging). See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
 ## Testing
 
 Unit tests (no API keys):

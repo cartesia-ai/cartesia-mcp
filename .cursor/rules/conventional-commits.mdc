@@ -1,0 +1,33 @@
+---
+description: Conventional Commits for release-please and PyPI releases
+alwaysApply: true
+---
+
+# Conventional Commits (cartesia-mcp)
+
+This repo uses [release-please](https://github.com/googleapis/release-please). **Only conventional commits on `main` drive version bumps and changelog entries.**
+
+## Format
+
+```
+<type>: <short description>
+
+[optional body]
+```
+
+Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`. Release PRs use `release: 0.x.0`.
+
+Examples:
+
+- `feat: add optional CARTESIA_ADMIN_API_KEY for admin tools`
+- `fix: treat empty admin API key env as unset`
+- `ci: add pytest workflow`
+
+## Pull requests
+
+- **Squash merge:** set the PR title to a conventional commit message (it becomes the commit on `main`).
+- CI checks the PR title and each commit on the branch (`Conventional Commits` workflow).
+
+Non-conventional merges are ignored by release-please (no release PR / no version bump).
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md).
