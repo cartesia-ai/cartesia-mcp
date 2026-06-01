@@ -4,6 +4,9 @@ HTTP helpers for Cartesia endpoints not generated on the Fern v2 Python SDK.
 The pinned `cartesia` 2.x client exposes tts, stt, voices, and voice_changer
 only — not pronunciation dictionaries or usage/credits. These thin wrappers call the
 same httpx stack as the SDK (shared auth, base URL, and Cartesia-Version header).
+
+`get_usage_credits` must be called with an HTTP client authenticated using an admin API key
+(`CARTESIA_ADMIN_API_KEY`); standard API keys are rejected on `/usage/*`.
 """
 
 from __future__ import annotations

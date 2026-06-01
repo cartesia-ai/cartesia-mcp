@@ -28,6 +28,7 @@ from cartesia.core.request_options import RequestOptions
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import UsageInterval
+from cartesia_mcp.config import ensure_admin_http, env_or_none, validate_api_keys
 from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
 from cartesia_mcp.utils import (
     build_list_voices_request_options,
@@ -38,16 +39,25 @@ from cartesia_mcp.utils import (
 
 load_dotenv()
 
-CARTESIA_API_KEY = os.getenv("CARTESIA_API_KEY")
-
-if not CARTESIA_API_KEY:
-    raise ValueError("CARTESIA_API_KEY is required")
+CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
+    env_or_none("CARTESIA_API_KEY"),
+    env_or_none("CARTESIA_ADMIN_API_KEY"),
+)
 
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
 client = create_cartesia_client(CARTESIA_API_KEY)
 http = get_http(client)
+admin_http = (
+    get_http(create_cartesia_client(CARTESIA_ADMIN_API_KEY))
+    if CARTESIA_ADMIN_API_KEY
+    else None
+)
 mcp = FastMCP("Cartesia")
+
+
+def _require_admin_http():
+    return ensure_admin_http(admin_http)
 
 
 def _build_generation_config(
@@ -473,7 +483,8 @@ def speech_to_text(
 @mcp.tool(description="""
         Returns credit usage over time (`GET /usage/credits`).
 
-        Requires an **admin** API key. Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
+        Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
+        Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
         `interval` buckets results by `day`, `week`, or `month`.
 
         Parameters
@@ -494,7 +505,7 @@ def get_credit_usage(
     api_key_id: typing.Optional[str] = None,
 ) -> dict[str, typing.Any]:
     return extra_api.get_usage_credits(
-        http,
+        _require_admin_http(),
         start_ts=start_ts,
         end_ts=end_ts,
         interval=interval,

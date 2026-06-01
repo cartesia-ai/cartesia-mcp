@@ -66,7 +66,9 @@ def assert_str_path(result: dict[str, Any], tool: str) -> str:
 
 
 def main() -> int:
-    if not os.environ.get("CARTESIA_API_KEY"):
+    from cartesia_mcp.config import env_or_none
+
+    if env_or_none("CARTESIA_API_KEY", os.environ) is None:
         print("CARTESIA_API_KEY is required", file=sys.stderr)
         return 1
 
@@ -162,11 +164,10 @@ def main() -> int:
                 failures.append("speech_to_text(empty)")
                 print("  FAIL speech_to_text: empty transcript")
 
-    run(
-        "get_credit_usage",
-        lambda: s.get_credit_usage(),
-        optional=True,
-    )
+    if s.admin_http is not None:
+        run("get_credit_usage", lambda: s.get_credit_usage())
+    else:
+        print("  SKIP get_credit_usage — set CARTESIA_ADMIN_API_KEY to test")
 
     dict_name = f"{TEST_DICT_NAME_PREFIX} {run_id}"
     create_dict = run(

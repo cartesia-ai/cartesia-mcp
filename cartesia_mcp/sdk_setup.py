@@ -7,6 +7,13 @@ from cartesia.core.http_client import HttpClient
 
 from cartesia_mcp.api_version import CARTESIA_VERSION
 
+# Admin keys use sk_car_admin_<id>.<secret>; standard keys use sk_car_<id>.<secret>.
+ADMIN_API_KEY_PREFIX = "sk_car_admin_"
+
+
+def is_admin_api_key(api_key: str) -> bool:
+    return api_key.startswith(ADMIN_API_KEY_PREFIX)
+
 
 def create_cartesia_client(api_key: str) -> Cartesia:
     client = Cartesia(api_key=api_key)
