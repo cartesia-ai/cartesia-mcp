@@ -10,11 +10,12 @@ The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [
 
 - **[uv](https://docs.astral.sh/uv/)** — runs the server via `uvx` with no global install
 - **Python 3.13+** (installed automatically by `uvx`)
-- A **[Cartesia API key](https://play.cartesia.ai/keys)**
+- A **[Cartesia API key](https://play.cartesia.ai/keys)** for TTS, STT, voices, and related APIs
+- Optionally, an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for management tools such as `get_credit_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
 
 ## Setup
 
-Add this to your MCP config. You only need your API key.
+Add this to your MCP config with your standard API key.
 
 **Cursor** — `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` globally.
 
@@ -66,7 +67,7 @@ Ask your agent things like:
 | `get_pronunciation_dict` | Get a pronunciation dictionary by ID |
 | `update_pronunciation_dict` | Update a pronunciation dictionary |
 | `delete_pronunciation_dict` | Delete a pronunciation dictionary |
-| `get_credit_usage` | Credit usage over time (admin API key) |
+| `get_credit_usage` | Credit usage over time (`CARTESIA_ADMIN_API_KEY`) |
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
@@ -96,6 +97,15 @@ By default, generated audio is written to the server's working directory. To cho
 ### Local audio files
 
 Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
+
+### Admin API key
+
+Some tools call [management endpoints](https://docs.cartesia.ai/api-reference/usage/credits) that accept **admin** API keys only (`sk_car_admin_...`). Set `CARTESIA_ADMIN_API_KEY` in `env` alongside `CARTESIA_API_KEY`:
+
+- `CARTESIA_API_KEY` — TTS, STT, voices, pronunciation dictionaries, voice changer, etc.
+- `CARTESIA_ADMIN_API_KEY` — optional; required for `get_credit_usage` today. Admin keys do not work on generation routes, and standard keys do not work on admin routes.
+
+Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 
 ### API version
 
