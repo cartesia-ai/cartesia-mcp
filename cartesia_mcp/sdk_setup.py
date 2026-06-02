@@ -6,6 +6,7 @@ from cartesia import Cartesia
 from cartesia.core.http_client import HttpClient
 
 from cartesia_mcp.api_version import CARTESIA_VERSION
+from cartesia_mcp.client_headers import client_request_headers
 
 # Admin keys use sk_car_admin_<id>.<secret>; standard keys use sk_car_<id>.<secret>.
 ADMIN_API_KEY_PREFIX = "sk_car_admin_"
@@ -31,6 +32,7 @@ def _apply_api_version(wrapper) -> None:
     def get_headers() -> dict[str, str]:
         headers = original_get_headers()
         headers["Cartesia-Version"] = CARTESIA_VERSION
+        headers.update(client_request_headers())
         return headers
 
     wrapper.get_headers = get_headers
