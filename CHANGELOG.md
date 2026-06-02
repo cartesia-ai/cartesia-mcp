@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.5.0...cartesia-mcp-v0.6.0) (2026-06-02)
+
+
+### Features
+
+* Cartesia/mcp User-Agent for API attribution ([c474568](https://github.com/cartesia-ai/cartesia-mcp/commit/c4745688378dc24b827743029488522854addfb5))
+* send client attribution headers on API requests ([0373b8f](https://github.com/cartesia-ai/cartesia-mcp/commit/0373b8f10e4f325b3fe3b3e5db6dd0ce9492eb3e))
+
+
+### Refactors
+
+* use Cartesia/mcp User-Agent for API attribution ([c28e9aa](https://github.com/cartesia-ai/cartesia-mcp/commit/c28e9aa12e826dd78276feff3e5f70c81b6c60fe))
+
 ## [0.5.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.4.0...cartesia-mcp-v0.5.0) (2026-06-01)
 
 
