@@ -5,11 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from cartesia_mcp.api_version import CARTESIA_VERSION
-from cartesia_mcp.client_headers import CLIENT_NAME, client_request_headers
+from cartesia_mcp.client_headers import user_agent
 from cartesia_mcp.sdk_setup import _apply_api_version
 
 
-def test_apply_api_version_adds_mcp_client_headers() -> None:
+def test_apply_api_version_sets_mcp_user_agent() -> None:
     wrapper = MagicMock()
     wrapper.get_headers.return_value = {
         "X-Fern-Language": "Python",
@@ -21,10 +21,6 @@ def test_apply_api_version_adds_mcp_client_headers() -> None:
     _apply_api_version(wrapper)
 
     headers = wrapper.get_headers()
-    expected = client_request_headers()
-
     assert headers["Cartesia-Version"] == CARTESIA_VERSION
-    assert headers["X-Cartesia-Client"] == CLIENT_NAME
-    assert headers["X-Cartesia-Client-Version"] == expected["X-Cartesia-Client-Version"]
-    assert headers["User-Agent"] == expected["User-Agent"]
+    assert headers["User-Agent"] == user_agent()
     assert wrapper.httpx_client.base_headers == wrapper.get_headers
