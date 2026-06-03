@@ -19,7 +19,7 @@ Get an [API key](https://play.cartesia.ai/keys), then:
 
 **Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=). In **Settings → MCP**, set `CARTESIA_API_KEY` on **cartesia-mcp**.
 
-**CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp` ([add-mcp](https://www.npmjs.com/package/add-mcp) detects your client and prompts for your API key).
+**CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'` (prompts for your API key; add `-a cursor` to target Cursor).
 
 Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
 
