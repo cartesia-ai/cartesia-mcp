@@ -2,7 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
-The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
+The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Code**, and **Codex** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
 
 **Documentation:** [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)
 
@@ -21,11 +21,11 @@ Get an [API key](https://play.cartesia.ai/keys). Full instructions: [Cartesia do
 
 **Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=), then set `CARTESIA_API_KEY` in **Settings → MCP**.
 
-**Claude Code** — `claude mcp add -e CARTESIA_API_KEY=<your-api-key> cartesia-mcp -- uvx cartesia-mcp`
+**Claude Code** — `claude mcp add -e CARTESIA_API_KEY=sk_car_your_api_key_here cartesia-mcp -- uvx cartesia-mcp`
 
-## Manual setup
+## Manual setup (Cursor)
 
-Add to `.cursor/mcp.json`, `.mcp.json` (Claude Code), or your client’s MCP config:
+Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
 
 ```json
 {
@@ -34,7 +34,7 @@ Add to `.cursor/mcp.json`, `.mcp.json` (Claude Code), or your client’s MCP con
       "command": "uvx",
       "args": ["cartesia-mcp"],
       "env": {
-        "CARTESIA_API_KEY": "<your-api-key>"
+        "CARTESIA_API_KEY": "sk_car_your_api_key_here"
       }
     }
   }
