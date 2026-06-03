@@ -13,20 +13,19 @@ The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [
 - A **[Cartesia API key](https://play.cartesia.ai/keys)** for TTS, STT, voices, and related APIs
 - Optionally, an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for management tools such as `get_credit_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
 
-## Quick install
+## Setup
 
-1. Get an API key from [play.cartesia.ai/keys](https://play.cartesia.ai/keys).
-2. **Cursor (one click):** [Add Cartesia MCP to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXSwiZW52Ijp7IkNBUlRFU0lBX0FQSV9LRVkiOiIke2VudjpDQVJURVNJQV9BUElfS0VZfSJ9fQ==) — then set `CARTESIA_API_KEY` when prompted.
-3. **Other agents:** `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp` ([add-mcp](https://www.npmjs.com/package/add-mcp); use `--env "CARTESIA_API_KEY=..."` or follow prompts).
-4. Restart the client and confirm **cartesia-mcp** is connected.
+Get an [API key](https://play.cartesia.ai/keys), then:
 
-See [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) for details.
+**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=). In **Settings → MCP**, set `CARTESIA_API_KEY` on **cartesia-mcp**.
+
+**CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp` ([add-mcp](https://www.npmjs.com/package/add-mcp) detects your client and prompts for your API key).
+
+Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
 
 ## Manual setup
 
-**Cursor** — `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` globally.
-
-**Claude Desktop** — **Settings → Developer → Edit Config** (`claude_desktop_config.json`).
+Add to `.cursor/mcp.json`, Claude Desktop’s `claude_desktop_config.json`, or your client’s MCP config:
 
 ```json
 {
