@@ -15,17 +15,17 @@ The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [
 
 ## Setup
 
-Get an [API key](https://play.cartesia.ai/keys), then:
+Get an [API key](https://play.cartesia.ai/keys). Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
 
-**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=). In **Settings → MCP**, set `CARTESIA_API_KEY` on **cartesia-mcp**.
+**CLI (recommended)** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'`
 
-**CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'` (prompts for your API key; add `-a cursor` to target Cursor).
+**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=), then set `CARTESIA_API_KEY` in **Settings → MCP**.
 
-Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
+**Claude Code** — `claude mcp add -e CARTESIA_API_KEY=<your-api-key> cartesia-mcp -- uvx cartesia-mcp`
 
 ## Manual setup
 
-Add to `.cursor/mcp.json`, Claude Desktop’s `claude_desktop_config.json`, or your client’s MCP config:
+Add to `.cursor/mcp.json`, `.mcp.json` (Claude Code), or your client’s MCP config:
 
 ```json
 {
