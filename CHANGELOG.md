@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.6.0...cartesia-mcp-v0.6.1) (2026-06-03)
+
+
+### Documentation
+
+* quick install with Cursor deeplink and add-mcp ([#34](https://github.com/cartesia-ai/cartesia-mcp/issues/34)) ([71e2cca](https://github.com/cartesia-ai/cartesia-mcp/commit/71e2cca1f2443e3d52ae8fa6cc416b84201da0ca))
+
 ## [0.6.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.5.0...cartesia-mcp-v0.6.0) (2026-06-02)
 
 
