@@ -15,11 +15,17 @@ The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [
 
 ## Setup
 
-Add this to your MCP config with your standard API key.
+Get an [API key](https://play.cartesia.ai/keys). Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
 
-**Cursor** — `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` globally.
+**CLI (recommended)** — `npx add-mcp "uvx cartesia-mcp" --name cartesia-mcp --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'`
 
-**Claude Desktop** — **Settings → Developer → Edit Config** (`claude_desktop_config.json`).
+**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=), then set `CARTESIA_API_KEY` in **Settings → MCP**.
+
+**Claude Code** — `claude mcp add -e CARTESIA_API_KEY=<your-api-key> cartesia-mcp -- uvx cartesia-mcp`
+
+## Manual setup
+
+Add to `.cursor/mcp.json`, `.mcp.json` (Claude Code), or your client’s MCP config:
 
 ```json
 {
@@ -34,8 +40,6 @@ Add this to your MCP config with your standard API key.
   }
 }
 ```
-
-Restart the client (or refresh MCP in Cursor) and confirm **cartesia-mcp** is connected.
 
 ## Try it
 
