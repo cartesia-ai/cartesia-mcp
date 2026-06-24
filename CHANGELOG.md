@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.7.0...cartesia-mcp-v0.8.0) (2026-06-24)
+
+
+### Features
+
+* add batch and stream modes to speech_to_text ([#38](https://github.com/cartesia-ai/cartesia-mcp/issues/38)) ([1b94f48](https://github.com/cartesia-ai/cartesia-mcp/commit/1b94f489a5a67e8366f52fb44c832a35df1bf077))
+
 ## [0.7.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.6.1...cartesia-mcp-v0.7.0) (2026-06-24)
 
 
