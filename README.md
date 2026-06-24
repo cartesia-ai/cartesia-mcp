@@ -58,7 +58,7 @@ Ask your agent things like:
 | Tool | Description |
 |------|-------------|
 | `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict |
-| `speech_to_text` | Stream-transcribe an audio file via STT WebSocket (`ink-2`) |
+| `speech_to_text` | Transcribe an audio file (`mode=batch` default, or `mode=stream`) |
 | `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
 | `clone_voice` | Clone a voice from an audio sample |
@@ -111,7 +111,7 @@ By default, generated audio is written to the server's working directory. To cho
 
 ### Local audio files
 
-Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent.
+Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent. For `speech_to_text`, use the default batch mode for common containers (mp3, flac, wav, etc.). Use `mode="stream"` for mono PCM WAV or raw PCM with `encoding` and `sample_rate`.
 
 ### Admin API key
 
