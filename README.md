@@ -58,7 +58,7 @@ Ask your agent things like:
 | Tool | Description |
 |------|-------------|
 | `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict |
-| `speech_to_text` | Batch-transcribe an audio file (`ink-whisper`) |
+| `speech_to_text` | Stream-transcribe an audio file via STT WebSocket (`ink-2`) |
 | `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
 | `clone_voice` | Clone a voice from an audio sample |

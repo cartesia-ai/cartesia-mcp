@@ -33,6 +33,7 @@ from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
 from cartesia_mcp.utils import (
     build_list_voices_request_options,
     create_output_file,
+    iter_stt_audio_chunks,
     pronunciation_dict_list_to_result,
     voice_list_page_to_result,
 )
@@ -425,11 +426,11 @@ def list_voices(
 
 
 @mcp.tool(description="""
-        Transcribe a pre-recorded audio file to text using Cartesia batch STT (`POST /stt`).
+        Stream-transcribe a pre-recorded audio file using Cartesia STT WebSocket (`/stt/websocket`).
 
-        **Pricing:** 1 credit per 2 seconds of audio.
+        **Pricing:** See [STT pricing](https://docs.cartesia.ai/pricing#speech-to-text) for model-specific rates.
 
-        **Supported file formats:** flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm
+        **Supported inputs:** mono PCM WAV, or raw PCM with `encoding` and `sample_rate`.
 
         Parameters
         ----------
@@ -437,7 +438,7 @@ def list_voices(
             Absolute path to the audio file.
 
         model : str
-            STT model ID (default `ink-whisper`).
+            STT model ID (default `ink-2`).
 
         language : typing.Optional[str]
             ISO-639-1 language code (defaults to `en`).
@@ -449,35 +450,65 @@ def list_voices(
             Sample rate in Hz when `encoding` is set.
 
         timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
-            Pass `["word"]` for word-level timestamps.
+            Pass `["word"]` for word-level timestamps when returned by the stream.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Unused for streaming STT; kept for backward compatibility.
         """)
 def speech_to_text(
     file_path: str,
-    model: str = "ink-whisper",
+    model: str = "ink-2",
     language: typing.Optional[str] = None,
     encoding: typing.Optional[SttEncoding] = None,
     sample_rate: typing.Optional[int] = None,
     timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> TranscriptionResponse:
-    with open(file_path, "rb") as audio_file:
-        kwargs: dict[str, typing.Any] = {
-            "file": audio_file,
-            "model": model,
-            "request_options": request_options,
-        }
-        if language is not None:
-            kwargs["language"] = language
-        if encoding is not None:
-            kwargs["encoding"] = encoding
-        if sample_rate is not None:
-            kwargs["sample_rate"] = sample_rate
-        if timestamp_granularities is not None:
-            kwargs["timestamp_granularities"] = list(timestamp_granularities)
-        return client.stt.transcribe(**kwargs)
+    _ = request_options
+    stream_encoding, stream_sample_rate, chunks = iter_stt_audio_chunks(
+        file_path,
+        encoding=encoding,
+        sample_rate=sample_rate,
+    )
+    stt_language = language if language is not None else "en"
+    full_text = ""
+    duration: typing.Optional[float] = None
+    response_language: typing.Optional[str] = stt_language
+    words: typing.Optional[typing.List[typing.Any]] = None
+
+    for result in client.stt.websocket(
+        model=model,
+        language=stt_language,
+        encoding=stream_encoding,
+        sample_rate=stream_sample_rate,
+    ).transcribe(
+        chunks,
+        model=model,
+        language=stt_language,
+        encoding=stream_encoding,
+        sample_rate=stream_sample_rate,
+    ):
+        if result.get("type") != "transcript":
+            continue
+        if result.get("is_final"):
+            full_text += result.get("text", "")
+            if (
+                timestamp_granularities
+                and "word" in timestamp_granularities
+                and "words" in result
+            ):
+                words = result["words"]
+        if "duration" in result:
+            duration = result["duration"]
+        if "language" in result:
+            response_language = result["language"]
+
+    return TranscriptionResponse(
+        text=full_text,
+        language=response_language,
+        duration=duration,
+        words=words,
+    )
 
 
 @mcp.tool(description="""

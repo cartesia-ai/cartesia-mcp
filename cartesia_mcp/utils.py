@@ -1,7 +1,10 @@
 import os
 import datetime
 import typing
+import wave
 from pathlib import Path
+
+from cartesia.stt.types.stt_encoding import SttEncoding
 from cartesia_mcp.custom_types import (
     ListPronunciationDictsResult,
     ListVoicesResult,
@@ -11,6 +14,82 @@ from cartesia.core.pagination import SyncPager
 from cartesia.core.request_options import RequestOptions
 from cartesia.voice_changer.types import OutputFormatContainer
 from cartesia.voices.types import Voice
+
+_BYTES_PER_SAMPLE: dict[SttEncoding, int] = {
+    "pcm_s16le": 2,
+    "pcm_s32le": 4,
+    "pcm_f16le": 2,
+    "pcm_f32le": 4,
+    "pcm_mulaw": 1,
+    "pcm_alaw": 1,
+}
+
+
+def _wav_encoding(sample_width: int) -> SttEncoding:
+    if sample_width == 2:
+        return "pcm_s16le"
+    if sample_width == 4:
+        return "pcm_s32le"
+    raise ValueError(
+        f"Unsupported WAV sample width {sample_width} bytes (expected 2 or 4)."
+    )
+
+
+def _read_pcm_chunks(file_path: str, *, encoding: SttEncoding, sample_rate: int) -> typing.Iterator[bytes]:
+    bytes_per_sample = _BYTES_PER_SAMPLE[encoding]
+    chunk_bytes = max(sample_rate * bytes_per_sample // 10, 1)
+
+    def _iter() -> typing.Iterator[bytes]:
+        with open(file_path, "rb") as audio_file:
+            while chunk := audio_file.read(chunk_bytes):
+                yield chunk
+
+    return _iter()
+
+
+def _read_wav_chunks(file_path: str) -> tuple[SttEncoding, int, typing.Iterator[bytes]]:
+    with wave.open(file_path, "rb") as wf:
+        if wf.getnchannels() != 1:
+            raise ValueError(f"WAV must be mono, got {wf.getnchannels()} channels.")
+        if wf.getcomptype() != "NONE":
+            raise ValueError(f"WAV must be uncompressed PCM, got {wf.getcomptype()!r}.")
+        encoding = _wav_encoding(wf.getsampwidth())
+        sample_rate = wf.getframerate()
+        frames_per_chunk = max(sample_rate // 10, 1)
+
+        def _iter() -> typing.Iterator[bytes]:
+            with wave.open(file_path, "rb") as reader:
+                while True:
+                    data = reader.readframes(frames_per_chunk)
+                    if not data:
+                        break
+                    yield data
+
+        return encoding, sample_rate, _iter()
+
+
+def iter_stt_audio_chunks(
+    file_path: str,
+    *,
+    encoding: typing.Optional[SttEncoding] = None,
+    sample_rate: typing.Optional[int] = None,
+) -> tuple[SttEncoding, int, typing.Iterator[bytes]]:
+    """Prepare PCM chunks for STT WebSocket streaming."""
+    path = Path(file_path)
+    if path.suffix.lower() == ".wav":
+        return _read_wav_chunks(file_path)
+
+    if encoding is not None and sample_rate is not None:
+        if encoding not in _BYTES_PER_SAMPLE:
+            raise ValueError(f"Unsupported encoding {encoding!r}.")
+        return encoding, sample_rate, _read_pcm_chunks(
+            file_path, encoding=encoding, sample_rate=sample_rate
+        )
+
+    raise ValueError(
+        "Streaming STT requires a mono PCM WAV file, or raw PCM with encoding and sample_rate set."
+    )
+
 
 def create_output_file(output_directory: str, tool_type: ToolType,
                        extension: OutputFormatContainer) -> Path:
