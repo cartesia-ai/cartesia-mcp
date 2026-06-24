@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.6.1...cartesia-mcp-v0.7.0) (2026-06-24)
+
+
+### Features
+
+* stream speech_to_text over STT WebSocket ([#36](https://github.com/cartesia-ai/cartesia-mcp/issues/36)) ([3675425](https://github.com/cartesia-ai/cartesia-mcp/commit/3675425955799239989c79b97a8eed148c6169bf))
+
 ## [0.6.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.6.0...cartesia-mcp-v0.6.1) (2026-06-03)
 
 
