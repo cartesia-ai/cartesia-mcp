@@ -153,7 +153,7 @@ def main() -> int:
 
     if tts_path and os.path.isfile(tts_path):
         stt_result = run(
-            "speech_to_text",
+            "speech_to_text(batch)",
             lambda: s.speech_to_text(file_path=tts_path, language="en"),
         )
         if stt_result is not None:
@@ -161,8 +161,24 @@ def main() -> int:
                 stt_result.get("text") if isinstance(stt_result, dict) else None
             )
             if not text:
-                failures.append("speech_to_text(empty)")
-                print("  FAIL speech_to_text: empty transcript")
+                failures.append("speech_to_text(batch)(empty)")
+                print("  FAIL speech_to_text(batch): empty transcript")
+
+        stream_result = run(
+            "speech_to_text(stream)",
+            lambda: s.speech_to_text(
+                file_path=tts_path,
+                mode="stream",
+                language="en",
+            ),
+        )
+        if stream_result is not None:
+            stream_text = getattr(stream_result, "text", None) or (
+                stream_result.get("text") if isinstance(stream_result, dict) else None
+            )
+            if not stream_text:
+                failures.append("speech_to_text(stream)(empty)")
+                print("  FAIL speech_to_text(stream): empty transcript")
 
     if s.admin_http is not None:
         run("get_credit_usage", lambda: s.get_credit_usage())

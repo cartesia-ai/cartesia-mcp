@@ -425,46 +425,53 @@ def list_voices(
     return voice_list_page_to_result(pager)
 
 
-@mcp.tool(description="""
-        Stream-transcribe a pre-recorded audio file using Cartesia STT WebSocket (`/stt/websocket`).
+DEFAULT_STT_BATCH_MODEL = "ink-whisper"
+DEFAULT_STT_STREAM_MODEL = "ink-2"
+SttMode = typing.Literal["batch", "stream"]
 
-        **Pricing:** See [STT pricing](https://docs.cartesia.ai/pricing#speech-to-text) for model-specific rates.
 
-        **Supported inputs:** mono PCM WAV, or raw PCM with `encoding` and `sample_rate`.
+def _resolve_stt_model(mode: SttMode, model: typing.Optional[str]) -> str:
+    if model is not None:
+        return model
+    return DEFAULT_STT_BATCH_MODEL if mode == "batch" else DEFAULT_STT_STREAM_MODEL
 
-        Parameters
-        ----------
-        file_path : str
-            Absolute path to the audio file.
 
-        model : str
-            STT model ID (default `ink-2`).
-
-        language : typing.Optional[str]
-            ISO-639-1 language code (defaults to `en`).
-
-        encoding : typing.Optional[SttEncoding]
-            Required for raw PCM without a container header.
-
-        sample_rate : typing.Optional[int]
-            Sample rate in Hz when `encoding` is set.
-
-        timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
-            Pass `["word"]` for word-level timestamps when returned by the stream.
-
-        request_options : typing.Optional[RequestOptions]
-            Unused for streaming STT; kept for backward compatibility.
-        """)
-def speech_to_text(
+def _speech_to_text_batch(
+    *,
     file_path: str,
-    model: str = "ink-2",
-    language: typing.Optional[str] = None,
-    encoding: typing.Optional[SttEncoding] = None,
-    sample_rate: typing.Optional[int] = None,
-    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]] = None,
-    request_options: typing.Optional[RequestOptions] = None,
+    model: str,
+    language: typing.Optional[str],
+    encoding: typing.Optional[SttEncoding],
+    sample_rate: typing.Optional[int],
+    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]],
+    request_options: typing.Optional[RequestOptions],
 ) -> TranscriptionResponse:
-    _ = request_options
+    with open(file_path, "rb") as audio_file:
+        kwargs: dict[str, typing.Any] = {
+            "file": audio_file,
+            "model": model,
+            "request_options": request_options,
+        }
+        if language is not None:
+            kwargs["language"] = language
+        if encoding is not None:
+            kwargs["encoding"] = encoding
+        if sample_rate is not None:
+            kwargs["sample_rate"] = sample_rate
+        if timestamp_granularities is not None:
+            kwargs["timestamp_granularities"] = list(timestamp_granularities)
+        return client.stt.transcribe(**kwargs)
+
+
+def _speech_to_text_stream(
+    *,
+    file_path: str,
+    model: str,
+    language: typing.Optional[str],
+    encoding: typing.Optional[SttEncoding],
+    sample_rate: typing.Optional[int],
+    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]],
+) -> TranscriptionResponse:
     stream_encoding, stream_sample_rate, chunks = iter_stt_audio_chunks(
         file_path,
         encoding=encoding,
@@ -508,6 +515,77 @@ def speech_to_text(
         language=response_language,
         duration=duration,
         words=words,
+    )
+
+
+@mcp.tool(description="""
+        Transcribe a pre-recorded audio file to text.
+
+        **Default (`mode="batch"`):** upload the file via batch STT (`POST /stt`).
+        Best for typical MCP file-on-disk tasks (mp3, flac, wav, and other containers).
+        Default model: `ink-whisper`.
+
+        **Streaming (`mode="stream"`):** send mono PCM over STT WebSocket (`/stt/websocket`).
+        Use for mono PCM WAV (for example TTS output) or raw PCM with `encoding` and
+        `sample_rate`. Default model: `ink-2`.
+
+        **Pricing:** See [STT pricing](https://docs.cartesia.ai/pricing#speech-to-text).
+
+        Parameters
+        ----------
+        file_path : str
+            Absolute path to the audio file.
+
+        mode : str
+            `batch` (default) or `stream`.
+
+        model : typing.Optional[str]
+            STT model ID. Defaults to `ink-whisper` for batch and `ink-2` for stream.
+
+        language : typing.Optional[str]
+            ISO-639-1 language code (defaults to `en` for stream; batch uses API default).
+
+        encoding : typing.Optional[SttEncoding]
+            Required for raw PCM without a container header (both modes).
+
+        sample_rate : typing.Optional[int]
+            Sample rate in Hz when `encoding` is set.
+
+        timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
+            Pass `["word"]` for word-level timestamps when supported.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration (batch mode only).
+        """)
+def speech_to_text(
+    file_path: str,
+    mode: SttMode = "batch",
+    model: typing.Optional[str] = None,
+    language: typing.Optional[str] = None,
+    encoding: typing.Optional[SttEncoding] = None,
+    sample_rate: typing.Optional[int] = None,
+    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]] = None,
+    request_options: typing.Optional[RequestOptions] = None,
+) -> TranscriptionResponse:
+    stt_model = _resolve_stt_model(mode, model)
+    if mode == "stream":
+        _ = request_options
+        return _speech_to_text_stream(
+            file_path=file_path,
+            model=stt_model,
+            language=language,
+            encoding=encoding,
+            sample_rate=sample_rate,
+            timestamp_granularities=timestamp_granularities,
+        )
+    return _speech_to_text_batch(
+        file_path=file_path,
+        model=stt_model,
+        language=language,
+        encoding=encoding,
+        sample_rate=sample_rate,
+        timestamp_granularities=timestamp_granularities,
+        request_options=request_options,
     )
 
 
