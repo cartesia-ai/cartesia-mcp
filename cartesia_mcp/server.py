@@ -156,7 +156,7 @@ def _stream_stt_uses_manual_finalize(
             Pronunciation dictionary ID to apply for this generation only.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
+            Request-specific configuration (timeout, headers, query params, extra body fields).
 
           """)
 def text_to_speech(
@@ -223,8 +223,8 @@ def text_to_speech(
             Required for `mp3` containers.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
-          
+            Request-specific configuration (timeout, headers, query params).
+
         """)
 def voice_change(
     file_path: str,
@@ -458,11 +458,12 @@ def list_voices(
     extra_query: dict[str, typing.Any] = {}
     if language is not None:
         extra_query["language"] = language
+    if is_starred is not None:
+        extra_query["is_starred"] = is_starred
     pager = client.voices.list(
         limit=limit,
         gender=gender,
         is_owner=is_owner,
-        is_starred=is_starred,
         starting_after=starting_after,
         ending_before=ending_before,
         q=q,

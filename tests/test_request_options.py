@@ -27,3 +27,21 @@ def test_sdk_kwargs_forwards_native_v3_keys() -> None:
     assert kwargs["timeout"] == 30
     assert kwargs["extra_headers"] == {"X-Test": "1"}
     assert kwargs["extra_query"] == {"foo": "bar"}
+
+
+def test_sdk_kwargs_forwards_idempotency_key_to_header() -> None:
+    kwargs = sdk_kwargs_from_request_options({"idempotency_key": "req-123"})
+    assert kwargs["extra_headers"] == {"Idempotency-Key": "req-123"}
+
+
+def test_sdk_kwargs_merges_fern_timeout_and_headers() -> None:
+    kwargs = sdk_kwargs_from_request_options(
+        {
+            "timeout_in_seconds": 45,
+            "additional_headers": {"X-Trace": "abc"},
+            "additional_query_parameters": {"expand": "preview_file_url"},
+        }
+    )
+    assert kwargs["timeout"] == 45
+    assert kwargs["extra_headers"] == {"X-Trace": "abc"}
+    assert kwargs["extra_query"] == {"expand": "preview_file_url"}

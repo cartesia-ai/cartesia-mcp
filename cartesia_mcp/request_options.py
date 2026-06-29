@@ -70,6 +70,13 @@ def sdk_kwargs_from_request_options(
             if isinstance(extra_json, dict):
                 _merge_extra_body(kwargs, extra_json)
 
+        if "idempotency_key" in request_options:
+            existing = kwargs.get("extra_headers")
+            headers = {"Idempotency-Key": request_options["idempotency_key"]}
+            kwargs["extra_headers"] = (
+                {**existing, **headers} if isinstance(existing, dict) else headers
+            )
+
     if query:
         kwargs["extra_query"] = query
     return kwargs
