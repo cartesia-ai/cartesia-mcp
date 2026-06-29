@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from cartesia_mcp.api_version import CARTESIA_VERSION
-from cartesia_mcp.client_headers import user_agent
+from cartesia_mcp.client_headers import client_header, user_agent
 from cartesia_mcp.sdk_setup import _apply_api_version
 
 
@@ -23,4 +23,5 @@ def test_apply_api_version_sets_mcp_user_agent() -> None:
     headers = wrapper.get_headers()
     assert headers["Cartesia-Version"] == CARTESIA_VERSION
     assert headers["User-Agent"] == user_agent()
+    assert headers["X-Cartesia-Client"] == client_header()
     assert wrapper.httpx_client.base_headers == wrapper.get_headers
