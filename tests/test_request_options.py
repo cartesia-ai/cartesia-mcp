@@ -45,3 +45,8 @@ def test_sdk_kwargs_merges_fern_timeout_and_headers() -> None:
     assert kwargs["timeout"] == 45
     assert kwargs["extra_headers"] == {"X-Trace": "abc"}
     assert kwargs["extra_query"] == {"expand": "preview_file_url"}
+
+
+def test_sdk_kwargs_prefers_timeout_in_seconds_over_timeout() -> None:
+    kwargs = sdk_kwargs_from_request_options({"timeout_in_seconds": 45, "timeout": 30})
+    assert kwargs["timeout"] == 45

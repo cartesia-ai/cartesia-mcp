@@ -39,7 +39,7 @@ def sdk_kwargs_from_request_options(
         elif "timeout" in request_options:
             kwargs["timeout"] = request_options["timeout"]
 
-        for key in ("extra_headers", "extra_query", "extra_body", "timeout"):
+        for key in ("extra_headers", "extra_query", "extra_body"):
             if key in request_options:
                 if key == "extra_query":
                     query.update(request_options[key])
