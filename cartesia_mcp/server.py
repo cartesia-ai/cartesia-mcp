@@ -18,6 +18,8 @@ from cartesia.types import (
     Voice,
     VoiceMetadata,
 )
+from cartesia.types.shared.word_timestamps import WordTimestamps
+from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
 from cartesia.types.voice_specifier_param import VoiceSpecifierParam
 
@@ -81,6 +83,38 @@ def _build_generation_config(
         config["emotion"] = emotion
     return config
 
+
+def _merge_extra_body(
+    sdk_kwargs: dict[str, typing.Any],
+    extra_fields: dict[str, typing.Any],
+) -> None:
+    if not extra_fields:
+        return
+    existing = sdk_kwargs.get("extra_body")
+    if isinstance(existing, dict):
+        sdk_kwargs["extra_body"] = {**existing, **extra_fields}
+    else:
+        sdk_kwargs["extra_body"] = extra_fields
+
+
+def _stt_words_from_timestamps(
+    word_timestamp_groups: typing.Optional[typing.Sequence[WordTimestamps]],
+) -> typing.Optional[typing.List[SttWord]]:
+    if not word_timestamp_groups:
+        return None
+    words: list[SttWord] = []
+    for group in word_timestamp_groups:
+        for word, start, end in zip(group.words, group.start, group.end):
+            words.append(SttWord(word=word, start=start, end=end))
+    return words or None
+
+
+def _wants_word_timestamps(
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+) -> bool:
+    return bool(timestamp_granularities and "word" in timestamp_granularities)
+
+
 @mcp.tool(description="""
         Parameters
         ----------
@@ -128,7 +162,6 @@ def text_to_speech(
     pronunciation_dict_id: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    _ = duration
     generation_config = _build_generation_config(
         speed=speed,
         volume=volume,
@@ -145,6 +178,8 @@ def text_to_speech(
     }
     if generation_config is not None:
         tts_kwargs["generation_config"] = generation_config
+    if duration is not None:
+        _merge_extra_body(tts_kwargs, {"duration": duration})
     result = client.tts.generate(**tts_kwargs)
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
@@ -346,14 +381,15 @@ def clone_voice(
     description: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    _ = mode
+    clone_kwargs = sdk_kwargs_from_request_options(request_options)
+    _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(file_path, "rb") as clip:
         return client.voices.clone(
             clip=clip,
             name=name,
             language=language,
             description=description,
-            **sdk_kwargs_from_request_options(request_options),
+            **clone_kwargs,
         )
 
 @mcp.tool(description="""
@@ -464,24 +500,15 @@ def _speech_to_text_batch(
         return client.stt.transcribe(**kwargs)
 
 
-def _speech_to_text_stream(
+def _speech_to_text_stream_auto_finalize(
     *,
-    file_path: str,
     model: str,
-    language: typing.Optional[str],
-    encoding: typing.Optional[STTEncoding],
-    sample_rate: typing.Optional[int],
-    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+    stream_encoding: STTEncoding,
+    stream_sample_rate: int,
+    chunks: typing.Iterable[bytes],
+    response_language: typing.Optional[str],
 ) -> STTTranscribeResponse:
-    _ = timestamp_granularities
-    stream_encoding, stream_sample_rate, chunks = iter_stt_audio_chunks(
-        file_path,
-        encoding=encoding,
-        sample_rate=sample_rate,
-    )
-    stt_language = language if language is not None else "en"
     full_text = ""
-    response_language: typing.Optional[str] = stt_language
 
     with client.stt.auto_finalize.websocket(
         model=model,
@@ -503,6 +530,101 @@ def _speech_to_text_stream(
         text=full_text,
         type="transcript",
         language=response_language,
+    )
+
+
+def _speech_to_text_stream_manual_finalize(
+    *,
+    model: str,
+    stream_encoding: STTEncoding,
+    stream_sample_rate: int,
+    chunks: typing.Iterable[bytes],
+    language: typing.Optional[str],
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+) -> STTTranscribeResponse:
+    stt_language = language if language is not None else "en"
+    extra_query: dict[str, typing.Any] = {}
+    if language is not None and language != "en":
+        extra_query["language"] = language
+    if _wants_word_timestamps(timestamp_granularities):
+        extra_query["timestamp_granularities[]"] = "word"
+
+    websocket_kwargs: dict[str, typing.Any] = {
+        "model": model,
+        "encoding": stream_encoding,
+        "sample_rate": stream_sample_rate,
+    }
+    if stt_language == "en":
+        websocket_kwargs["language"] = "en"
+    if extra_query:
+        websocket_kwargs["extra_query"] = extra_query
+
+    full_text = ""
+    duration: typing.Optional[float] = None
+    response_language: typing.Optional[str] = stt_language
+    words: typing.Optional[typing.List[SttWord]] = None
+
+    with client.stt.manual_finalize.websocket(**websocket_kwargs) as connection:
+        for chunk in chunks:
+            connection.send_raw(chunk)
+
+        connection.send("finalize")
+        connection.send("close")
+
+        for event in connection:
+            if event.type == "transcript":
+                if event.is_final:
+                    full_text += event.text
+                    if _wants_word_timestamps(timestamp_granularities) and event.words:
+                        words = _stt_words_from_timestamps(event.words)
+                if event.duration is not None:
+                    duration = event.duration
+                if event.language is not None:
+                    response_language = event.language
+            elif event.type == "error":
+                raise RuntimeError(f"STT stream error: {event}")
+
+    return STTTranscribeResponse(
+        text=full_text,
+        type="transcript",
+        language=response_language,
+        duration=duration,
+        words=words,
+    )
+
+
+def _speech_to_text_stream(
+    *,
+    file_path: str,
+    model: str,
+    language: typing.Optional[str],
+    encoding: typing.Optional[STTEncoding],
+    sample_rate: typing.Optional[int],
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+) -> STTTranscribeResponse:
+    stream_encoding, stream_sample_rate, chunks = iter_stt_audio_chunks(
+        file_path,
+        encoding=encoding,
+        sample_rate=sample_rate,
+    )
+    stt_language = language if language is not None else "en"
+
+    if _wants_word_timestamps(timestamp_granularities):
+        return _speech_to_text_stream_manual_finalize(
+            model=model,
+            stream_encoding=stream_encoding,
+            stream_sample_rate=stream_sample_rate,
+            chunks=chunks,
+            language=language,
+            timestamp_granularities=timestamp_granularities,
+        )
+
+    return _speech_to_text_stream_auto_finalize(
+        model=model,
+        stream_encoding=stream_encoding,
+        stream_sample_rate=stream_sample_rate,
+        chunks=chunks,
+        response_language=stt_language,
     )
 
 
