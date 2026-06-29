@@ -115,6 +115,16 @@ def _wants_word_timestamps(
     return bool(timestamp_granularities and "word" in timestamp_granularities)
 
 
+def _stream_stt_uses_manual_finalize(
+    *,
+    language: typing.Optional[str],
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+) -> bool:
+    if _wants_word_timestamps(timestamp_granularities):
+        return True
+    return language is not None and language != "en"
+
+
 @mcp.tool(description="""
         Parameters
         ----------
@@ -609,7 +619,10 @@ def _speech_to_text_stream(
     )
     stt_language = language if language is not None else "en"
 
-    if _wants_word_timestamps(timestamp_granularities):
+    if _stream_stt_uses_manual_finalize(
+        language=language,
+        timestamp_granularities=timestamp_granularities,
+    ):
         return _speech_to_text_stream_manual_finalize(
             model=model,
             stream_encoding=stream_encoding,
