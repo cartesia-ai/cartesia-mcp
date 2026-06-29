@@ -16,12 +16,12 @@ def test_resolve_stt_model_override() -> None:
 
 @patch("cartesia_mcp.server.client")
 def test_speech_to_text_batch_uses_transcribe(mock_client: MagicMock) -> None:
-    mock_client.stt.transcribe.return_value = {"text": "hello"}
+    mock_client.stt.transcribe.return_value = MagicMock(text="hello")
 
     with patch("builtins.open", mock_open(read_data=b"audio")):
         result = server.speech_to_text("/tmp/sample.mp3", mode="batch", language="en")
 
-    assert result == {"text": "hello"}
+    assert result.text == "hello"
     mock_client.stt.transcribe.assert_called_once()
     kwargs = mock_client.stt.transcribe.call_args.kwargs
     assert kwargs["model"] == "ink-whisper"
@@ -30,19 +30,25 @@ def test_speech_to_text_batch_uses_transcribe(mock_client: MagicMock) -> None:
 
 @patch("cartesia_mcp.server.client")
 @patch("cartesia_mcp.server.iter_stt_audio_chunks")
-def test_speech_to_text_stream_uses_websocket(
+def test_speech_to_text_stream_uses_auto_finalize_websocket(
     mock_iter_chunks: MagicMock,
     mock_client: MagicMock,
 ) -> None:
     mock_iter_chunks.return_value = ("pcm_s16le", 44100, iter([b"chunk"]))
-    mock_ws = MagicMock()
-    mock_client.stt.websocket.return_value = mock_ws
-    mock_ws.transcribe.return_value = [
-        {"type": "transcript", "is_final": True, "text": "hello world"},
-    ]
+    mock_connection = MagicMock()
+    mock_connection.__enter__.return_value = mock_connection
+    mock_connection.__exit__.return_value = False
+    mock_connection.__iter__.return_value = iter(
+        [MagicMock(type="turn.end", transcript="hello world")]
+    )
+    mock_ws_manager = MagicMock()
+    mock_ws_manager.__enter__.return_value = mock_connection
+    mock_ws_manager.__exit__.return_value = False
+    mock_client.stt.auto_finalize.websocket.return_value = mock_ws_manager
 
     result = server.speech_to_text("/tmp/sample.wav", mode="stream")
 
     assert result.text == "hello world"
-    mock_client.stt.websocket.assert_called_once()
-    mock_ws.transcribe.assert_called_once()
+    mock_client.stt.auto_finalize.websocket.assert_called_once()
+    mock_connection.send_raw.assert_called_once_with(b"chunk")
+    mock_connection.send.assert_called_once_with({"type": "close"})

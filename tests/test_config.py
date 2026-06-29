@@ -6,7 +6,7 @@ import pytest
 
 from cartesia_mcp.config import (
     ADMIN_HTTP_REQUIRED_MESSAGE,
-    ensure_admin_http,
+    ensure_admin_client,
     env_or_none,
     validate_api_keys,
 )
@@ -62,14 +62,14 @@ class TestValidateApiKeys:
         assert admin == ADMIN_KEY
 
 
-class TestEnsureAdminHttp:
+class TestEnsureAdminClient:
     def test_raises_when_unset(self) -> None:
         with pytest.raises(ValueError, match="CARTESIA_ADMIN_API_KEY"):
-            ensure_admin_http(None)
+            ensure_admin_client(None)
 
     def test_returns_client(self) -> None:
         sentinel = object()
-        assert ensure_admin_http(sentinel) is sentinel
+        assert ensure_admin_client(sentinel) is sentinel
 
     def test_message_documents_playground(self) -> None:
         assert "Keys → Admin" in ADMIN_HTTP_REQUIRED_MESSAGE

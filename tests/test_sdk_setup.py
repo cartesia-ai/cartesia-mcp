@@ -1,26 +1,16 @@
-"""Tests for Cartesia client header wiring in sdk_setup."""
+"""Tests for Cartesia SDK v3 client setup."""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 from cartesia_mcp.api_version import CARTESIA_VERSION
-from cartesia_mcp.client_headers import user_agent
-from cartesia_mcp.sdk_setup import _apply_api_version
+from cartesia_mcp.client_headers import client_request_headers
+from cartesia_mcp.sdk_setup import create_cartesia_client
 
 
-def test_apply_api_version_sets_mcp_user_agent() -> None:
-    wrapper = MagicMock()
-    wrapper.get_headers.return_value = {
-        "X-Fern-Language": "Python",
-        "X-Fern-SDK-Name": "cartesia",
-        "X-Fern-SDK-Version": "2.0.17",
-    }
-    wrapper.httpx_client = MagicMock()
+def test_create_cartesia_client_sets_default_headers() -> None:
+    client = create_cartesia_client("sk_car_test_key")
 
-    _apply_api_version(wrapper)
-
-    headers = wrapper.get_headers()
-    assert headers["Cartesia-Version"] == CARTESIA_VERSION
-    assert headers["User-Agent"] == user_agent()
-    assert wrapper.httpx_client.base_headers == wrapper.get_headers
+    headers = client.default_headers
+    assert headers["cartesia-version"] == CARTESIA_VERSION
+    assert headers["User-Agent"] == client_request_headers()["User-Agent"]
+    assert headers["X-Cartesia-Client"] == client_request_headers()["X-Cartesia-Client"]
