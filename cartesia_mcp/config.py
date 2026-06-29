@@ -46,7 +46,7 @@ def validate_api_keys(
     return api_key, admin_api_key
 
 
-def ensure_admin_http(admin_http: typing.Any) -> typing.Any:
-    if admin_http is None:
+def ensure_admin_client(admin_client: typing.Any) -> typing.Any:
+    if admin_client is None:
         raise ValueError(ADMIN_HTTP_REQUIRED_MESSAGE)
-    return admin_http
+    return admin_client

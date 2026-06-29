@@ -4,18 +4,16 @@ import typing
 import wave
 from pathlib import Path
 
-from cartesia.stt.types.stt_encoding import SttEncoding
+from cartesia.pagination import SyncCursorIDPage
+from cartesia.types import OutputFormatContainer, STTEncoding, Voice
 from cartesia_mcp.custom_types import (
     ListPronunciationDictsResult,
     ListVoicesResult,
     ToolType,
 )
-from cartesia.core.pagination import SyncPager
-from cartesia.core.request_options import RequestOptions
-from cartesia.voice_changer.types import OutputFormatContainer
-from cartesia.voices.types import Voice
 
-_BYTES_PER_SAMPLE: dict[SttEncoding, int] = {
+
+_BYTES_PER_SAMPLE: dict[STTEncoding, int] = {
     "pcm_s16le": 2,
     "pcm_s32le": 4,
     "pcm_f16le": 2,
@@ -25,7 +23,7 @@ _BYTES_PER_SAMPLE: dict[SttEncoding, int] = {
 }
 
 
-def _wav_encoding(sample_width: int) -> SttEncoding:
+def _wav_encoding(sample_width: int) -> STTEncoding:
     if sample_width == 2:
         return "pcm_s16le"
     if sample_width == 4:
@@ -35,7 +33,7 @@ def _wav_encoding(sample_width: int) -> SttEncoding:
     )
 
 
-def _read_pcm_chunks(file_path: str, *, encoding: SttEncoding, sample_rate: int) -> typing.Iterator[bytes]:
+def _read_pcm_chunks(file_path: str, *, encoding: STTEncoding, sample_rate: int) -> typing.Iterator[bytes]:
     bytes_per_sample = _BYTES_PER_SAMPLE[encoding]
     chunk_bytes = max(sample_rate * bytes_per_sample // 10, 1)
 
@@ -47,7 +45,7 @@ def _read_pcm_chunks(file_path: str, *, encoding: SttEncoding, sample_rate: int)
     return _iter()
 
 
-def _read_wav_chunks(file_path: str) -> tuple[SttEncoding, int, typing.Iterator[bytes]]:
+def _read_wav_chunks(file_path: str) -> tuple[STTEncoding, int, typing.Iterator[bytes]]:
     with wave.open(file_path, "rb") as wf:
         if wf.getnchannels() != 1:
             raise ValueError(f"WAV must be mono, got {wf.getnchannels()} channels.")
@@ -71,9 +69,9 @@ def _read_wav_chunks(file_path: str) -> tuple[SttEncoding, int, typing.Iterator[
 def iter_stt_audio_chunks(
     file_path: str,
     *,
-    encoding: typing.Optional[SttEncoding] = None,
+    encoding: typing.Optional[STTEncoding] = None,
     sample_rate: typing.Optional[int] = None,
-) -> tuple[SttEncoding, int, typing.Iterator[bytes]]:
+) -> tuple[STTEncoding, int, typing.Iterator[bytes]]:
     """Prepare PCM chunks for STT WebSocket streaming."""
     path = Path(file_path)
     if path.suffix.lower() == ".wav":
@@ -104,36 +102,19 @@ def create_output_file(output_directory: str, tool_type: ToolType,
     return dir_path / f"{tool_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.{extension}"
 
 
-def build_list_voices_request_options(
-    request_options: typing.Optional[RequestOptions],
-    *,
-    language: typing.Optional[str] = None,
-    q: typing.Optional[str] = None,
-    expand: typing.Optional[typing.Sequence[str]] = None,
-) -> typing.Optional[RequestOptions]:
-    extra_query: dict[str, typing.Any] = {}
-    if language is not None:
-        extra_query["language"] = language
-    if q is not None:
-        extra_query["q"] = q
-    if expand:
-        extra_query["expand[]"] = list(expand)
-    if not extra_query:
-        return request_options
-
-    merged: RequestOptions = dict(request_options or {})
-    base = dict(merged.get("additional_query_parameters") or {})
-    base.update(extra_query)
-    merged["additional_query_parameters"] = base
-    return merged
-
-
-def voice_list_page_to_result(pager: SyncPager[Voice]) -> ListVoicesResult:
-    data = [voice.model_dump(mode="json") for voice in pager.items]
-    result: ListVoicesResult = {"data": data, "has_more": pager.has_next}
-    if pager.has_next and data:
+def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
+    data = [item.model_dump(mode="json") for item in page.data]
+    result: dict[str, typing.Any] = {
+        "data": data,
+        "has_more": page.has_next_page(),
+    }
+    if page.has_next_page() and data:
         result["next_page"] = data[-1]["id"]
     return result
+
+
+def voice_list_page_to_result(page: SyncCursorIDPage[Voice]) -> ListVoicesResult:
+    return typing.cast(ListVoicesResult, cursor_page_to_result(page))
 
 
 def pronunciation_dict_list_to_result(

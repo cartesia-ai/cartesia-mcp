@@ -6,6 +6,21 @@ import os
 import typing
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from cartesia import Cartesia, RequestOptions, omit
+from cartesia.types import (
+    GenderPresentation,
+    GenerationConfigParam,
+    OutputFormatContainer,
+    RawEncoding,
+    STTEncoding,
+    STTTranscribeResponse,
+    SupportedLanguage,
+    Voice,
+    VoiceMetadata,
+)
+from cartesia.types.tts_generate_params import OutputFormat
+from cartesia.types.voice_specifier_param import VoiceSpecifierParam
+
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
@@ -14,27 +29,16 @@ from cartesia_mcp.custom_types import (
     ListVoicesResult,
     PronunciationDictItemParams,
 )
-from cartesia.voices.requests import LocalizeDialectParams
-from cartesia.voices.types import VoiceMetadata, GenderPresentation, Gender, CloneMode, Voice
-from cartesia.voice_changer.types import OutputFormatContainer
-from cartesia.tts.types import SupportedLanguage, RawEncoding
-from cartesia.tts.requests import OutputFormatParams, TtsRequestVoiceSpecifierParams
-from cartesia.tts.requests.generation_config import GenerationConfigParams
-from cartesia.stt.types.stt_encoding import SttEncoding
-from cartesia.stt.types.timestamp_granularity import TimestampGranularity
-from cartesia.stt.types.transcription_response import TranscriptionResponse
-from cartesia.core.request_options import RequestOptions
-
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import UsageInterval
-from cartesia_mcp.config import ensure_admin_http, env_or_none, validate_api_keys
-from cartesia_mcp.sdk_setup import create_cartesia_client, get_http
+from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
+from cartesia_mcp.request_options import sdk_kwargs_from_request_options
+from cartesia_mcp.sdk_setup import create_cartesia_client
 from cartesia_mcp.utils import (
-    build_list_voices_request_options,
     create_output_file,
+    cursor_page_to_result,
     iter_stt_audio_chunks,
-    pronunciation_dict_list_to_result,
     voice_list_page_to_result,
 )
 
@@ -48,17 +52,16 @@ CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
 client = create_cartesia_client(CARTESIA_API_KEY)
-http = get_http(client)
-admin_http = (
-    get_http(create_cartesia_client(CARTESIA_ADMIN_API_KEY))
+admin_client = (
+    create_cartesia_client(CARTESIA_ADMIN_API_KEY)
     if CARTESIA_ADMIN_API_KEY
     else None
 )
 mcp = FastMCP("Cartesia")
 
 
-def _require_admin_http():
-    return ensure_admin_http(admin_http)
+def _require_admin_client() -> Cartesia:
+    return ensure_admin_client(admin_client)
 
 
 def _build_generation_config(
@@ -66,10 +69,10 @@ def _build_generation_config(
     speed: typing.Optional[float] = None,
     volume: typing.Optional[float] = None,
     emotion: typing.Optional[str] = None,
-) -> typing.Optional[GenerationConfigParams]:
+) -> typing.Optional[GenerationConfigParam]:
     if speed is None and volume is None and emotion is None:
         return None
-    config: GenerationConfigParams = {}
+    config: GenerationConfigParam = {}
     if speed is not None:
         config["speed"] = speed
     if volume is not None:
@@ -114,8 +117,8 @@ def _build_generation_config(
           """)
 def text_to_speech(
     transcript: str,
-    voice: TtsRequestVoiceSpecifierParams,
-    output_format: OutputFormatParams,
+    voice: VoiceSpecifierParam,
+    output_format: OutputFormat,
     model_id: typing.Optional[str] = DEFAULT_MODEL_ID,
     language: typing.Optional[SupportedLanguage] = None,
     duration: typing.Optional[float] = None,
@@ -125,6 +128,7 @@ def text_to_speech(
     pronunciation_dict_id: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
+    _ = duration
     generation_config = _build_generation_config(
         speed=speed,
         volume=volume,
@@ -136,19 +140,17 @@ def text_to_speech(
         "output_format": output_format,
         "model_id": model_id,
         "language": language,
-        "duration": duration,
-        "request_options": request_options,
+        "pronunciation_dict_id": pronunciation_dict_id,
+        **sdk_kwargs_from_request_options(request_options),
     }
     if generation_config is not None:
         tts_kwargs["generation_config"] = generation_config
-    if pronunciation_dict_id is not None:
-        tts_kwargs["pronunciation_dict_id"] = pronunciation_dict_id
-    result = client.tts.bytes(**tts_kwargs)
+    result = client.tts.generate(**tts_kwargs)
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
                                         output_format["container"])
 
-    audio_bytes = b"".join(result)
+    audio_bytes = result.read()
     with output_file.open("wb") as f:
         f.write(audio_bytes)
 
@@ -189,16 +191,16 @@ def voice_change(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
     with open(file_path, "rb") as clip:
-        result = client.voice_changer.bytes(
+        result = client.voice_changer.generate(
             clip=clip,
             voice_id=voice_id,
             output_format_container=output_format_container,
             output_format_sample_rate=output_format_sample_rate,
             output_format_encoding=output_format_encoding,
             output_format_bit_rate=output_format_bit_rate,
-            request_options=request_options,
+            **sdk_kwargs_from_request_options(request_options),
         )
-        audio_bytes = b"".join(result)
+        audio_bytes = result.read()
 
     output_file = create_output_file(OUTPUT_DIRECTORY, "voice_change",
                                         output_format_container)
@@ -235,8 +237,8 @@ def localize_voice(
     name: str,
     description: str,
     language: SupportedLanguage,
-    original_speaker_gender: Gender,
-    dialect: typing.Optional[LocalizeDialectParams] = None,
+    original_speaker_gender: typing.Literal["male", "female"],
+    dialect: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
     return client.voices.localize(
@@ -246,7 +248,7 @@ def localize_voice(
         language=language,
         original_speaker_gender=original_speaker_gender,
         dialect=dialect,
-        request_options=request_options,
+        **sdk_kwargs_from_request_options(request_options),
     )
 
 
@@ -263,7 +265,7 @@ def delete_voice(
     voice_id: str,
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
-    client.voices.delete(id=voice_id, request_options=request_options)
+    client.voices.delete(id=voice_id, **sdk_kwargs_from_request_options(request_options))
     return DeleteVoiceResult(success=True)
 
 @mcp.tool(description="""
@@ -279,7 +281,7 @@ def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    return client.voices.get(id=voice_id, request_options=request_options)
+    return client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
 
 
 @mcp.tool(description="""
@@ -306,7 +308,7 @@ def update_voice(
         id=voice_id,
         name=name,
         description=description,
-        request_options=request_options,
+        **sdk_kwargs_from_request_options(request_options),
     )
 
 @mcp.tool(description="""
@@ -340,18 +342,18 @@ def clone_voice(
     file_path: str,
     name: str,
     language: SupportedLanguage,
-    mode: CloneMode,
+    mode: str,
     description: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
+    _ = mode
     with open(file_path, "rb") as clip:
         return client.voices.clone(
             clip=clip,
             name=name,
             language=language,
-            mode=mode,
             description=description,
-            request_options=request_options,
+            **sdk_kwargs_from_request_options(request_options),
         )
 
 @mcp.tool(description="""
@@ -407,12 +409,9 @@ def list_voices(
     expand: typing.Optional[typing.Sequence[str]] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> ListVoicesResult:
-    merged_request_options = build_list_voices_request_options(
-        request_options,
-        language=language,
-        q=q,
-        expand=expand,
-    )
+    extra_query: dict[str, typing.Any] = {}
+    if language is not None:
+        extra_query["language"] = language
     pager = client.voices.list(
         limit=limit,
         gender=gender,
@@ -420,7 +419,9 @@ def list_voices(
         is_starred=is_starred,
         starting_after=starting_after,
         ending_before=ending_before,
-        request_options=merged_request_options,
+        q=q,
+        expand=list(expand) if expand else omit,
+        **sdk_kwargs_from_request_options(request_options, extra_query=extra_query),
     )
     return voice_list_page_to_result(pager)
 
@@ -441,16 +442,16 @@ def _speech_to_text_batch(
     file_path: str,
     model: str,
     language: typing.Optional[str],
-    encoding: typing.Optional[SttEncoding],
+    encoding: typing.Optional[STTEncoding],
     sample_rate: typing.Optional[int],
-    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]],
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
     request_options: typing.Optional[RequestOptions],
-) -> TranscriptionResponse:
+) -> STTTranscribeResponse:
     with open(file_path, "rb") as audio_file:
         kwargs: dict[str, typing.Any] = {
             "file": audio_file,
             "model": model,
-            "request_options": request_options,
+            **sdk_kwargs_from_request_options(request_options),
         }
         if language is not None:
             kwargs["language"] = language
@@ -468,10 +469,11 @@ def _speech_to_text_stream(
     file_path: str,
     model: str,
     language: typing.Optional[str],
-    encoding: typing.Optional[SttEncoding],
+    encoding: typing.Optional[STTEncoding],
     sample_rate: typing.Optional[int],
-    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]],
-) -> TranscriptionResponse:
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
+) -> STTTranscribeResponse:
+    _ = timestamp_granularities
     stream_encoding, stream_sample_rate, chunks = iter_stt_audio_chunks(
         file_path,
         encoding=encoding,
@@ -479,42 +481,28 @@ def _speech_to_text_stream(
     )
     stt_language = language if language is not None else "en"
     full_text = ""
-    duration: typing.Optional[float] = None
     response_language: typing.Optional[str] = stt_language
-    words: typing.Optional[typing.List[typing.Any]] = None
 
-    for result in client.stt.websocket(
+    with client.stt.auto_finalize.websocket(
         model=model,
-        language=stt_language,
         encoding=stream_encoding,
         sample_rate=stream_sample_rate,
-    ).transcribe(
-        chunks,
-        model=model,
-        language=stt_language,
-        encoding=stream_encoding,
-        sample_rate=stream_sample_rate,
-    ):
-        if result.get("type") != "transcript":
-            continue
-        if result.get("is_final"):
-            full_text += result.get("text", "")
-            if (
-                timestamp_granularities
-                and "word" in timestamp_granularities
-                and "words" in result
-            ):
-                words = result["words"]
-        if "duration" in result:
-            duration = result["duration"]
-        if "language" in result:
-            response_language = result["language"]
+    ) as connection:
+        for chunk in chunks:
+            connection.send_raw(chunk)
 
-    return TranscriptionResponse(
+        connection.send({"type": "close"})
+
+        for event in connection:
+            if event.type == "turn.end":
+                full_text += event.transcript
+            elif event.type == "error":
+                raise RuntimeError(f"STT stream error: {event}")
+
+    return STTTranscribeResponse(
         text=full_text,
+        type="transcript",
         language=response_language,
-        duration=duration,
-        words=words,
     )
 
 
@@ -562,11 +550,11 @@ def speech_to_text(
     mode: SttMode = "batch",
     model: typing.Optional[str] = None,
     language: typing.Optional[str] = None,
-    encoding: typing.Optional[SttEncoding] = None,
+    encoding: typing.Optional[STTEncoding] = None,
     sample_rate: typing.Optional[int] = None,
-    timestamp_granularities: typing.Optional[typing.Sequence[TimestampGranularity]] = None,
+    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]] = None,
     request_options: typing.Optional[RequestOptions] = None,
-) -> TranscriptionResponse:
+) -> STTTranscribeResponse:
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
         _ = request_options
@@ -614,7 +602,7 @@ def get_credit_usage(
     api_key_id: typing.Optional[str] = None,
 ) -> dict[str, typing.Any]:
     return extra_api.get_usage_credits(
-        _require_admin_http(),
+        _require_admin_client(),
         start_ts=start_ts,
         end_ts=end_ts,
         interval=interval,
@@ -641,13 +629,12 @@ def list_pronunciation_dicts(
     starting_after: typing.Optional[str] = None,
     ending_before: typing.Optional[str] = None,
 ) -> ListPronunciationDictsResult:
-    payload = extra_api.list_pronunciation_dicts(
-        http,
+    page = client.pronunciation_dicts.list(
         limit=limit,
         starting_after=starting_after,
         ending_before=ending_before,
     )
-    return pronunciation_dict_list_to_result(payload)
+    return typing.cast(ListPronunciationDictsResult, cursor_page_to_result(page))
 
 
 @mcp.tool(description="""
@@ -664,7 +651,10 @@ def create_pronunciation_dict(
     name: str,
     items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
 ) -> dict[str, typing.Any]:
-    return extra_api.create_pronunciation_dict(http, name=name, items=items)
+    return client.pronunciation_dicts.create(
+        name=name,
+        items=list(items) if items is not None else omit,
+    ).model_dump(mode="json")
 
 
 @mcp.tool(description="""
@@ -674,7 +664,7 @@ def create_pronunciation_dict(
             Pronunciation dictionary ID.
         """)
 def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
-    return extra_api.get_pronunciation_dict(http, dict_id)
+    return client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
 
 
 @mcp.tool(description="""
@@ -693,7 +683,14 @@ def update_pronunciation_dict(
     name: typing.Optional[str] = None,
     items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
 ) -> dict[str, typing.Any]:
-    return extra_api.update_pronunciation_dict(http, dict_id, name=name, items=items)
+    if name is None and items is None:
+        raise ValueError("At least one of `name` or `items` must be provided.")
+    kwargs: dict[str, typing.Any] = {}
+    if name is not None:
+        kwargs["name"] = name
+    if items is not None:
+        kwargs["items"] = list(items)
+    return client.pronunciation_dicts.update(dict_id, **kwargs).model_dump(mode="json")
 
 
 @mcp.tool(description="""
@@ -703,7 +700,7 @@ def update_pronunciation_dict(
             Pronunciation dictionary ID to delete.
         """)
 def delete_pronunciation_dict(dict_id: str) -> DeletePronunciationDictResult:
-    extra_api.delete_pronunciation_dict(http, dict_id)
+    client.pronunciation_dicts.delete(dict_id)
     return DeletePronunciationDictResult(success=True)
 
 
