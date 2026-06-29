@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.8.0...cartesia-mcp-v0.9.0) (2026-06-29)
+
+
+### Features
+
+* upgrade cartesia-mcp to cartesia-python v3 ([#41](https://github.com/cartesia-ai/cartesia-mcp/issues/41)) ([edeb67a](https://github.com/cartesia-ai/cartesia-mcp/commit/edeb67ad7823d4798a0de46d4fd519464a5bd7b2))
+
 ## [0.8.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.7.0...cartesia-mcp-v0.8.0) (2026-06-24)
 
 
