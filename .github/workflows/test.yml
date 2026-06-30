@@ -26,3 +26,24 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest
+
+  docker-build:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t cartesia-mcp:ci .
+
+      - name: Smoke test /health
+        run: |
+          docker run -d --name mcp-ci -p 8000:8000 cartesia-mcp:ci
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs mcp-ci
+          exit 1

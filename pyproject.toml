@@ -7,7 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
     "cartesia[websockets]>=3.2.0,<4.0.0",
     "httpx>=0.28.1",
-    "mcp[cli]>=1.7.1",
+    "mcp[cli]>=1.27.0",
+    "python-dotenv>=1.0.0",
+    "uvicorn>=0.34.0",
 ]
 
 [project.scripts]
