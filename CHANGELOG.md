@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.9.0...cartesia-mcp-v0.10.0) (2026-06-30)
+
+
+### Features
+
+* hosted Streamable HTTP MCP with OAuth ([#43](https://github.com/cartesia-ai/cartesia-mcp/issues/43)) ([3315acf](https://github.com/cartesia-ai/cartesia-mcp/commit/3315acf0ba7b6fe318659e8fd91af83b11de6416))
+
 ## [0.9.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.8.0...cartesia-mcp-v0.9.0) (2026-06-29)
 
 
