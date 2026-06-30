@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import hmac
-import os
 from typing import Any
 
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl
 from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from cartesia_mcp.config import env_or_none
@@ -114,31 +113,11 @@ async def oauth_internal_complete(request: Request) -> Response:
         mcp_server_url=server_public_url(),
     )
     redirect_url = provider.build_resume_redirect(session_id, pending)
-    oauth_store.pop_pending(session_id)
-    return JSONResponse({"redirect_url": redirect_url})
-
-
-async def oauth_browser_resume(request: Request) -> Response:
-    session_id = request.query_params.get("session")
-    if not session_id:
-        return JSONResponse({"error": "missing session"}, status_code=400)
-
-    from cartesia_mcp.oauth_store import oauth_store
-
     try:
-        pending = oauth_store.pop_pending(session_id)
+        oauth_store.pop_pending(session_id)
     except KeyError:
-        return JSONResponse({"error": "unknown_session"}, status_code=404)
-
-    if not pending.cartesia_credential:
-        return JSONResponse({"error": "session_not_ready"}, status_code=400)
-
-    provider = CartesiaOAuthProvider(
-        playground_url=playground_public_url(),
-        mcp_server_url=server_public_url(),
-    )
-    redirect_url = provider.build_resume_redirect(session_id, pending)
-    return RedirectResponse(redirect_url, status_code=302)
+        pass
+    return JSONResponse({"redirect_url": redirect_url})
 
 
 def attach_hosted_routes(mcp: FastMCP) -> None:
@@ -149,11 +128,6 @@ def attach_hosted_routes(mcp: FastMCP) -> None:
                 "/internal/oauth/complete",
                 endpoint=oauth_internal_complete,
                 methods=["POST"],
-            ),
-            Route(
-                "/oauth/resume",
-                endpoint=oauth_browser_resume,
-                methods=["GET"],
             ),
         ]
     )

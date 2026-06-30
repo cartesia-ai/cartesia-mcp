@@ -9,10 +9,16 @@ from cartesia_mcp.sdk_setup import is_admin_api_key
 
 _stdio_api_key: str | None = None
 _stdio_admin_api_key: str | None = None
+_hosted_mode: bool = False
 _hosted_admin_credential: ContextVar[str | None] = ContextVar(
     "hosted_admin_credential",
     default=None,
 )
+
+
+def configure_hosted_mode(enabled: bool = True) -> None:
+    global _hosted_mode
+    _hosted_mode = enabled
 
 
 def configure_stdio_credentials(
@@ -51,6 +57,8 @@ def resolve_admin_api_credential() -> str | None:
     hosted_admin = _hosted_admin_credential.get()
     if hosted_admin:
         return hosted_admin
+    if _hosted_mode:
+        return None
     if _stdio_admin_api_key:
         return _stdio_admin_api_key
     return None
