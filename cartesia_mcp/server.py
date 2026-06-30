@@ -2,7 +2,9 @@
 Cartesia MCP Server
 """
 
+import argparse
 import os
+import sys
 import typing
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
@@ -35,8 +37,10 @@ from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import UsageInterval
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
+from cartesia_mcp.clients import admin_client, client, require_admin_client
+from cartesia_mcp.credentials import configure_stdio_credentials
+from cartesia_mcp.hosted import fastmcp_hosted_kwargs, hosted_enabled, run_hosted
 from cartesia_mcp.request_options import sdk_kwargs_from_request_options
-from cartesia_mcp.sdk_setup import create_cartesia_client
 from cartesia_mcp.utils import (
     create_output_file,
     cursor_page_to_result,
@@ -46,24 +50,25 @@ from cartesia_mcp.utils import (
 
 load_dotenv()
 
+_is_hosted = hosted_enabled() or (
+    "--transport" in sys.argv and "streamable-http" in sys.argv
+)
 CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
     env_or_none("CARTESIA_API_KEY"),
     env_or_none("CARTESIA_ADMIN_API_KEY"),
+    require_api_key=not _is_hosted,
 )
 
 OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
-client = create_cartesia_client(CARTESIA_API_KEY)
-admin_client = (
-    create_cartesia_client(CARTESIA_ADMIN_API_KEY)
-    if CARTESIA_ADMIN_API_KEY
-    else None
-)
-mcp = FastMCP("Cartesia")
+if CARTESIA_API_KEY:
+    configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
+
+mcp = FastMCP("Cartesia", **(fastmcp_hosted_kwargs() if _is_hosted else {}))
 
 
 def _require_admin_client() -> Cartesia:
-    return ensure_admin_client(admin_client)
+    return require_admin_client()
 
 
 def _build_generation_config(
@@ -841,6 +846,20 @@ def delete_pronunciation_dict(dict_id: str) -> DeletePronunciationDictResult:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Cartesia MCP server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "streamable-http"],
+        default="streamable-http" if _is_hosted else "stdio",
+    )
+    args = parser.parse_args()
+
+    if args.transport == "streamable-http":
+        run_hosted(mcp)
+        return
+
+    if not CARTESIA_API_KEY:
+        raise ValueError("CARTESIA_API_KEY is required for stdio transport")
     mcp.run(transport="stdio")
 
 if __name__ == "__main__":

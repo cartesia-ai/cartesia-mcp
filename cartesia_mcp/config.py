@@ -28,11 +28,13 @@ def env_or_none(
 def validate_api_keys(
     api_key: str | None,
     admin_api_key: str | None,
-) -> tuple[str, str | None]:
-    if not api_key:
+    *,
+    require_api_key: bool = True,
+) -> tuple[str | None, str | None]:
+    if require_api_key and not api_key:
         raise ValueError("CARTESIA_API_KEY is required")
 
-    if is_admin_api_key(api_key):
+    if api_key is not None and is_admin_api_key(api_key):
         raise ValueError(
             "CARTESIA_API_KEY must be a standard API key (sk_car_...), not an admin key. "
             "Use CARTESIA_ADMIN_API_KEY for admin-only tools such as get_credit_usage."
