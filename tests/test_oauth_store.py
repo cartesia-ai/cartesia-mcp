@@ -170,30 +170,69 @@ def test_attach_credential_is_idempotent_for_same_payload():
     assert second is first
 
 
-def test_completed_redirect_is_reused():
-    oauth_store._completed_redirects.clear()
-    oauth_store.remember_completed_redirect(
-        "session123",
-        "token456",
+def test_attach_credential_allows_admin_upgrade_on_retry():
+    oauth_store._pending.clear()
+    client = _client()
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+    updated = oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+        cartesia_admin_credential="sk_car_admin_test.key",
+    )
+    assert updated.cartesia_admin_credential == "sk_car_admin_test.key"
+
+
+def test_completed_session_retries_issue_fresh_code():
+    oauth_store._completed_sessions.clear()
+    oauth_store._auth_codes.clear()
+    oauth_store._mcp_tokens.clear()
+    client = _client()
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+    pending = oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+    oauth_store.remember_completed_session(
+        session_id,
+        connect_token,
         "org_test",
         "user_test",
-        "cursor://callback?code=abc&state=xyz",
+        pending,
     )
-    assert (
-        oauth_store.get_completed_redirect(
-            "session123",
-            "token456",
+
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    first = provider.build_resume_redirect(session_id, pending)
+    second = provider.build_resume_redirect(
+        session_id,
+        oauth_store.get_completed_session(
+            session_id,
+            connect_token,
             "org_test",
             "user_test",
-        )
-        == "cursor://callback?code=abc&state=xyz"
+        ),
     )
-    assert (
-        oauth_store.get_completed_redirect(
-            "session123",
-            "wrong-token",
-            "org_test",
-            "user_test",
-        )
-        is None
-    )
+    assert first != second
+    assert "code=" in second

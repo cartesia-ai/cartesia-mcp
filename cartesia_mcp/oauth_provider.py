@@ -98,6 +98,19 @@ class CartesiaOAuthProvider(
         )
 
     async def load_access_token(self, token: str) -> AccessToken | None:
+        stored = oauth_store.resolve_mcp_access_token(token)
+        if stored is not None:
+            from cartesia_mcp.credentials import set_hosted_admin_credential
+
+            set_hosted_admin_credential(stored.cartesia_admin_credential)
+
+            return AccessToken(
+                token=stored.cartesia_credential,
+                client_id=stored.client_id,
+                scopes=stored.scopes or ["mcp"],
+                expires_at=stored.expires_at,
+            )
+
         from cartesia_mcp.credentials import is_valid_bearer_credential
 
         if is_valid_bearer_credential(token):
@@ -108,20 +121,7 @@ class CartesiaOAuthProvider(
                 expires_at=None,
             )
 
-        stored = oauth_store.resolve_mcp_access_token(token)
-        if stored is None:
-            return None
-
-        from cartesia_mcp.credentials import set_hosted_admin_credential
-
-        set_hosted_admin_credential(stored.cartesia_admin_credential)
-
-        return AccessToken(
-            token=stored.cartesia_credential,
-            client_id=stored.client_id,
-            scopes=stored.scopes or ["mcp"],
-            expires_at=stored.expires_at,
-        )
+        return None
 
     async def revoke_token(
         self,

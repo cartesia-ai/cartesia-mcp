@@ -37,7 +37,7 @@ class OAuthStore:
     def __init__(self) -> None:
         self._clients: dict[str, OAuthClientInformationFull] = {}
         self._pending: dict[str, PendingConnectSession] = {}
-        self._completed_redirects: dict[str, str] = {}
+        self._completed_sessions: dict[str, PendingConnectSession] = {}
         self._auth_codes: dict[str, AuthorizationCode] = {}
         self._mcp_tokens: dict[str, StoredMcpAccessToken] = {}
 
@@ -89,8 +89,9 @@ class OAuthStore:
                 pending.completing_owner_id == completing_owner_id
                 and pending.completing_user_id == completing_user_id
                 and pending.cartesia_credential == cartesia_credential
-                and pending.cartesia_admin_credential == cartesia_admin_credential
             ):
+                if cartesia_admin_credential:
+                    pending.cartesia_admin_credential = cartesia_admin_credential
                 return pending
             raise ValueError("MCP OAuth session already completed")
         if (
@@ -104,13 +105,13 @@ class OAuthStore:
         pending.cartesia_admin_credential = cartesia_admin_credential
         return pending
 
-    def remember_completed_redirect(
+    def remember_completed_session(
         self,
         session_id: str,
         connect_token: str,
         completing_owner_id: str,
         completing_user_id: str,
-        redirect_url: str,
+        pending: PendingConnectSession,
     ) -> None:
         key = self._completed_redirect_key(
             session_id,
@@ -118,22 +119,22 @@ class OAuthStore:
             completing_owner_id,
             completing_user_id,
         )
-        self._completed_redirects[key] = redirect_url
+        self._completed_sessions[key] = pending
 
-    def get_completed_redirect(
+    def get_completed_session(
         self,
         session_id: str,
         connect_token: str,
         completing_owner_id: str,
         completing_user_id: str,
-    ) -> str | None:
+    ) -> PendingConnectSession | None:
         key = self._completed_redirect_key(
             session_id,
             connect_token,
             completing_owner_id,
             completing_user_id,
         )
-        return self._completed_redirects.get(key)
+        return self._completed_sessions.get(key)
 
     def _completed_redirect_key(
         self,

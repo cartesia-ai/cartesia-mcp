@@ -97,14 +97,20 @@ async def oauth_internal_complete(request: Request) -> Response:
 
     from cartesia_mcp.oauth_store import oauth_store
 
-    cached_redirect = oauth_store.get_completed_redirect(
+    provider = CartesiaOAuthProvider(
+        playground_url=playground_public_url(),
+        mcp_server_url=server_public_url(),
+    )
+
+    completed = oauth_store.get_completed_session(
         session_id,
         connect_token,
         completing_owner_id,
         completing_user_id,
     )
-    if cached_redirect:
-        return JSONResponse({"redirect_url": cached_redirect})
+    if completed is not None:
+        redirect_url = provider.build_resume_redirect(session_id, completed)
+        return JSONResponse({"redirect_url": redirect_url})
 
     try:
         pending = oauth_store.attach_credential(
@@ -120,17 +126,13 @@ async def oauth_internal_complete(request: Request) -> Response:
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    provider = CartesiaOAuthProvider(
-        playground_url=playground_public_url(),
-        mcp_server_url=server_public_url(),
-    )
     redirect_url = provider.build_resume_redirect(session_id, pending)
-    oauth_store.remember_completed_redirect(
+    oauth_store.remember_completed_session(
         session_id,
         connect_token,
         completing_owner_id,
         completing_user_id,
-        redirect_url,
+        pending,
     )
     try:
         oauth_store.pop_pending(session_id)
