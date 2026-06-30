@@ -17,7 +17,10 @@ from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 
 
 def hosted_enabled() -> bool:
-    return bool(env_or_none("MCP_HOSTED"))
+    value = env_or_none("MCP_HOSTED")
+    if value is None:
+        return False
+    return value.lower() in ("1", "true", "yes", "on")
 
 
 def server_public_url() -> str:
@@ -94,6 +97,15 @@ async def oauth_internal_complete(request: Request) -> Response:
 
     from cartesia_mcp.oauth_store import oauth_store
 
+    cached_redirect = oauth_store.get_completed_redirect(
+        session_id,
+        connect_token,
+        completing_owner_id,
+        completing_user_id,
+    )
+    if cached_redirect:
+        return JSONResponse({"redirect_url": cached_redirect})
+
     try:
         pending = oauth_store.attach_credential(
             session_id,
@@ -113,6 +125,13 @@ async def oauth_internal_complete(request: Request) -> Response:
         mcp_server_url=server_public_url(),
     )
     redirect_url = provider.build_resume_redirect(session_id, pending)
+    oauth_store.remember_completed_redirect(
+        session_id,
+        connect_token,
+        completing_owner_id,
+        completing_user_id,
+        redirect_url,
+    )
     try:
         oauth_store.pop_pending(session_id)
     except KeyError:

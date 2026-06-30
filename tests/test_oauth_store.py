@@ -141,3 +141,59 @@ def test_connect_token_required():
             completing_owner_id="org_test",
             completing_user_id="user_test",
         )
+
+
+def test_attach_credential_is_idempotent_for_same_payload():
+    oauth_store._pending.clear()
+    client = _client()
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+
+    first = oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+        cartesia_admin_credential="sk_car_admin_test.key",
+    )
+    second = oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+        cartesia_admin_credential="sk_car_admin_test.key",
+    )
+    assert second is first
+
+
+def test_completed_redirect_is_reused():
+    oauth_store._completed_redirects.clear()
+    oauth_store.remember_completed_redirect(
+        "session123",
+        "token456",
+        "org_test",
+        "user_test",
+        "cursor://callback?code=abc&state=xyz",
+    )
+    assert (
+        oauth_store.get_completed_redirect(
+            "session123",
+            "token456",
+            "org_test",
+            "user_test",
+        )
+        == "cursor://callback?code=abc&state=xyz"
+    )
+    assert (
+        oauth_store.get_completed_redirect(
+            "session123",
+            "wrong-token",
+            "org_test",
+            "user_test",
+        )
+        is None
+    )
