@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 from cartesia_mcp.config import env_or_none
 from cartesia_mcp.sdk_setup import is_admin_api_key
 
 _stdio_api_key: str | None = None
 _stdio_admin_api_key: str | None = None
+_hosted_admin_credential: ContextVar[str | None] = ContextVar(
+    "hosted_admin_credential",
+    default=None,
+)
 
 
 def configure_stdio_credentials(
@@ -16,6 +22,10 @@ def configure_stdio_credentials(
     global _stdio_api_key, _stdio_admin_api_key
     _stdio_api_key = api_key
     _stdio_admin_api_key = admin_api_key
+
+
+def set_hosted_admin_credential(admin_credential: str | None) -> None:
+    _hosted_admin_credential.set(admin_credential)
 
 
 def resolve_api_credential() -> str:
@@ -38,6 +48,9 @@ def resolve_api_credential() -> str:
 
 
 def resolve_admin_api_credential() -> str | None:
+    hosted_admin = _hosted_admin_credential.get()
+    if hosted_admin:
+        return hosted_admin
     if _stdio_admin_api_key:
         return _stdio_admin_api_key
     return None

@@ -80,13 +80,18 @@ async def oauth_internal_complete(request: Request) -> Response:
     body = await request.json()
     session_id = body.get("session_id")
     cartesia_credential = body.get("cartesia_credential")
+    cartesia_admin_credential = body.get("cartesia_admin_credential")
     if not session_id or not cartesia_credential:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
     from cartesia_mcp.oauth_store import oauth_store
 
     try:
-        pending = oauth_store.attach_credential(session_id, cartesia_credential)
+        pending = oauth_store.attach_credential(
+            session_id,
+            cartesia_credential,
+            cartesia_admin_credential=cartesia_admin_credential,
+        )
     except KeyError:
         return JSONResponse({"error": "unknown_session"}, status_code=404)
 

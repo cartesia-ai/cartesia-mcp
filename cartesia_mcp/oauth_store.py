@@ -16,6 +16,7 @@ class PendingConnectSession:
     client_id: str
     params: AuthorizationParams
     cartesia_credential: str | None = None
+    cartesia_admin_credential: str | None = None
     created_at: float = field(default_factory=time.time)
 
 
@@ -26,6 +27,7 @@ class StoredMcpAccessToken:
     client_id: str
     scopes: list[str]
     expires_at: int
+    cartesia_admin_credential: str | None = None
 
 
 class OAuthStore:
@@ -53,11 +55,18 @@ class OAuthStore:
         )
         return session_id
 
-    def attach_credential(self, session_id: str, cartesia_credential: str) -> PendingConnectSession:
+    def attach_credential(
+        self,
+        session_id: str,
+        cartesia_credential: str,
+        *,
+        cartesia_admin_credential: str | None = None,
+    ) -> PendingConnectSession:
         pending = self._pending.get(session_id)
         if pending is None:
             raise KeyError(f"Unknown MCP OAuth session: {session_id}")
         pending.cartesia_credential = cartesia_credential
+        pending.cartesia_admin_credential = cartesia_admin_credential
         return pending
 
     def pop_pending(self, session_id: str) -> PendingConnectSession:
@@ -72,6 +81,7 @@ class OAuthStore:
         client_id: str,
         params: AuthorizationParams,
         cartesia_credential: str,
+        cartesia_admin_credential: str | None = None,
     ) -> AuthorizationCode:
         code = secrets.token_urlsafe(32)
         auth_code = AuthorizationCode(
@@ -91,6 +101,7 @@ class OAuthStore:
             client_id=client_id,
             scopes=list(params.scopes or []),
             expires_at=int(time.time()) + 600,
+            cartesia_admin_credential=cartesia_admin_credential,
         )
         return auth_code
 
@@ -124,6 +135,7 @@ class OAuthStore:
             client_id=client.client_id,
             scopes=stored.scopes,
             expires_at=expires_at,
+            cartesia_admin_credential=stored.cartesia_admin_credential,
         )
         return OAuthToken(
             access_token=access_token,

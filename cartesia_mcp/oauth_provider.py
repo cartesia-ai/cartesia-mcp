@@ -97,6 +97,10 @@ class CartesiaOAuthProvider(
         if stored is None:
             return None
 
+        from cartesia_mcp.credentials import set_hosted_admin_credential
+
+        set_hosted_admin_credential(stored.cartesia_admin_credential)
+
         return AccessToken(
             token=stored.cartesia_credential,
             client_id=stored.client_id,
@@ -116,6 +120,7 @@ class CartesiaOAuthProvider(
             client_id=pending.client_id,
             params=pending.params,
             cartesia_credential=pending.cartesia_credential or "",
+            cartesia_admin_credential=pending.cartesia_admin_credential,
         )
         query = urlencode(
             {
