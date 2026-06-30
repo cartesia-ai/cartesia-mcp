@@ -15,8 +15,11 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 class PendingConnectSession:
     client_id: str
     params: AuthorizationParams
+    connect_token: str
     cartesia_credential: str | None = None
     cartesia_admin_credential: str | None = None
+    completing_owner_id: str | None = None
+    completing_user_id: str | None = None
     created_at: float = field(default_factory=time.time)
 
 
@@ -47,24 +50,48 @@ class OAuthStore:
         self,
         client_id: str,
         params: AuthorizationParams,
-    ) -> str:
+    ) -> tuple[str, str]:
         session_id = secrets.token_urlsafe(32)
+        connect_token = secrets.token_urlsafe(32)
         self._pending[session_id] = PendingConnectSession(
             client_id=client_id,
             params=params,
+            connect_token=connect_token,
         )
-        return session_id
+        return session_id, connect_token
+
+    def get_pending_session(
+        self,
+        session_id: str,
+        connect_token: str,
+    ) -> PendingConnectSession:
+        pending = self._pending.get(session_id)
+        if pending is None or not secrets.compare_digest(
+            pending.connect_token, connect_token
+        ):
+            raise KeyError(f"Unknown MCP OAuth session: {session_id}")
+        return pending
 
     def attach_credential(
         self,
         session_id: str,
+        connect_token: str,
         cartesia_credential: str,
         *,
+        completing_owner_id: str,
+        completing_user_id: str,
         cartesia_admin_credential: str | None = None,
     ) -> PendingConnectSession:
-        pending = self._pending.get(session_id)
-        if pending is None:
-            raise KeyError(f"Unknown MCP OAuth session: {session_id}")
+        pending = self.get_pending_session(session_id, connect_token)
+        if pending.cartesia_credential is not None:
+            raise ValueError("MCP OAuth session already completed")
+        if (
+            pending.completing_owner_id is not None
+            and pending.completing_owner_id != completing_owner_id
+        ):
+            raise ValueError("MCP OAuth session bound to a different organization")
+        pending.completing_owner_id = completing_owner_id
+        pending.completing_user_id = completing_user_id
         pending.cartesia_credential = cartesia_credential
         pending.cartesia_admin_credential = cartesia_admin_credential
         return pending

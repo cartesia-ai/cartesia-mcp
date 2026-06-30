@@ -19,6 +19,13 @@ from pydantic import AnyUrl
 
 from cartesia_mcp.oauth_store import oauth_store
 
+_ALLOWED_REDIRECT_SCHEMES = ("cursor:", "vscode:", "http:", "https:")
+
+
+def _redirect_uri_is_allowed(redirect_uri: AnyUrl) -> bool:
+    parsed = redirect_uri.unicode_string()
+    return parsed.startswith(_ALLOWED_REDIRECT_SCHEMES)
+
 
 class CartesiaOAuthProvider(
     OAuthAuthorizationServerProvider[AuthorizationCode, Any, AuthorizationCode]
@@ -36,6 +43,11 @@ class CartesiaOAuthProvider(
                 error="invalid_client_metadata",
                 error_description="redirect_uris is required",
             )
+        if not all(_redirect_uri_is_allowed(uri) for uri in client_info.redirect_uris):
+            raise RegistrationError(
+                error="invalid_client_metadata",
+                error_description="redirect_uris must use cursor, vscode, http, or https",
+            )
         oauth_store.register_client(client_info)
 
     async def authorize(
@@ -43,8 +55,11 @@ class CartesiaOAuthProvider(
         client: OAuthClientInformationFull,
         params: AuthorizationParams,
     ) -> str:
-        session_id = oauth_store.create_pending_session(client.client_id, params)
-        query = urlencode({"session": session_id})
+        session_id, connect_token = oauth_store.create_pending_session(
+            client.client_id,
+            params,
+        )
+        query = urlencode({"session": session_id, "token": connect_token})
         return f"{self._playground_url}/mcp/connect?{query}"
 
     async def load_authorization_code(

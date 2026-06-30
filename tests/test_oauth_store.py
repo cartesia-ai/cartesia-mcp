@@ -1,6 +1,7 @@
 """Tests for OAuth store authorization code exchange."""
 
 from pydantic import AnyUrl
+import pytest
 
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import oauth_store
@@ -18,6 +19,17 @@ def _client() -> OAuthClientInformationFull:
     )
 
 
+def _params() -> AuthorizationParams:
+    return AuthorizationParams(
+        state="state123",
+        scopes=["mcp"],
+        code_challenge="challenge",
+        redirect_uri=AnyUrl("cursor://callback"),
+        redirect_uri_provided_explicitly=True,
+        resource=None,
+    )
+
+
 def test_oauth_code_exchange_roundtrip():
     oauth_store._clients.clear()
     oauth_store._pending.clear()
@@ -26,16 +38,17 @@ def test_oauth_code_exchange_roundtrip():
 
     client = _client()
     oauth_store.register_client(client)
-    params = AuthorizationParams(
-        state="state123",
-        scopes=["mcp"],
-        code_challenge="challenge",
-        redirect_uri=AnyUrl("cursor://callback"),
-        redirect_uri_provided_explicitly=True,
-        resource=None,
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
     )
-    session_id = oauth_store.create_pending_session(client.client_id, params)
-    oauth_store.attach_credential(session_id, "eyJcartesia.token")
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
     pending = oauth_store.pop_pending(session_id)
 
     provider = CartesiaOAuthProvider(
@@ -66,18 +79,16 @@ def test_oauth_admin_credential_propagates_to_access_token():
 
     client = _client()
     oauth_store.register_client(client)
-    params = AuthorizationParams(
-        state="state123",
-        scopes=["mcp"],
-        code_challenge="challenge",
-        redirect_uri=AnyUrl("cursor://callback"),
-        redirect_uri_provided_explicitly=True,
-        resource=None,
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
     )
-    session_id = oauth_store.create_pending_session(client.client_id, params)
     oauth_store.attach_credential(
         session_id,
+        connect_token,
         "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
         cartesia_admin_credential="sk_car_admin_test.key",
     )
     pending = oauth_store.pop_pending(session_id)
@@ -95,3 +106,38 @@ def test_oauth_admin_credential_propagates_to_access_token():
     loaded = oauth_store.resolve_mcp_access_token(token.access_token)
     assert loaded is not None
     assert loaded.cartesia_admin_credential == "sk_car_admin_test.key"
+
+
+def test_connect_token_required():
+    oauth_store._pending.clear()
+    client = _client()
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+
+    with pytest.raises(KeyError):
+        oauth_store.attach_credential(
+            session_id,
+            "wrong-token",
+            "eyJcartesia.token",
+            completing_owner_id="org_test",
+            completing_user_id="user_test",
+        )
+
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "eyJcartesia.token",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+
+    with pytest.raises(ValueError, match="already completed"):
+        oauth_store.attach_credential(
+            session_id,
+            connect_token,
+            "eyJother.token",
+            completing_owner_id="org_test",
+            completing_user_id="user_test",
+        )

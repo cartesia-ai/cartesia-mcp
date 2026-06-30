@@ -79,9 +79,18 @@ async def oauth_internal_complete(request: Request) -> Response:
 
     body = await request.json()
     session_id = body.get("session_id")
+    connect_token = body.get("connect_token")
     cartesia_credential = body.get("cartesia_credential")
+    completing_owner_id = body.get("completing_owner_id")
+    completing_user_id = body.get("completing_user_id")
     cartesia_admin_credential = body.get("cartesia_admin_credential")
-    if not session_id or not cartesia_credential:
+    if (
+        not session_id
+        or not connect_token
+        or not cartesia_credential
+        or not completing_owner_id
+        or not completing_user_id
+    ):
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
     from cartesia_mcp.oauth_store import oauth_store
@@ -89,11 +98,16 @@ async def oauth_internal_complete(request: Request) -> Response:
     try:
         pending = oauth_store.attach_credential(
             session_id,
+            connect_token,
             cartesia_credential,
+            completing_owner_id=completing_owner_id,
+            completing_user_id=completing_user_id,
             cartesia_admin_credential=cartesia_admin_credential,
         )
     except KeyError:
         return JSONResponse({"error": "unknown_session"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
 
     provider = CartesiaOAuthProvider(
         playground_url=playground_public_url(),
