@@ -16,6 +16,17 @@ def test_create_cartesia_client_default_headers_match_attribution() -> None:
     assert client.default_headers["X-Cartesia-Client"] == header
 
 
+def test_rest_httpx_identifies_as_cartesia_mcp() -> None:
+    from cartesia._models import FinalRequestOptions
+
+    client = create_cartesia_client("sk_car_test_key")
+    request = client._build_request(FinalRequestOptions(method="get", url="/voices"))
+
+    header = client_header()
+    assert request.headers["User-Agent"] == header
+    assert request.headers["X-Cartesia-Client"] == header
+
+
 def test_stt_auto_finalize_connect_merges_default_headers(monkeypatch: pytest.MonkeyPatch) -> None:
     client = create_cartesia_client("sk_car_test_key")
     captured: dict[str, object] = {}

@@ -68,11 +68,5 @@ def looks_like_cartesia_api_key(token: str) -> bool:
     return token.startswith("sk_car_") and not token.startswith("sk_car_admin_")
 
 
-def looks_like_cartesia_access_token(token: str) -> bool:
-    return token.startswith("eyJ")
-
-
 def is_valid_bearer_credential(token: str) -> bool:
-    if looks_like_cartesia_api_key(token):
-        return not is_admin_api_key(token)
-    return looks_like_cartesia_access_token(token)
+    return looks_like_cartesia_api_key(token) and not is_admin_api_key(token)

@@ -45,7 +45,7 @@ def test_oauth_code_exchange_roundtrip():
     oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
     )
@@ -68,7 +68,7 @@ def test_oauth_code_exchange_roundtrip():
 
     loaded = oauth_store.resolve_mcp_access_token(token.access_token)
     assert loaded is not None
-    assert loaded.cartesia_credential == "eyJcartesia.token"
+    assert loaded.cartesia_credential == "sk_car_oauth_test_key"
 
 
 def test_oauth_admin_credential_propagates_to_access_token():
@@ -86,7 +86,7 @@ def test_oauth_admin_credential_propagates_to_access_token():
     oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
         cartesia_admin_credential="sk_car_admin_test.key",
@@ -120,7 +120,7 @@ def test_connect_token_required():
         oauth_store.attach_credential(
             session_id,
             "wrong-token",
-            "eyJcartesia.token",
+            "sk_car_oauth_test_key",
             completing_owner_id="org_test",
             completing_user_id="user_test",
         )
@@ -128,7 +128,7 @@ def test_connect_token_required():
     oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
     )
@@ -137,7 +137,7 @@ def test_connect_token_required():
         oauth_store.attach_credential(
             session_id,
             connect_token,
-            "eyJother.token",
+            "sk_car_other_test_key",
             completing_owner_id="org_test",
             completing_user_id="user_test",
         )
@@ -154,7 +154,7 @@ def test_attach_credential_is_idempotent_for_same_payload():
     first = oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
         cartesia_admin_credential="sk_car_admin_test.key",
@@ -162,7 +162,7 @@ def test_attach_credential_is_idempotent_for_same_payload():
     second = oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
         cartesia_admin_credential="sk_car_admin_test.key",
@@ -181,14 +181,14 @@ def test_attach_credential_allows_admin_upgrade_on_retry():
     oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
     )
     updated = oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
         cartesia_admin_credential="sk_car_admin_test.key",
@@ -208,7 +208,7 @@ def test_completed_session_retries_issue_fresh_code():
     pending = oauth_store.attach_credential(
         session_id,
         connect_token,
-        "eyJcartesia.token",
+        "sk_car_oauth_test_key",
         completing_owner_id="org_test",
         completing_user_id="user_test",
     )
