@@ -16,14 +16,6 @@ def test_create_cartesia_client_default_headers_match_attribution() -> None:
     assert client.default_headers["X-Cartesia-Client"] == header
 
 
-def test_create_cartesia_client_uses_token_auth_for_jwt_credentials() -> None:
-    jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
-    client = create_cartesia_client(jwt)
-
-    assert client.token == jwt
-    assert client.api_key is None
-
-
 def test_rest_httpx_identifies_as_cartesia_mcp() -> None:
     from cartesia._models import FinalRequestOptions
 

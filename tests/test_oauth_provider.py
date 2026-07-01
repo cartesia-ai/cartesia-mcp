@@ -6,12 +6,12 @@ from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import StoredMcpAccessToken, oauth_store
 
 
-def test_mcp_oauth_access_token_resolves_before_jwt_heuristic():
+def test_mcp_oauth_access_token_resolves_stored_credential():
     oauth_store._mcp_tokens.clear()
-    mcp_token = "eyJmcp_oauth_access_token_example"
+    mcp_token = "mcp_oauth_access_token_example"
     oauth_store._mcp_tokens[mcp_token] = StoredMcpAccessToken(
         token=mcp_token,
-        cartesia_credential="eyJreal_cartesia_jwt",
+        cartesia_credential="sk_car_oauth_test_key",
         client_id="test-client",
         scopes=["mcp"],
         expires_at=9999999999,
@@ -25,5 +25,5 @@ def test_mcp_oauth_access_token_resolves_before_jwt_heuristic():
     access = asyncio.run(provider.load_access_token(mcp_token))
 
     assert access is not None
-    assert access.token == "eyJreal_cartesia_jwt"
+    assert access.token == "sk_car_oauth_test_key"
     assert access.client_id == "test-client"
