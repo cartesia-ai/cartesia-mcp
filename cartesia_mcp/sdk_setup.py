@@ -15,11 +15,15 @@ def is_admin_api_key(api_key: str) -> bool:
     return api_key.startswith(ADMIN_API_KEY_PREFIX)
 
 
-def create_cartesia_client(api_key: str) -> Cartesia:
-    return Cartesia(
-        api_key=api_key,
-        default_headers={
-            "cartesia-version": CARTESIA_VERSION,
-            **client_request_headers(),
-        },
-    )
+def _looks_like_cartesia_access_token(credential: str) -> bool:
+    return credential.startswith("eyJ")
+
+
+def create_cartesia_client(credential: str) -> Cartesia:
+    headers = {
+        "cartesia-version": CARTESIA_VERSION,
+        **client_request_headers(),
+    }
+    if _looks_like_cartesia_access_token(credential):
+        return Cartesia(token=credential, default_headers=headers)
+    return Cartesia(api_key=credential, default_headers=headers)
