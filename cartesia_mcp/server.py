@@ -8,6 +8,7 @@ import sys
 import typing
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from cartesia import Cartesia, RequestOptions, omit
 from cartesia.types import (
     GenderPresentation,
@@ -67,6 +68,9 @@ elif CARTESIA_API_KEY:
     configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
 
 mcp = FastMCP("Cartesia", **(fastmcp_hosted_kwargs() if _is_hosted else {}))
+
+_READ_ONLY = ToolAnnotations(readOnlyHint=True)
+_WRITE = ToolAnnotations(destructiveHint=True)
 
 
 def _require_admin_client() -> Cartesia:
@@ -132,7 +136,10 @@ def _stream_stt_uses_manual_finalize(
     return language is not None and language != "en"
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Convert text to speech",
+    annotations=_WRITE,
+    description="""
         Parameters
         ----------
         transcript : str
@@ -209,7 +216,10 @@ def text_to_speech(
     return GeneratedAudioResult(file_path=str(output_file))
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Change voice in audio",
+    annotations=_WRITE,
+    description="""
         Takes an audio file of speech, and returns an audio file of speech spoken with the same intonation, but with a different voice.
 
         Parameters
@@ -261,7 +271,10 @@ def voice_change(
 
     return GeneratedAudioResult(file_path=str(output_file))
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Localize voice",
+    annotations=_WRITE,
+    description="""
         Create a new voice from an existing voice localized to a new language and dialect.
 
         Parameters
@@ -304,7 +317,10 @@ def localize_voice(
     )
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Delete voice",
+    annotations=_WRITE,
+    description="""
         Parameters
         ----------
         voice_id : str
@@ -320,7 +336,10 @@ def delete_voice(
     client.voices.delete(id=voice_id, **sdk_kwargs_from_request_options(request_options))
     return DeleteVoiceResult(success=True)
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Get voice",
+    annotations=_READ_ONLY,
+    description="""
         Parameters
         ----------
         voice_id : str
@@ -336,7 +355,10 @@ def get_voice(
     return client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Update voice",
+    annotations=_WRITE,
+    description="""
         Parameters
         ----------
         id : VoiceId
@@ -363,7 +385,10 @@ def update_voice(
         **sdk_kwargs_from_request_options(request_options),
     )
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Clone voice",
+    annotations=_WRITE,
+    description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
 
         Similarity mode clones are more similar to the source clip, but may reproduce background noise. For these, use an audio clip about 5 seconds long.
@@ -409,7 +434,10 @@ def clone_voice(
             **clone_kwargs,
         )
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="List voices",
+    annotations=_READ_ONLY,
+    description="""
         Parameters
         ----------
         limit : typing.Optional[int]
@@ -649,7 +677,10 @@ def _speech_to_text_stream(
     )
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Transcribe audio",
+    annotations=_READ_ONLY,
+    description="""
         Transcribe a pre-recorded audio file to text.
 
         **Default (`mode="batch"`):** upload the file via batch STT (`POST /stt`).
@@ -720,7 +751,10 @@ def speech_to_text(
     )
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Get credit usage",
+    annotations=_READ_ONLY,
+    description="""
         Returns credit usage over time (`GET /usage/credits`).
 
         Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
@@ -753,7 +787,10 @@ def get_credit_usage(
     )
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="List pronunciation dictionaries",
+    annotations=_READ_ONLY,
+    description="""
         List pronunciation dictionaries for the authenticated user.
 
         Parameters
@@ -780,7 +817,10 @@ def list_pronunciation_dicts(
     return typing.cast(ListPronunciationDictsResult, cursor_page_to_result(page))
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Create pronunciation dictionary",
+    annotations=_WRITE,
+    description="""
         Create a pronunciation dictionary.
 
         Parameters
@@ -800,7 +840,10 @@ def create_pronunciation_dict(
     ).model_dump(mode="json")
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Get pronunciation dictionary",
+    annotations=_READ_ONLY,
+    description="""
         Parameters
         ----------
         dict_id : str
@@ -810,7 +853,10 @@ def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
     return client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Update pronunciation dictionary",
+    annotations=_WRITE,
+    description="""
         Update a pronunciation dictionary.
 
         Parameters
@@ -836,7 +882,10 @@ def update_pronunciation_dict(
     return client.pronunciation_dicts.update(dict_id, **kwargs).model_dump(mode="json")
 
 
-@mcp.tool(description="""
+@mcp.tool(
+    title="Delete pronunciation dictionary",
+    annotations=_WRITE,
+    description="""
         Parameters
         ----------
         dict_id : str
