@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.10.0...cartesia-mcp-v0.11.0) (2026-07-02)
+
+
+### Features
+
+* add Claude directory tool annotations and fix OAuth resource URL ([#46](https://github.com/cartesia-ai/cartesia-mcp/issues/46)) ([ac9e470](https://github.com/cartesia-ai/cartesia-mcp/commit/ac9e470c899973daa1c570bef4176dec3d527c67))
+
 ## [0.10.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.9.0...cartesia-mcp-v0.10.0) (2026-06-30)
 
 
