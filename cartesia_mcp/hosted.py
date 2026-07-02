@@ -27,6 +27,10 @@ def server_public_url() -> str:
     return (env_or_none("MCP_SERVER_URL") or "http://127.0.0.1:8000").rstrip("/")
 
 
+def mcp_resource_url() -> str:
+    return f"{server_public_url()}/mcp"
+
+
 def playground_public_url() -> str:
     return (env_or_none("PLAYGROUND_URL") or "https://play.cartesia.ai").rstrip("/")
 
@@ -49,7 +53,7 @@ def fastmcp_hosted_kwargs() -> dict[str, Any]:
         "auth_server_provider": provider,
         "auth": AuthSettings(
             issuer_url=AnyHttpUrl(mcp_url),
-            resource_server_url=AnyHttpUrl(mcp_url),
+            resource_server_url=AnyHttpUrl(mcp_resource_url()),
             client_registration_options=ClientRegistrationOptions(
                 enabled=True,
                 valid_scopes=["mcp"],
