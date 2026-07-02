@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.11.0...cartesia-mcp-v0.12.0) (2026-07-02)
+
+
+### Features
+
+* hide admin-only MCP tools without admin credential ([#48](https://github.com/cartesia-ai/cartesia-mcp/issues/48)) ([7c23dc4](https://github.com/cartesia-ai/cartesia-mcp/commit/7c23dc4197c21466dd3762c1a9235e28fb734a10))
+
 ## [0.11.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.10.0...cartesia-mcp-v0.11.0) (2026-07-02)
 
 
