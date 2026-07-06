@@ -80,6 +80,44 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 
 Versions and PyPI publishes are driven by [Conventional Commits](https://www.conventionalcommits.org/) on `main` via release-please. Use PR titles like `feat: …` or `fix: …` (especially when squash merging). See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+## Local development
+
+Run your checkout in an MCP client instead of the published `uvx cartesia-mcp` package:
+
+```sh
+git clone https://github.com/cartesia-ai/cartesia-mcp.git
+cd cartesia-mcp
+uv sync --dev
+```
+
+Set `CARTESIA_API_KEY` (and optionally `CARTESIA_ADMIN_API_KEY`). Replace `/path/to/cartesia-mcp` below with your checkout path.
+
+**Cursor** — add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "cartesia-mcp": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/cartesia-mcp", "run", "cartesia-mcp"],
+      "env": {
+        "CARTESIA_API_KEY": "<your-api-key>"
+      }
+    }
+  }
+}
+```
+
+Restart Cursor or reload MCP servers, then confirm **cartesia-mcp** appears under **Settings → MCP**.
+
+**Claude Code**:
+
+```bash
+claude mcp add -e CARTESIA_API_KEY=<your-api-key> cartesia-mcp -- uv --directory /path/to/cartesia-mcp run cartesia-mcp
+```
+
+In a Claude Code session, run `/mcp`, select **cartesia-mcp**, and verify tools load.
+
 ## Testing
 
 Unit tests (no API keys):
