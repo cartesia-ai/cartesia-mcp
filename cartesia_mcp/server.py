@@ -112,6 +112,14 @@ def _merge_extra_body(
         sdk_kwargs["extra_body"] = extra_fields
 
 
+def _apply_tts_save_flag(tts_kwargs: dict[str, typing.Any], save: bool) -> None:
+    """Tool `save` wins over `save` in request_options extra_body / extra_json."""
+    extra_body = tts_kwargs.get("extra_body")
+    if isinstance(extra_body, dict):
+        extra_body.pop("save", None)
+    tts_kwargs["save"] = save
+
+
 def _stt_words_from_timestamps(
     word_timestamp_groups: typing.Optional[typing.Sequence[WordTimestamps]],
 ) -> typing.Optional[typing.List[SttWord]]:
@@ -277,8 +285,7 @@ def text_to_speech(
         tts_kwargs["generation_config"] = generation_config
     if duration is not None:
         _merge_extra_body(tts_kwargs, {"duration": duration})
-    if save:
-        tts_kwargs["save"] = True
+    _apply_tts_save_flag(tts_kwargs, save)
     result = client.tts.generate(**tts_kwargs)
 
     audio_bytes = result.read()
