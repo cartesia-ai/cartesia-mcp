@@ -151,13 +151,16 @@ def _write_audio_output(
     return str(output_file)
 
 
-def _cloud_download_url(
+def _try_cloud_download_url(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
-) -> str:
-    link_url = extra_api.create_file_download_link(client, file_id)
-    return extra_api.with_download_format(link_url, format)
+) -> typing.Optional[str]:
+    try:
+        link_url = extra_api.create_file_download_link(client, file_id)
+        return extra_api.with_download_format(link_url, format)
+    except Exception:
+        return None
 
 
 def _deliver_cloud_file(
@@ -182,12 +185,15 @@ def _deliver_cloud_file(
         filename=local_filename,
         content=content,
     )
-    return DownloadedFileResult(
-        file_id=file_id,
-        download_url=_cloud_download_url(file_id, format=format),
-        file_path=str(output_path),
-        filename=local_filename,
-    )
+    delivered: DownloadedFileResult = {
+        "file_id": file_id,
+        "file_path": str(output_path),
+        "filename": local_filename,
+    }
+    download_url = _try_cloud_download_url(file_id, format=format)
+    if download_url is not None:
+        delivered["download_url"] = download_url
+    return delivered
 
 
 @mcp.tool(
@@ -289,11 +295,14 @@ def text_to_speech(
             "TTS save was requested but the API did not return Cartesia-File-ID",
         )
 
-    return GeneratedAudioResult(
-        file_id=file_id,
-        download_url=_cloud_download_url(file_id),
-        file_path=file_path,
-    )
+    saved: GeneratedAudioResult = {
+        "file_id": file_id,
+        "file_path": file_path,
+    }
+    download_url = _try_cloud_download_url(file_id)
+    if download_url is not None:
+        saved["download_url"] = download_url
+    return saved
 
 
 @mcp.tool(

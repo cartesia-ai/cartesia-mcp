@@ -56,7 +56,7 @@ def test_download_file_returns_url_and_local_path(
     }
 
 
-@patch("cartesia_mcp.server._cloud_download_url")
+@patch("cartesia_mcp.server._try_cloud_download_url")
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_save_returns_cloud_ids(
     mock_client: MagicMock,
@@ -84,6 +84,55 @@ def test_text_to_speech_save_returns_cloud_ids(
         "download_url": "https://files.cartesia.ai/link/link_new",
         "file_path": "/tmp/out.wav",
     }
+
+
+@patch("cartesia_mcp.server._try_cloud_download_url", return_value=None)
+@patch("cartesia_mcp.server.client")
+def test_text_to_speech_save_returns_file_id_when_link_fails(
+    mock_client: MagicMock,
+    _mock_cloud_url: MagicMock,
+) -> None:
+    mock_response = MagicMock(read=lambda: b"audio-bytes")
+    mock_response.headers = {"Cartesia-File-ID": "file_new"}
+    mock_client.tts.generate.return_value = mock_response
+
+    with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
+        result = server.text_to_speech(
+            transcript="Hello",
+            voice={"mode": "id", "id": "voice_abc"},
+            output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
+            save=True,
+        )
+
+    assert result == {"file_id": "file_new", "file_path": "/tmp/out.wav"}
+    assert "download_url" not in result
+
+
+@patch("cartesia_mcp.server.save_downloaded_file")
+@patch("cartesia_mcp.server.extra_api.download_file_bytes")
+@patch("cartesia_mcp.server.extra_api.get_file_info")
+@patch("cartesia_mcp.server._try_cloud_download_url", return_value=None)
+@patch("cartesia_mcp.server.client")
+def test_download_file_returns_local_path_when_link_fails(
+    mock_client: MagicMock,
+    _mock_cloud_url: MagicMock,
+    mock_get_file_info: MagicMock,
+    mock_download_bytes: MagicMock,
+    mock_save: MagicMock,
+) -> None:
+    _ = mock_client
+    mock_get_file_info.return_value = {"id": "file_abc", "filename": "clip.wav"}
+    mock_download_bytes.return_value = b"audio-bytes"
+    mock_save.return_value = Path("/tmp/download_clip.wav")
+
+    result = server.download_file("file_abc")
+
+    assert result == {
+        "file_id": "file_abc",
+        "file_path": "/tmp/download_clip.wav",
+        "filename": "clip.wav",
+    }
+    assert "download_url" not in result
 
 
 @patch("cartesia_mcp.server.client")
