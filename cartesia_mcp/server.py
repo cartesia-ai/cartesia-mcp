@@ -151,11 +151,12 @@ def _write_audio_output(
     return str(output_file)
 
 
-def _try_cloud_download_url(
+def _try_create_download_link(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
 ) -> typing.Optional[str]:
+    """Mint a time-limited public download link; None if POST /links fails."""
     try:
         link_url = extra_api.create_file_download_link(client, file_id)
         return extra_api.with_download_format(link_url, format)
@@ -190,7 +191,7 @@ def _deliver_cloud_file(
         "file_path": str(output_path),
         "filename": local_filename,
     }
-    download_url = _try_cloud_download_url(file_id, format=format)
+    download_url = _try_create_download_link(file_id, format=format)
     if download_url is not None:
         delivered["download_url"] = download_url
     return delivered
@@ -202,8 +203,9 @@ def _deliver_cloud_file(
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
-        (24-hour public link). `file_path` is a local copy for same-machine tools like
-        `speech_to_text` when running MCP locally.
+        (24-hour public link). Hosted clients (Claude, ChatGPT) should use `download_url`.
+        `file_path` is a copy on the MCP server host — useful for local `uvx` and for
+        server-side tools like `speech_to_text` in the same MCP session.
 
         Parameters
         ----------
@@ -299,7 +301,7 @@ def text_to_speech(
         "file_id": file_id,
         "file_path": file_path,
     }
-    download_url = _try_cloud_download_url(file_id)
+    download_url = _try_create_download_link(file_id)
     if download_url is not None:
         saved["download_url"] = download_url
     return saved
@@ -846,8 +848,8 @@ def speech_to_text(
     annotations=_READ_ONLY,
     description="""
         Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
-        hosted and remote clients, and writes a local copy to `OUTPUT_DIRECTORY` for
-        same-machine tools like `speech_to_text`.
+        hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
+        server host (for local `uvx` or server-side `speech_to_text` in the same session).
 
         Use the `file_id` from a prior `text_to_speech` call (`save=true`, the default)
         or from playground TTS history.

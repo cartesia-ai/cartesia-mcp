@@ -56,7 +56,7 @@ def test_download_file_returns_url_and_local_path(
     }
 
 
-@patch("cartesia_mcp.server._try_cloud_download_url")
+@patch("cartesia_mcp.server._try_create_download_link")
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_save_returns_cloud_ids(
     mock_client: MagicMock,
@@ -86,7 +86,7 @@ def test_text_to_speech_save_returns_cloud_ids(
     }
 
 
-@patch("cartesia_mcp.server._try_cloud_download_url", return_value=None)
+@patch("cartesia_mcp.server._try_create_download_link", return_value=None)
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_save_returns_file_id_when_link_fails(
     mock_client: MagicMock,
@@ -111,7 +111,7 @@ def test_text_to_speech_save_returns_file_id_when_link_fails(
 @patch("cartesia_mcp.server.save_downloaded_file")
 @patch("cartesia_mcp.server.extra_api.download_file_bytes")
 @patch("cartesia_mcp.server.extra_api.get_file_info")
-@patch("cartesia_mcp.server._try_cloud_download_url", return_value=None)
+@patch("cartesia_mcp.server._try_create_download_link", return_value=None)
 @patch("cartesia_mcp.server.client")
 def test_download_file_returns_local_path_when_link_fails(
     mock_client: MagicMock,

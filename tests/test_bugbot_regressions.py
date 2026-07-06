@@ -24,7 +24,7 @@ def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -
     mock_client.tts.generate.return_value = mock_response
 
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"), patch(
-        "cartesia_mcp.server._try_cloud_download_url",
+        "cartesia_mcp.server._try_create_download_link",
         return_value="https://example.com/link",
     ):
         server.text_to_speech(
