@@ -89,6 +89,19 @@ def iter_stt_audio_chunks(
     )
 
 
+def resolve_local_download_filename(
+    filename: str,
+    file_id: str,
+    *,
+    as_wav: bool = False,
+) -> str:
+    """Basename for a downloaded file on disk."""
+    safe_name = Path(filename).name.strip() or file_id
+    if as_wav:
+        return f"{Path(safe_name).stem}.wav"
+    return safe_name
+
+
 def save_downloaded_file(
     output_directory: str,
     *,

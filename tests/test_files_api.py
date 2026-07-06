@@ -47,7 +47,7 @@ def test_download_file_writes_to_output_directory(
         "filename": "tts-output.pcm",
     }
     mock_download_bytes.return_value = b"audio-bytes"
-    mock_save.return_value = Path("/tmp/download_tts-output.pcm")
+    mock_save.return_value = Path("/tmp/download_tts-output.wav")
 
     result = server.download_file("file_abc", format="playback")
 
@@ -60,13 +60,13 @@ def test_download_file_writes_to_output_directory(
     mock_save.assert_called_once_with(
         server.OUTPUT_DIRECTORY,
         file_id="file_abc",
-        filename="tts-output.pcm",
+        filename="tts-output.wav",
         content=b"audio-bytes",
     )
     assert result == {
-        "file_path": "/tmp/download_tts-output.pcm",
+        "file_path": "/tmp/download_tts-output.wav",
         "file_id": "file_abc",
-        "filename": "tts-output.pcm",
+        "filename": "tts-output.wav",
     }
 
 
@@ -87,6 +87,32 @@ def test_save_downloaded_file_uses_safe_filename(tmp_path) -> None:
     assert output.parent == tmp_path
     assert output.name == "download_name.wav"
     assert output.read_bytes() == b"data"
+
+
+def test_resolve_local_download_filename_playback_uses_wav() -> None:
+    from cartesia_mcp.utils import resolve_local_download_filename
+
+    assert resolve_local_download_filename("tts-output.pcm", "file_abc") == "tts-output.pcm"
+    assert (
+        resolve_local_download_filename("tts-output.pcm", "file_abc", as_wav=True)
+        == "tts-output.wav"
+    )
+    assert resolve_local_download_filename("noext", "file_abc", as_wav=True) == "noext.wav"
+
+
+def test_save_downloaded_file_playback_pcm_saved_as_wav(tmp_path) -> None:
+    from cartesia_mcp.utils import resolve_local_download_filename, save_downloaded_file
+
+    local_name = resolve_local_download_filename("generation.pcm", "file_abc", as_wav=True)
+    output = save_downloaded_file(
+        str(tmp_path),
+        file_id="file_abc",
+        filename=local_name,
+        content=b"RIFF....WAVE",
+    )
+
+    assert output.suffix == ".wav"
+    assert output.name == "download_generation.wav"
 
 
 @patch("cartesia_mcp.server.client")

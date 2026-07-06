@@ -50,6 +50,7 @@ from cartesia_mcp.utils import (
     create_output_file,
     cursor_page_to_result,
     iter_stt_audio_chunks,
+    resolve_local_download_filename,
     save_downloaded_file,
     voice_list_page_to_result,
 )
@@ -828,18 +829,24 @@ def download_file(
     if not isinstance(filename, str) or not filename.strip():
         filename = file_id
 
+    local_filename = resolve_local_download_filename(
+        filename,
+        file_id,
+        as_wav=format == "playback",
+    )
+
     content = extra_api.download_file_bytes(client, file_id, format=format)
     output_path = save_downloaded_file(
         OUTPUT_DIRECTORY,
         file_id=file_id,
-        filename=filename,
+        filename=local_filename,
         content=content,
     )
 
     return DownloadedFileResult(
         file_path=str(output_path),
         file_id=file_id,
-        filename=Path(filename).name,
+        filename=local_filename,
     )
 
 
