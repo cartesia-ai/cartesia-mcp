@@ -1,33 +1,46 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import cartesia_mcp.extra_api as extra_api
 import cartesia_mcp.server as server
 
 
+@pytest.fixture
+def prod_files_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CARTESIA_FILES_BASE_URL", raising=False)
+
+
 @patch("cartesia_mcp.server.client")
-def test_list_files_forwards_query_params(mock_client: MagicMock) -> None:
+def test_list_files_forwards_query_params(
+    mock_client: MagicMock,
+    prod_files_base_url: None,
+) -> None:
     mock_client.get.return_value = {"data": [], "has_more": False}
 
     server.list_files(limit=5, purpose="tts_generation", query="demo")
 
     mock_client.get.assert_called_once()
     args, kwargs = mock_client.get.call_args
-    assert args[0] == "https://files.cartesia.ai/files"
+    assert args[0] == extra_api._files_url("/files")
     assert kwargs["options"] == {
         "params": {"limit": "5", "purpose": "tts_generation", "q": "demo"},
     }
 
 
 @patch("cartesia_mcp.server.client")
-def test_get_file_calls_info_endpoint(mock_client: MagicMock) -> None:
+def test_get_file_calls_info_endpoint(
+    mock_client: MagicMock,
+    prod_files_base_url: None,
+) -> None:
     mock_client.get.return_value = {"id": "file_abc", "filename": "clip.wav"}
 
     result = server.get_file("file_abc")
 
     mock_client.get.assert_called_once()
     args, _kwargs = mock_client.get.call_args
-    assert args[0] == "https://files.cartesia.ai/files/file_abc/info"
+    assert args[0] == extra_api._files_url("/files/file_abc/info")
     assert result["filename"] == "clip.wav"
 
 
@@ -70,8 +83,14 @@ def test_download_file_writes_to_output_directory(
     }
 
 
-def test_files_base_url_defaults_to_prod() -> None:
-    assert extra_api.files_base_url() == "https://files.cartesia.ai"
+def test_files_base_url_defaults_to_prod(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CARTESIA_FILES_BASE_URL", raising=False)
+    assert extra_api.files_base_url() == extra_api.DEFAULT_FILES_BASE_URL
+
+
+def test_files_base_url_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CARTESIA_FILES_BASE_URL", "https://files.staging.example")
+    assert extra_api.files_base_url() == "https://files.staging.example"
 
 
 def test_save_downloaded_file_uses_safe_filename(tmp_path) -> None:
