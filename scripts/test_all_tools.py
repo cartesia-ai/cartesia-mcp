@@ -147,9 +147,19 @@ def main() -> int:
         try:
             tts_path = assert_str_path(tts_result, "text_to_speech")
             ok("text_to_speech output", tts_path)
+            file_id = tts_result.get("file_id")
+            download_url = tts_result.get("download_url")
+            if not file_id or not download_url:
+                failures.append("text_to_speech(cloud)")
+                print("  FAIL text_to_speech: missing file_id or download_url (save=true)")
+            else:
+                ok("text_to_speech cloud", f"file_id={file_id}")
         except Exception as e:  # noqa: BLE001
             fail("text_to_speech validation", e)
             failures.append("text_to_speech(validation)")
+            file_id = None
+    else:
+        file_id = None
 
     if tts_path and os.path.isfile(tts_path):
         stt_result = run(
@@ -185,24 +195,22 @@ def main() -> int:
     else:
         print("  SKIP get_credit_usage — set CARTESIA_ADMIN_API_KEY to test")
 
-    files_result = run("list_files", lambda: s.list_files(limit=5))
-    cloud_file_id: str | None = os.environ.get("CARTESIA_TEST_FILE_ID")
-    if files_result and not cloud_file_id:
-        items = files_result.get("data", [])
-        if items:
-            cloud_file_id = items[0].get("id")
+    cloud_file_id: str | None = os.environ.get("CARTESIA_TEST_FILE_ID") or (
+        tts_result.get("file_id") if isinstance(tts_result, dict) else None
+    )
 
     if cloud_file_id:
-        run("get_file", lambda: s.get_file(cloud_file_id))
         dl_result = run("download_file", lambda: s.download_file(cloud_file_id))
         if dl_result is not None:
             try:
                 assert_str_path(dl_result, "download_file")
+                if not dl_result.get("download_url"):
+                    raise ValueError("download_file: missing download_url")
             except Exception as e:  # noqa: BLE001
                 fail("download_file validation", e)
                 failures.append("download_file(validation)")
     else:
-        print("  SKIP get_file / download_file — no cloud files in account")
+        print("  SKIP download_file — no file_id from text_to_speech or CARTESIA_TEST_FILE_ID")
 
     dict_name = f"{TEST_DICT_NAME_PREFIX} {run_id}"
     create_dict = run(
