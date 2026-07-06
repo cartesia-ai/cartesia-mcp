@@ -80,6 +80,27 @@ def test_text_to_speech_save_false_overrides_extra_body_save(
     assert "file_id" not in result
 
 
+@patch("cartesia_mcp.server.client")
+def test_text_to_speech_save_flag_does_not_mutate_request_options(
+    mock_client: MagicMock,
+) -> None:
+    mock_response = MagicMock(read=lambda: b"audio-bytes")
+    mock_response.headers = {}
+    mock_client.tts.generate.return_value = mock_response
+    request_options = {"extra_json": {"save": True, "duration": 1.5}}
+
+    with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
+        server.text_to_speech(
+            transcript="Hello",
+            voice={"mode": "id", "id": "voice_abc"},
+            output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
+            save=False,
+            request_options=request_options,
+        )
+
+    assert request_options["extra_json"] == {"save": True, "duration": 1.5}
+
+
 @patch("cartesia_mcp.server._try_create_download_link")
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_save_returns_cloud_ids(

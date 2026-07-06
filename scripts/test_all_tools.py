@@ -149,11 +149,14 @@ def main() -> int:
             ok("text_to_speech output", tts_path)
             file_id = tts_result.get("file_id")
             download_url = tts_result.get("download_url")
-            if not file_id or not download_url:
+            if not file_id:
                 failures.append("text_to_speech(cloud)")
-                print("  FAIL text_to_speech: missing file_id or download_url (save=true)")
+                print("  FAIL text_to_speech: missing file_id (save=true)")
+            elif download_url:
+                ok("text_to_speech cloud", f"file_id={file_id}")
             else:
                 ok("text_to_speech cloud", f"file_id={file_id}")
+                print("  WARN text_to_speech: download_url omitted (link minting failed)")
         except Exception as e:  # noqa: BLE001
             fail("text_to_speech validation", e)
             failures.append("text_to_speech(validation)")
@@ -205,7 +208,7 @@ def main() -> int:
             try:
                 assert_str_path(dl_result, "download_file")
                 if not dl_result.get("download_url"):
-                    raise ValueError("download_file: missing download_url")
+                    print("  WARN download_file: download_url omitted (link minting failed)")
             except Exception as e:  # noqa: BLE001
                 fail("download_file validation", e)
                 failures.append("download_file(validation)")

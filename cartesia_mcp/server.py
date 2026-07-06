@@ -115,8 +115,12 @@ def _merge_extra_body(
 def _apply_tts_save_flag(tts_kwargs: dict[str, typing.Any], save: bool) -> None:
     """Tool `save` wins over `save` in request_options extra_body / extra_json."""
     extra_body = tts_kwargs.get("extra_body")
-    if isinstance(extra_body, dict):
-        extra_body.pop("save", None)
+    if isinstance(extra_body, dict) and "save" in extra_body:
+        stripped = {key: value for key, value in extra_body.items() if key != "save"}
+        if stripped:
+            tts_kwargs["extra_body"] = stripped
+        else:
+            tts_kwargs.pop("extra_body", None)
     tts_kwargs["save"] = save
 
 
