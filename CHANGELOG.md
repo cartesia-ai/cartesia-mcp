@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.13.0...cartesia-mcp-v0.14.0) (2026-07-06)
+
+
+### Features
+
+* persist TTS to cloud and return download URLs ([#52](https://github.com/cartesia-ai/cartesia-mcp/issues/52)) ([da432cd](https://github.com/cartesia-ai/cartesia-mcp/commit/da432cdc35805ebff09e530ab1a8c6bc2d1c98b3))
+
 ## [0.13.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.12.0...cartesia-mcp-v0.13.0) (2026-07-06)
 
 
