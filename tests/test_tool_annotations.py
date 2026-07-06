@@ -7,7 +7,7 @@ import cartesia_mcp.server as server
 
 def test_all_tools_have_title_and_hint():
     tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 15
+    assert len(tools) == 18
 
     for tool in tools:
         assert tool.title, f"{tool.name} is missing title"
@@ -19,7 +19,10 @@ def test_all_tools_have_title_and_hint():
 
 def test_read_only_tools():
     read_only = {
+        "download_file",
+        "get_file",
         "get_voice",
+        "list_files",
         "list_voices",
         "speech_to_text",
         "get_credit_usage",
