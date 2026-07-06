@@ -27,7 +27,6 @@ from cartesia.types.tts_generate_params import OutputFormat
 from cartesia.types.voice_specifier_param import VoiceSpecifierParam
 
 from cartesia_mcp.custom_types import (
-    DeleteFileResult,
     DeletePronunciationDictResult,
     DeleteVoiceResult,
     DownloadedFileResult,
@@ -761,7 +760,11 @@ def speech_to_text(
     title="List files",
     annotations=_READ_ONLY,
     description="""
-        List files in Cartesia cloud storage (`GET /files` on `files.cartesia.ai`).
+        List files stored by Cartesia for your org (`GET /files` on `files.cartesia.ai`).
+
+        Use to discover cloud-stored generations (e.g. playground TTS history with
+        `purpose=tts_generation`) before calling `download_file`. This is not a
+        generic upload target — use `text_to_speech` / `voice_change` to generate audio.
 
         Parameters
         ----------
@@ -809,8 +812,11 @@ def get_file(file_id: str) -> dict[str, typing.Any]:
     title="Download file",
     annotations=_READ_ONLY,
     description="""
-        Download a file from cloud storage to the local output directory
+        Download a Cartesia cloud-stored file to the local output directory
         (`GET /files/{id}/download` on `files.cartesia.ai`).
+
+        Typical use: pull a `tts_generation` or other org-owned asset for local
+        playback or `speech_to_text`.
 
         Parameters
         ----------
@@ -848,43 +854,6 @@ def download_file(
         file_id=file_id,
         filename=local_filename,
     )
-
-
-@mcp.tool(
-    title="Upload file",
-    annotations=_WRITE,
-    description="""
-        Upload a local file to Cartesia cloud storage (`POST /files` on `files.cartesia.ai`).
-
-        Parameters
-        ----------
-        file_path : str
-            Absolute path to the local file to upload.
-
-        purpose : FilePurpose
-            File purpose tag (e.g. `original-audio-clip`, `voice-clone`).
-        """)
-def upload_file(
-    file_path: str,
-    purpose: FilePurpose,
-) -> dict[str, typing.Any]:
-    return extra_api.upload_file(client, file_path=file_path, purpose=purpose)
-
-
-@mcp.tool(
-    title="Delete file",
-    annotations=_WRITE,
-    description="""
-        Delete a file from Cartesia cloud storage (`DELETE /files/{id}` on `files.cartesia.ai`).
-
-        Parameters
-        ----------
-        file_id : str
-            File ID to delete.
-        """)
-def delete_file(file_id: str) -> DeleteFileResult:
-    extra_api.delete_file(client, file_id)
-    return DeleteFileResult(success=True)
 
 
 @mcp.tool(

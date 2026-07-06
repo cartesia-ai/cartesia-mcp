@@ -107,28 +107,3 @@ def list_files(
         cast_to=dict[str, typing.Any],
         options={"params": params} if params else None,
     )
-
-
-def upload_file(
-    client: Cartesia,
-    *,
-    file_path: str,
-    purpose: FilePurpose,
-) -> dict[str, typing.Any]:
-    from pathlib import Path
-
-    path = Path(file_path)
-    with path.open("rb") as file_obj:
-        return client.post(
-            _files_url("/files"),
-            cast_to=dict[str, typing.Any],
-            body={"purpose": purpose},
-            files=[("file", (path.name, file_obj))],
-        )
-
-
-def delete_file(client: Cartesia, file_id: str) -> dict[str, typing.Any]:
-    return client.delete(
-        _files_url(f"/files/{file_id}"),
-        cast_to=dict[str, typing.Any],
-    )

@@ -5,10 +5,6 @@ class DeleteVoiceResult(typing.TypedDict):
     success: bool
 
 
-class DeleteFileResult(typing.TypedDict):
-    success: bool
-
-
 class GeneratedAudioResult(typing.TypedDict):
     file_path: str
 

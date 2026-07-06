@@ -7,7 +7,7 @@ import cartesia_mcp.server as server
 
 def test_all_tools_have_title_and_hint():
     tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 20
+    assert len(tools) == 18
 
     for tool in tools:
         assert tool.title, f"{tool.name} is missing title"
@@ -46,8 +46,6 @@ def test_write_tools():
         "create_pronunciation_dict",
         "update_pronunciation_dict",
         "delete_pronunciation_dict",
-        "upload_file",
-        "delete_file",
     }
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in write_tools:

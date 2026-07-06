@@ -187,25 +187,10 @@ def main() -> int:
 
     files_result = run("list_files", lambda: s.list_files(limit=5))
     cloud_file_id: str | None = os.environ.get("CARTESIA_TEST_FILE_ID")
-    uploaded_file_id: str | None = None
     if files_result and not cloud_file_id:
         items = files_result.get("data", [])
         if items:
             cloud_file_id = items[0].get("id")
-
-    if tts_path and os.path.isfile(tts_path):
-        upload_result = run(
-            "upload_file",
-            lambda: s.upload_file(
-                file_path=tts_path,
-                purpose="original-audio-clip",
-            ),
-        )
-        if upload_result:
-            uploaded_file_id = upload_result.get("id")
-            if uploaded_file_id:
-                cloud_file_id = uploaded_file_id
-                ok("upload_file", f"id={uploaded_file_id}")
 
     if cloud_file_id:
         run("get_file", lambda: s.get_file(cloud_file_id))
@@ -218,12 +203,6 @@ def main() -> int:
                 failures.append("download_file(validation)")
     else:
         print("  SKIP get_file / download_file — no cloud files in account")
-
-    if uploaded_file_id:
-        run(
-            "delete_file",
-            lambda: s.delete_file(uploaded_file_id),
-        )
 
     dict_name = f"{TEST_DICT_NAME_PREFIX} {run_id}"
     create_dict = run(

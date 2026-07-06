@@ -113,32 +113,3 @@ def test_save_downloaded_file_playback_pcm_saved_as_wav(tmp_path) -> None:
 
     assert output.suffix == ".wav"
     assert output.name == "download_generation.wav"
-
-
-@patch("cartesia_mcp.server.client")
-def test_upload_file_posts_multipart(mock_client: MagicMock, tmp_path) -> None:
-    mock_client.post.return_value = {"id": "file_new", "filename": "clip.wav"}
-    file_path = tmp_path / "clip.wav"
-    file_path.write_bytes(b"audio")
-
-    result = server.upload_file(str(file_path), purpose="original-audio-clip")
-
-    mock_client.post.assert_called_once()
-    args, kwargs = mock_client.post.call_args
-    assert args[0] == "https://files.cartesia.ai/files"
-    assert kwargs["body"] == {"purpose": "original-audio-clip"}
-    uploaded_name, _file_obj = kwargs["files"][0][1]
-    assert uploaded_name == "clip.wav"
-    assert result["id"] == "file_new"
-
-
-@patch("cartesia_mcp.server.client")
-def test_delete_file_calls_delete_endpoint(mock_client: MagicMock) -> None:
-    mock_client.delete.return_value = {"message": "File deleted successfully"}
-
-    result = server.delete_file("file_abc")
-
-    mock_client.delete.assert_called_once()
-    args, _kwargs = mock_client.delete.call_args
-    assert args[0] == "https://files.cartesia.ai/files/file_abc"
-    assert result == {"success": True}
