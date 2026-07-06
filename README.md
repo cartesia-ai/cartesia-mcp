@@ -71,9 +71,11 @@ Ask your agent things like:
 | `get_pronunciation_dict` | Get a pronunciation dictionary by ID |
 | `update_pronunciation_dict` | Update a pronunciation dictionary |
 | `delete_pronunciation_dict` | Delete a pronunciation dictionary |
-| `list_files` | List cloud-stored files (filter by purpose, e.g. `tts_generation`) |
-| `get_file` | Get cloud file metadata by ID |
-| `download_file` | Download a cloud file to the local output directory |
+| `list_files` | List files in cloud storage (`GET /files`) |
+| `get_file` | Get file metadata (`GET /files/{id}/info`) |
+| `download_file` | Download a file to the local output directory |
+| `upload_file` | Upload a local file to cloud storage (`POST /files`) |
+| `delete_file` | Delete a file from cloud storage (`DELETE /files/{id}`) |
 | `get_credit_usage` | Credit usage over time (`CARTESIA_ADMIN_API_KEY`) |
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.

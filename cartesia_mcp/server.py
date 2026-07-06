@@ -27,6 +27,7 @@ from cartesia.types.tts_generate_params import OutputFormat
 from cartesia.types.voice_specifier_param import VoiceSpecifierParam
 
 from cartesia_mcp.custom_types import (
+    DeleteFileResult,
     DeletePronunciationDictResult,
     DeleteVoiceResult,
     DownloadedFileResult,
@@ -756,13 +757,10 @@ def speech_to_text(
 
 
 @mcp.tool(
-    title="List cloud files",
+    title="List files",
     annotations=_READ_ONLY,
     description="""
-        List files stored in Cartesia cloud storage (`files.cartesia.ai`).
-
-        Use this to discover file IDs for TTS generations, voice samples, and other
-        uploaded assets before calling `download_file`.
+        List files in Cartesia cloud storage (`GET /files` on `files.cartesia.ai`).
 
         Parameters
         ----------
@@ -770,7 +768,7 @@ def speech_to_text(
             Number of files per page (1–100).
 
         purpose : typing.Optional[FilePurpose]
-            Filter by purpose, e.g. `tts_generation` for playground/API TTS outputs.
+            Filter by purpose (e.g. `tts_generation`, `voice-clone`, `voice_sample`).
 
         query : typing.Optional[str]
             Search by filename.
@@ -792,36 +790,34 @@ def list_files(
 
 
 @mcp.tool(
-    title="Get cloud file metadata",
+    title="Get file metadata",
     annotations=_READ_ONLY,
     description="""
-        Fetch metadata for a file in Cartesia cloud storage by ID.
+        Fetch file metadata (`GET /files/{id}/info` on `files.cartesia.ai`).
 
         Parameters
         ----------
         file_id : str
-            Cloud file ID (from TTS history, `list_files`, or API responses).
+            File ID.
         """)
 def get_file(file_id: str) -> dict[str, typing.Any]:
     return extra_api.get_file_info(client, file_id)
 
 
 @mcp.tool(
-    title="Download cloud file",
+    title="Download file",
     annotations=_READ_ONLY,
     description="""
-        Download a file from Cartesia cloud storage to the local output directory.
-
-        Use for TTS generations saved to cloud (`purpose=tts_generation`), voice
-        previews, and other files owned by the authenticated account.
+        Download a file from cloud storage to the local output directory
+        (`GET /files/{id}/download` on `files.cartesia.ai`).
 
         Parameters
         ----------
         file_id : str
-            Cloud file ID to download.
+            File ID to download.
 
         format : typing.Optional[DownloadFormat]
-            Pass `playback` to wrap raw PCM TTS output as WAV for local playback.
+            Pass `playback` to wrap raw PCM as WAV for local playback.
         """)
 def download_file(
     file_id: str,
@@ -845,6 +841,43 @@ def download_file(
         file_id=file_id,
         filename=Path(filename).name,
     )
+
+
+@mcp.tool(
+    title="Upload file",
+    annotations=_WRITE,
+    description="""
+        Upload a local file to Cartesia cloud storage (`POST /files` on `files.cartesia.ai`).
+
+        Parameters
+        ----------
+        file_path : str
+            Absolute path to the local file to upload.
+
+        purpose : FilePurpose
+            File purpose tag (e.g. `original-audio-clip`, `voice-clone`).
+        """)
+def upload_file(
+    file_path: str,
+    purpose: FilePurpose,
+) -> dict[str, typing.Any]:
+    return extra_api.upload_file(client, file_path=file_path, purpose=purpose)
+
+
+@mcp.tool(
+    title="Delete file",
+    annotations=_WRITE,
+    description="""
+        Delete a file from Cartesia cloud storage (`DELETE /files/{id}` on `files.cartesia.ai`).
+
+        Parameters
+        ----------
+        file_id : str
+            File ID to delete.
+        """)
+def delete_file(file_id: str) -> DeleteFileResult:
+    extra_api.delete_file(client, file_id)
+    return DeleteFileResult(success=True)
 
 
 @mcp.tool(
