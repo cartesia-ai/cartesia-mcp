@@ -89,6 +89,36 @@ def iter_stt_audio_chunks(
     )
 
 
+def save_downloaded_file(
+    output_directory: str,
+    *,
+    file_id: str,
+    filename: str,
+    content: bytes,
+) -> Path:
+    dir_path = Path(output_directory)
+    dir_path.mkdir(parents=True, exist_ok=True)
+
+    if not os.access(dir_path, os.W_OK):
+        raise Exception(f"Output directory {dir_path} is not writable")
+
+    safe_name = Path(filename).name.strip() or file_id
+    if not Path(safe_name).suffix:
+        safe_name = f"{safe_name}.bin"
+
+    output_path = dir_path / f"download_{safe_name}"
+    if output_path.exists():
+        stem = Path(safe_name).stem
+        suffix = Path(safe_name).suffix
+        ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_path = dir_path / f"download_{stem}_{ts}{suffix}"
+
+    with output_path.open("wb") as f:
+        f.write(content)
+
+    return output_path
+
+
 def create_output_file(output_directory: str, tool_type: ToolType,
                        extension: OutputFormatContainer) -> Path:
     dir_path = Path(output_directory)

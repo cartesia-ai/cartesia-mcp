@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 import typing
+from pathlib import Path
 from dotenv import load_dotenv
 from mcp.types import ToolAnnotations
 from cartesia import Cartesia, RequestOptions, omit
@@ -28,14 +29,16 @@ from cartesia.types.voice_specifier_param import VoiceSpecifierParam
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
+    DownloadedFileResult,
     GeneratedAudioResult,
+    ListFilesResult,
     ListPronunciationDictsResult,
     ListVoicesResult,
     PronunciationDictItemParams,
 )
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
-from cartesia_mcp.extra_api import UsageInterval
+from cartesia_mcp.extra_api import DownloadFormat, FilePurpose, UsageInterval
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
 from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
@@ -46,6 +49,7 @@ from cartesia_mcp.utils import (
     create_output_file,
     cursor_page_to_result,
     iter_stt_audio_chunks,
+    save_downloaded_file,
     voice_list_page_to_result,
 )
 
@@ -748,6 +752,98 @@ def speech_to_text(
         sample_rate=sample_rate,
         timestamp_granularities=timestamp_granularities,
         request_options=request_options,
+    )
+
+
+@mcp.tool(
+    title="List cloud files",
+    annotations=_READ_ONLY,
+    description="""
+        List files stored in Cartesia cloud storage (`files.cartesia.ai`).
+
+        Use this to discover file IDs for TTS generations, voice samples, and other
+        uploaded assets before calling `download_file`.
+
+        Parameters
+        ----------
+        limit : typing.Optional[int]
+            Number of files per page (1–100).
+
+        purpose : typing.Optional[FilePurpose]
+            Filter by purpose, e.g. `tts_generation` for playground/API TTS outputs.
+
+        query : typing.Optional[str]
+            Search by filename.
+        """)
+def list_files(
+    limit: typing.Optional[int] = 10,
+    purpose: typing.Optional[FilePurpose] = None,
+    query: typing.Optional[str] = None,
+) -> ListFilesResult:
+    return typing.cast(
+        ListFilesResult,
+        extra_api.list_files(
+            client,
+            limit=limit,
+            purpose=purpose,
+            query=query,
+        ),
+    )
+
+
+@mcp.tool(
+    title="Get cloud file metadata",
+    annotations=_READ_ONLY,
+    description="""
+        Fetch metadata for a file in Cartesia cloud storage by ID.
+
+        Parameters
+        ----------
+        file_id : str
+            Cloud file ID (from TTS history, `list_files`, or API responses).
+        """)
+def get_file(file_id: str) -> dict[str, typing.Any]:
+    return extra_api.get_file_info(client, file_id)
+
+
+@mcp.tool(
+    title="Download cloud file",
+    annotations=_READ_ONLY,
+    description="""
+        Download a file from Cartesia cloud storage to the local output directory.
+
+        Use for TTS generations saved to cloud (`purpose=tts_generation`), voice
+        previews, and other files owned by the authenticated account.
+
+        Parameters
+        ----------
+        file_id : str
+            Cloud file ID to download.
+
+        format : typing.Optional[DownloadFormat]
+            Pass `playback` to wrap raw PCM TTS output as WAV for local playback.
+        """)
+def download_file(
+    file_id: str,
+    format: typing.Optional[DownloadFormat] = None,
+) -> DownloadedFileResult:
+    metadata = extra_api.get_file_info(client, file_id)
+    filename = metadata.get("filename")
+    if not isinstance(filename, str) or not filename.strip():
+        filename = file_id
+
+    content = extra_api.download_file_bytes(client, file_id, format=format)
+    output_path = save_downloaded_file(
+        OUTPUT_DIRECTORY,
+        file_id=file_id,
+        filename=filename,
+        content=content,
+    )
+
+    return DownloadedFileResult(
+        file_path=str(output_path),
+        file_id=file_id,
+        filename=Path(filename).name,
     )
 
 
