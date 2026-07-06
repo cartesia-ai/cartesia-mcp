@@ -57,7 +57,7 @@ Ask your agent things like:
 
 | Tool | Description |
 |------|-------------|
-| `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict |
+| `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
 | `speech_to_text` | Transcribe an audio file (`mode=batch` default, or `mode=stream`) |
 | `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
@@ -71,9 +71,7 @@ Ask your agent things like:
 | `get_pronunciation_dict` | Get a pronunciation dictionary by ID |
 | `update_pronunciation_dict` | Update a pronunciation dictionary |
 | `delete_pronunciation_dict` | Delete a pronunciation dictionary |
-| `list_files` | List Cartesia cloud-stored files (e.g. `tts_generation` history) |
-| `get_file` | Get cloud file metadata (`GET /files/{id}/info`) |
-| `download_file` | Download a cloud-stored file to the local output directory |
+| `download_file` | Fetch a cloud file by ID (`download_url` + local copy) |
 | `get_credit_usage` | Credit usage over time (`CARTESIA_ADMIN_API_KEY`) |
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.

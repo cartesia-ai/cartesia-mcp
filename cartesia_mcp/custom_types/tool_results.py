@@ -5,24 +5,22 @@ class DeleteVoiceResult(typing.TypedDict):
     success: bool
 
 
-class GeneratedAudioResult(typing.TypedDict):
-    file_path: str
+class GeneratedAudioResult(typing.TypedDict, total=False):
+    """TTS with save=true returns file_id and usually download_url; voice_change is local-only."""
 
-
-class DownloadedFileResult(typing.TypedDict):
-    file_path: str
     file_id: str
+    download_url: str
+    file_path: str
+
+
+class DownloadedFileResult(typing.TypedDict, total=False):
+    file_id: str
+    file_path: str
     filename: str
-
-
-class ListFilesResult(typing.TypedDict, total=False):
-    data: typing.List[typing.Any]
-    has_more: bool
+    download_url: str
 
 
 class ListVoicesResult(typing.TypedDict, total=False):
     data: typing.List[typing.Any]
     has_more: bool
     next_page: str
-
-

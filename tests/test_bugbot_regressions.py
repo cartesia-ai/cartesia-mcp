@@ -19,11 +19,14 @@ def test_stt_words_from_timestamps_flattens_word_timestamps() -> None:
 
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -> None:
-    mock_client.tts.generate.return_value = MagicMock(read=lambda: b"audio")
+    mock_response = MagicMock(read=lambda: b"audio")
+    mock_response.headers = {"Cartesia-File-ID": "file_test"}
+    mock_client.tts.generate.return_value = mock_response
 
-    with patch("cartesia_mcp.server.create_output_file") as mock_output:
-        mock_output.return_value.open.return_value.__enter__ = MagicMock()
-        mock_output.return_value.open.return_value.__exit__ = MagicMock(return_value=False)
+    with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"), patch(
+        "cartesia_mcp.server._try_create_download_link",
+        return_value="https://example.com/link",
+    ):
         server.text_to_speech(
             transcript="hello",
             voice={"mode": "id", "id": "voice-id"},
@@ -33,6 +36,7 @@ def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -
 
     kwargs = mock_client.tts.generate.call_args.kwargs
     assert kwargs["extra_body"] == {"duration": 12.5}
+    assert kwargs["save"] is True
 
 
 @patch("cartesia_mcp.server.client")

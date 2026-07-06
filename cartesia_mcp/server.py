@@ -31,14 +31,13 @@ from cartesia_mcp.custom_types import (
     DeleteVoiceResult,
     DownloadedFileResult,
     GeneratedAudioResult,
-    ListFilesResult,
     ListPronunciationDictsResult,
     ListVoicesResult,
     PronunciationDictItemParams,
 )
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
-from cartesia_mcp.extra_api import DownloadFormat, FilePurpose, UsageInterval
+from cartesia_mcp.extra_api import DownloadFormat, UsageInterval
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
 from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
@@ -113,6 +112,18 @@ def _merge_extra_body(
         sdk_kwargs["extra_body"] = extra_fields
 
 
+def _apply_tts_save_flag(tts_kwargs: dict[str, typing.Any], save: bool) -> None:
+    """Tool `save` wins over `save` in request_options extra_body / extra_json."""
+    extra_body = tts_kwargs.get("extra_body")
+    if isinstance(extra_body, dict) and "save" in extra_body:
+        stripped = {key: value for key, value in extra_body.items() if key != "save"}
+        if stripped:
+            tts_kwargs["extra_body"] = stripped
+        else:
+            tts_kwargs.pop("extra_body", None)
+    tts_kwargs["save"] = save
+
+
 def _stt_words_from_timestamps(
     word_timestamp_groups: typing.Optional[typing.Sequence[WordTimestamps]],
 ) -> typing.Optional[typing.List[SttWord]]:
@@ -141,10 +152,73 @@ def _stream_stt_uses_manual_finalize(
     return language is not None and language != "en"
 
 
+def _write_audio_output(
+    audio_bytes: bytes,
+    tool_type: typing.Literal["text_to_speech", "voice_change"],
+    extension: OutputFormatContainer,
+) -> str:
+    output_file = create_output_file(OUTPUT_DIRECTORY, tool_type, extension)
+    with output_file.open("wb") as f:
+        f.write(audio_bytes)
+    return str(output_file)
+
+
+def _try_create_download_link(
+    file_id: str,
+    *,
+    format: typing.Optional[DownloadFormat] = None,
+) -> typing.Optional[str]:
+    """Mint a time-limited public download link; None if POST /links fails."""
+    try:
+        link_url = extra_api.create_file_download_link(client, file_id)
+        return extra_api.with_download_format(link_url, format)
+    except Exception:
+        return None
+
+
+def _deliver_cloud_file(
+    file_id: str,
+    *,
+    format: typing.Optional[DownloadFormat] = None,
+) -> DownloadedFileResult:
+    metadata = extra_api.get_file_info(client, file_id)
+    filename = metadata.get("filename")
+    if not isinstance(filename, str) or not filename.strip():
+        filename = file_id
+
+    local_filename = resolve_local_download_filename(
+        filename,
+        file_id,
+        as_wav=format == "playback",
+    )
+    content = extra_api.download_file_bytes(client, file_id, format=format)
+    output_path = save_downloaded_file(
+        OUTPUT_DIRECTORY,
+        file_id=file_id,
+        filename=local_filename,
+        content=content,
+    )
+    delivered: DownloadedFileResult = {
+        "file_id": file_id,
+        "file_path": str(output_path),
+        "filename": local_filename,
+    }
+    download_url = _try_create_download_link(file_id, format=format)
+    if download_url is not None:
+        delivered["download_url"] = download_url
+    return delivered
+
+
 @mcp.tool(
     title="Convert text to speech",
     annotations=_WRITE,
     description="""
+        Generate speech audio from text. By default (`save=true`) the audio is persisted
+        in Cartesia cloud storage and the response includes `file_id` and `download_url`
+        (24-hour public link). Hosted clients (Claude, ChatGPT) should use `download_url`.
+        `file_path` is a copy on the MCP server host — useful for local `uvx` and for
+        server-side tools like `speech_to_text` in the same MCP session.
+
         Parameters
         ----------
         transcript : str
@@ -174,6 +248,11 @@ def _stream_stt_uses_manual_finalize(
         pronunciation_dict_id : typing.Optional[str]
             Pronunciation dictionary ID to apply for this generation only.
 
+        save : bool
+            When true (default), persist the generation to cloud storage and return `file_id`
+            plus `download_url`. Pass `download_file` with that `file_id` to refresh the link
+            or write another local copy.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration (timeout, headers, query params, extra body fields).
 
@@ -189,6 +268,7 @@ def text_to_speech(
     volume: typing.Optional[float] = None,
     emotion: typing.Optional[str] = None,
     pronunciation_dict_id: typing.Optional[str] = None,
+    save: bool = True,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
     generation_config = _build_generation_config(
@@ -209,16 +289,33 @@ def text_to_speech(
         tts_kwargs["generation_config"] = generation_config
     if duration is not None:
         _merge_extra_body(tts_kwargs, {"duration": duration})
+    _apply_tts_save_flag(tts_kwargs, save)
     result = client.tts.generate(**tts_kwargs)
 
-    output_file = create_output_file(OUTPUT_DIRECTORY, "text_to_speech",
-                                        output_format["container"])
-
     audio_bytes = result.read()
-    with output_file.open("wb") as f:
-        f.write(audio_bytes)
+    file_path = _write_audio_output(
+        audio_bytes,
+        "text_to_speech",
+        output_format["container"],
+    )
 
-    return GeneratedAudioResult(file_path=str(output_file))
+    if not save:
+        return GeneratedAudioResult(file_path=file_path)
+
+    file_id = extra_api.file_id_from_response_headers(result.headers)
+    if not file_id:
+        raise RuntimeError(
+            "TTS save was requested but the API did not return Cartesia-File-ID",
+        )
+
+    saved: GeneratedAudioResult = {
+        "file_id": file_id,
+        "file_path": file_path,
+    }
+    download_url = _try_create_download_link(file_id)
+    if download_url is not None:
+        saved["download_url"] = download_url
+    return saved
 
 
 @mcp.tool(
@@ -269,12 +366,13 @@ def voice_change(
         )
         audio_bytes = result.read()
 
-    output_file = create_output_file(OUTPUT_DIRECTORY, "voice_change",
-                                        output_format_container)
-    with output_file.open("wb") as f:
-        f.write(audio_bytes)
+    file_path = _write_audio_output(
+        audio_bytes,
+        "voice_change",
+        output_format_container,
+    )
 
-    return GeneratedAudioResult(file_path=str(output_file))
+    return GeneratedAudioResult(file_path=file_path)
 
 @mcp.tool(
     title="Localize voice",
@@ -757,103 +855,29 @@ def speech_to_text(
 
 
 @mcp.tool(
-    title="List files",
-    annotations=_READ_ONLY,
-    description="""
-        List files stored by Cartesia for your org (`GET /files` on `files.cartesia.ai`).
-
-        Use to discover cloud-stored generations (e.g. playground TTS history with
-        `purpose=tts_generation`) before calling `download_file`. This is not a
-        generic upload target — use `text_to_speech` / `voice_change` to generate audio.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-            Number of files per page (1–100).
-
-        purpose : typing.Optional[FilePurpose]
-            Filter by purpose (e.g. `tts_generation`, `voice-clone`, `voice_sample`).
-
-        query : typing.Optional[str]
-            Search by filename.
-        """)
-def list_files(
-    limit: typing.Optional[int] = 10,
-    purpose: typing.Optional[FilePurpose] = None,
-    query: typing.Optional[str] = None,
-) -> ListFilesResult:
-    return typing.cast(
-        ListFilesResult,
-        extra_api.list_files(
-            client,
-            limit=limit,
-            purpose=purpose,
-            query=query,
-        ),
-    )
-
-
-@mcp.tool(
-    title="Get file metadata",
-    annotations=_READ_ONLY,
-    description="""
-        Fetch file metadata (`GET /files/{id}/info` on `files.cartesia.ai`).
-
-        Parameters
-        ----------
-        file_id : str
-            File ID.
-        """)
-def get_file(file_id: str) -> dict[str, typing.Any]:
-    return extra_api.get_file_info(client, file_id)
-
-
-@mcp.tool(
     title="Download file",
     annotations=_READ_ONLY,
     description="""
-        Download a Cartesia cloud-stored file to the local output directory
-        (`GET /files/{id}/download` on `files.cartesia.ai`).
+        Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
+        hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
+        server host (for local `uvx` or server-side `speech_to_text` in the same session).
 
-        Typical use: pull a `tts_generation` or other org-owned asset for local
-        playback or `speech_to_text`.
+        Use the `file_id` from a prior `text_to_speech` call (`save=true`, the default)
+        or from playground TTS history.
 
         Parameters
         ----------
         file_id : str
-            File ID to download.
+            Cloud file ID (e.g. from `text_to_speech`).
 
         format : typing.Optional[DownloadFormat]
-            Pass `playback` to wrap raw PCM as WAV for local playback.
+            Pass `playback` to wrap raw PCM as WAV in the download link and local file.
         """)
 def download_file(
     file_id: str,
     format: typing.Optional[DownloadFormat] = None,
 ) -> DownloadedFileResult:
-    metadata = extra_api.get_file_info(client, file_id)
-    filename = metadata.get("filename")
-    if not isinstance(filename, str) or not filename.strip():
-        filename = file_id
-
-    local_filename = resolve_local_download_filename(
-        filename,
-        file_id,
-        as_wav=format == "playback",
-    )
-
-    content = extra_api.download_file_bytes(client, file_id, format=format)
-    output_path = save_downloaded_file(
-        OUTPUT_DIRECTORY,
-        file_id=file_id,
-        filename=local_filename,
-        content=content,
-    )
-
-    return DownloadedFileResult(
-        file_path=str(output_path),
-        file_id=file_id,
-        filename=local_filename,
-    )
+    return _deliver_cloud_file(file_id, format=format)
 
 
 @mcp.tool(
