@@ -1,3 +1,3 @@
 """Cartesia MCP Server package."""
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
