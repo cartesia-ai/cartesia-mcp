@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.12.0...cartesia-mcp-v0.13.0) (2026-07-06)
+
+
+### Features
+
+* add MCP tools for files API ([#50](https://github.com/cartesia-ai/cartesia-mcp/issues/50)) ([8f00d76](https://github.com/cartesia-ai/cartesia-mcp/commit/8f00d76d6a21d515a09f69003cfe21978521e99c))
+
 ## [0.12.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.11.0...cartesia-mcp-v0.12.0) (2026-07-02)
 
 
