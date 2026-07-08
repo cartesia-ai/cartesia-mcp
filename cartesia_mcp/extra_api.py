@@ -18,6 +18,7 @@ from cartesia import Cartesia
 from cartesia_mcp.config import env_or_none
 
 UsageInterval = typing.Literal["day", "week", "month"]
+UsageCreditsGroupBy = typing.Literal["capability", "model", "voice", "api_key"]
 DownloadFormat = typing.Literal["playback"]
 
 DEFAULT_FILES_BASE_URL = "https://files.cartesia.ai"
@@ -57,6 +58,7 @@ def get_usage_credits(
     end_ts: typing.Optional[str] = None,
     interval: typing.Optional[UsageInterval] = None,
     api_key_id: typing.Optional[str] = None,
+    group_by: typing.Optional[UsageCreditsGroupBy] = None,
 ) -> dict[str, typing.Any]:
     params: dict[str, str] = {}
     if start_ts is not None:
@@ -67,6 +69,8 @@ def get_usage_credits(
         params["interval"] = interval
     if api_key_id is not None:
         params["api_key_id"] = api_key_id
+    if group_by is not None:
+        params["group_by"] = group_by
     return client.get(
         "/usage/credits",
         cast_to=dict[str, typing.Any],

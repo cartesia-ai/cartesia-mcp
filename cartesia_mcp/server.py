@@ -37,7 +37,7 @@ from cartesia_mcp.custom_types import (
 )
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp import extra_api
-from cartesia_mcp.extra_api import DownloadFormat, UsageInterval
+from cartesia_mcp.extra_api import DownloadFormat, UsageCreditsGroupBy, UsageInterval
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
 from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
@@ -902,12 +902,17 @@ def download_file(
 
         api_key_id : typing.Optional[str]
             Limit usage to a specific API key ID.
+
+        group_by : typing.Optional[UsageCreditsGroupBy]
+            Break down usage by capability, model, voice, or API key. Requires
+            `interval=day`.
         """)
 def get_credit_usage(
     start_ts: typing.Optional[str] = None,
     end_ts: typing.Optional[str] = None,
     interval: typing.Optional[UsageInterval] = None,
     api_key_id: typing.Optional[str] = None,
+    group_by: typing.Optional[UsageCreditsGroupBy] = None,
 ) -> dict[str, typing.Any]:
     return extra_api.get_usage_credits(
         _require_admin_client(),
@@ -915,6 +920,7 @@ def get_credit_usage(
         end_ts=end_ts,
         interval=interval,
         api_key_id=api_key_id,
+        group_by=group_by,
     )
 
 
