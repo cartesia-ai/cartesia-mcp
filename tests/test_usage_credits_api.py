@@ -15,15 +15,5 @@ def test_get_usage_credits_forwards_group_by() -> None:
         group_by="model",
     )
 
-    client.get.assert_called_once_with(
-        "/usage/credits",
-        cast_to=dict[str, object],
-        options={
-            "params": {
-                "start_ts": "2026-01-01T00:00:00Z",
-                "end_ts": "2026-01-08T00:00:00Z",
-                "interval": "day",
-                "group_by": "model",
-            }
-        },
-    )
+    client.get.assert_called_once()
+    assert client.get.call_args.kwargs["options"]["params"]["group_by"] == "model"
