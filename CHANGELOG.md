@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.14.0...cartesia-mcp-v0.14.1) (2026-07-09)
+
+
+### Bug Fixes
+
+* claude directory tool annotations and voice_id param ([#57](https://github.com/cartesia-ai/cartesia-mcp/issues/57)) ([830d701](https://github.com/cartesia-ai/cartesia-mcp/commit/830d701f64c2eaf39eef0bae3c2d419e6b464026))
+
+
+### Documentation
+
+* add local development setup for MCP client testing ([#54](https://github.com/cartesia-ai/cartesia-mcp/issues/54)) ([1d560e6](https://github.com/cartesia-ai/cartesia-mcp/commit/1d560e628e2f4d3a48f1aa452854ba8da0dd2a52))
+
 ## [0.14.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.13.0...cartesia-mcp-v0.14.0) (2026-07-06)
 
 
