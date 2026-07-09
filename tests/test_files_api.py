@@ -67,7 +67,7 @@ def test_text_to_speech_save_false_overrides_extra_body_save(
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
         result = server.text_to_speech(
             transcript="Hello",
-            voice={"mode": "id", "id": "voice_abc"},
+            voice_id="voice_abc",
             output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
             save=False,
             request_options={"extra_json": {"save": True}},
@@ -92,7 +92,7 @@ def test_text_to_speech_save_flag_does_not_mutate_request_options(
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
         server.text_to_speech(
             transcript="Hello",
-            voice={"mode": "id", "id": "voice_abc"},
+            voice_id="voice_abc",
             output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
             save=False,
             request_options=request_options,
@@ -116,7 +116,7 @@ def test_text_to_speech_save_returns_cloud_ids(
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
         result = server.text_to_speech(
             transcript="Hello",
-            voice={"mode": "id", "id": "voice_abc"},
+            voice_id="voice_abc",
             output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
             save=True,
         )
@@ -144,7 +144,7 @@ def test_text_to_speech_save_returns_file_id_when_link_fails(
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
         result = server.text_to_speech(
             transcript="Hello",
-            voice={"mode": "id", "id": "voice_abc"},
+            voice_id="voice_abc",
             output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
             save=True,
         )
@@ -192,7 +192,7 @@ def test_text_to_speech_without_save_returns_local_path_only(
     with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
         result = server.text_to_speech(
             transcript="Hello",
-            voice={"mode": "id", "id": "voice_abc"},
+            voice_id="voice_abc",
             output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
             save=False,
         )

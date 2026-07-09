@@ -29,7 +29,7 @@ def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -
     ):
         server.text_to_speech(
             transcript="hello",
-            voice={"mode": "id", "id": "voice-id"},
+            voice_id="voice-id",
             output_format={"container": "wav", "sample_rate": 44100},
             duration=12.5,
         )
