@@ -136,7 +136,7 @@ def main() -> int:
                 "This is a longer Cartesia MCP smoke test clip. "
                 "We need several seconds of speech for voice cloning to succeed."
             ),
-            voice={"mode": "id", "id": SAMPLE_VOICE_ID},
+            voice_id=SAMPLE_VOICE_ID,
             output_format=WAV_FORMAT,
             language="en",
             speed=1.0,
@@ -248,7 +248,7 @@ def main() -> int:
                 "text_to_speech(pronunciation_dict)",
                 lambda: s.text_to_speech(
                     transcript="Welcome to Cartesia.",
-                    voice={"mode": "id", "id": SAMPLE_VOICE_ID},
+                    voice_id=SAMPLE_VOICE_ID,
                     output_format=WAV_FORMAT,
                     pronunciation_dict_id=dict_id,
                 ),

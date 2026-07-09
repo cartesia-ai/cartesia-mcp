@@ -73,8 +73,20 @@ elif CARTESIA_API_KEY:
 
 mcp = CartesiaMCP("Cartesia", **(fastmcp_hosted_kwargs() if _is_hosted else {}))
 
-_READ_ONLY = ToolAnnotations(readOnlyHint=True)
-_WRITE = ToolAnnotations(destructiveHint=True)
+def _read_only_tool(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=True)
+
+
+def _additive_tool(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=False, destructiveHint=False)
+
+
+def _destructive_tool(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=False, destructiveHint=True)
+
+
+def _voice_from_id(voice_id: str) -> VoiceSpecifierParam:
+    return VoiceSpecifierParam(mode="id", id=voice_id)
 
 
 def _require_admin_client() -> Cartesia:
@@ -210,8 +222,7 @@ def _deliver_cloud_file(
 
 
 @mcp.tool(
-    title="Convert text to speech",
-    annotations=_WRITE,
+    annotations=_additive_tool("Convert text to speech"),
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
@@ -223,7 +234,8 @@ def _deliver_cloud_file(
         ----------
         transcript : str
 
-        voice : TtsRequestVoiceSpecifierParams
+        voice_id : str
+            Cartesia voice ID (e.g. from `list_voices`).
 
         output_format : OutputFormatParams
 
@@ -259,7 +271,7 @@ def _deliver_cloud_file(
           """)
 def text_to_speech(
     transcript: str,
-    voice: VoiceSpecifierParam,
+    voice_id: str,
     output_format: OutputFormat,
     model_id: typing.Optional[str] = DEFAULT_MODEL_ID,
     language: typing.Optional[SupportedLanguage] = None,
@@ -278,7 +290,7 @@ def text_to_speech(
     )
     tts_kwargs: dict[str, typing.Any] = {
         "transcript": transcript,
-        "voice": voice,
+        "voice": _voice_from_id(voice_id),
         "output_format": output_format,
         "model_id": model_id,
         "language": language,
@@ -319,8 +331,7 @@ def text_to_speech(
 
 
 @mcp.tool(
-    title="Change voice in audio",
-    annotations=_WRITE,
+    annotations=_additive_tool("Change voice in audio"),
     description="""
         Takes an audio file of speech, and returns an audio file of speech spoken with the same intonation, but with a different voice.
 
@@ -375,8 +386,7 @@ def voice_change(
     return GeneratedAudioResult(file_path=file_path)
 
 @mcp.tool(
-    title="Localize voice",
-    annotations=_WRITE,
+    annotations=_additive_tool("Localize voice"),
     description="""
         Create a new voice from an existing voice localized to a new language and dialect.
 
@@ -421,8 +431,7 @@ def localize_voice(
 
 
 @mcp.tool(
-    title="Delete voice",
-    annotations=_WRITE,
+    annotations=_destructive_tool("Delete voice"),
     description="""
         Parameters
         ----------
@@ -440,8 +449,7 @@ def delete_voice(
     return DeleteVoiceResult(success=True)
 
 @mcp.tool(
-    title="Get voice",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("Get voice"),
     description="""
         Parameters
         ----------
@@ -459,8 +467,7 @@ def get_voice(
 
 
 @mcp.tool(
-    title="Update voice",
-    annotations=_WRITE,
+    annotations=_destructive_tool("Update voice"),
     description="""
         Parameters
         ----------
@@ -489,8 +496,7 @@ def update_voice(
     )
 
 @mcp.tool(
-    title="Clone voice",
-    annotations=_WRITE,
+    annotations=_additive_tool("Clone voice"),
     description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
 
@@ -538,8 +544,7 @@ def clone_voice(
         )
 
 @mcp.tool(
-    title="List voices",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("List voices"),
     description="""
         Parameters
         ----------
@@ -781,8 +786,7 @@ def _speech_to_text_stream(
 
 
 @mcp.tool(
-    title="Transcribe audio",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("Transcribe audio"),
     description="""
         Transcribe a pre-recorded audio file to text.
 
@@ -855,8 +859,7 @@ def speech_to_text(
 
 
 @mcp.tool(
-    title="Download file",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("Download file"),
     description="""
         Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
         hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
@@ -881,8 +884,7 @@ def download_file(
 
 
 @mcp.tool(
-    title="Get credit usage",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("Get credit usage"),
     description="""
         Returns credit usage over time (`GET /usage/credits`).
 
@@ -917,8 +919,7 @@ def get_credit_usage(
 
 
 @mcp.tool(
-    title="List pronunciation dictionaries",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("List pronunciation dictionaries"),
     description="""
         List pronunciation dictionaries for the authenticated user.
 
@@ -947,8 +948,7 @@ def list_pronunciation_dicts(
 
 
 @mcp.tool(
-    title="Create pronunciation dictionary",
-    annotations=_WRITE,
+    annotations=_additive_tool("Create pronunciation dictionary"),
     description="""
         Create a pronunciation dictionary.
 
@@ -970,8 +970,7 @@ def create_pronunciation_dict(
 
 
 @mcp.tool(
-    title="Get pronunciation dictionary",
-    annotations=_READ_ONLY,
+    annotations=_read_only_tool("Get pronunciation dictionary"),
     description="""
         Parameters
         ----------
@@ -983,8 +982,7 @@ def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
 
 
 @mcp.tool(
-    title="Update pronunciation dictionary",
-    annotations=_WRITE,
+    annotations=_destructive_tool("Update pronunciation dictionary"),
     description="""
         Update a pronunciation dictionary.
 
@@ -1012,8 +1010,7 @@ def update_pronunciation_dict(
 
 
 @mcp.tool(
-    title="Delete pronunciation dictionary",
-    annotations=_WRITE,
+    annotations=_destructive_tool("Delete pronunciation dictionary"),
     description="""
         Parameters
         ----------
