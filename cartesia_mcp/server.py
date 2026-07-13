@@ -904,8 +904,9 @@ def download_file(
             Limit usage to a specific API key ID.
 
         group_by : typing.Optional[UsageCreditsGroupBy]
-            Break down usage by capability, model, voice, or API key. Requires
-            `interval=day`.
+            Break down usage by capability, model, voice, or API key. When
+            `interval` is set it must be `day`. Grouped responses use
+            `{ group_by, data: [{ id, label?, buckets }] }`.
         """)
 def get_credit_usage(
     start_ts: typing.Optional[str] = None,
