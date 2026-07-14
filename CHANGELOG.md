@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.15.0...cartesia-mcp-v0.16.0) (2026-07-14)
+
+
+### Features
+
+* persist hosted OAuth tokens in Redis with refresh ([#60](https://github.com/cartesia-ai/cartesia-mcp/issues/60)) ([02718c3](https://github.com/cartesia-ai/cartesia-mcp/commit/02718c38076a9513b8de4f960cbbd2dcc4e7425a))
+
 ## [0.15.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.14.1...cartesia-mcp-v0.15.0) (2026-07-14)
 
 
