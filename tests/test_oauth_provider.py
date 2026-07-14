@@ -98,3 +98,22 @@ def test_provider_refresh_grant_rotates_tokens():
     access = asyncio.run(provider.load_access_token(second.access_token))
     assert access is not None
     assert access.token == "sk_car_oauth_test_key"
+
+
+def test_provider_revoke_uses_opaque_mcp_bearer():
+    _reset_store()
+    client = _client()
+    oauth_store.register_client(client)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    issued = _issue_tokens(provider, client)
+    access = asyncio.run(provider.load_access_token(issued.access_token))
+    assert access is not None
+    assert access.token == "sk_car_oauth_test_key"
+    assert (access.claims or {}).get("mcp_access_token") == issued.access_token
+
+    asyncio.run(provider.revoke_token(access))
+    assert oauth_store.resolve_mcp_access_token(issued.access_token) is None
+    assert oauth_store.load_refresh_token(client, issued.refresh_token or "") is None

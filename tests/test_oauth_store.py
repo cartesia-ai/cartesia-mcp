@@ -289,6 +289,73 @@ def test_completed_session_retries_issue_fresh_code():
     assert "code=" in second
 
 
+def test_authorization_code_is_single_use():
+    _reset_store()
+    client = _client()
+    oauth_store.register_client(client)
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "sk_car_oauth_test_key",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+    pending = oauth_store.pop_pending(session_id)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    redirect = provider.build_resume_redirect(session_id, pending)
+    auth_code = oauth_store.load_authorization_code(
+        client,
+        redirect.split("code=")[1].split("&")[0],
+    )
+    assert auth_code is not None
+    first = oauth_store.exchange_authorization_code(client, auth_code)
+    assert first.access_token
+    with pytest.raises(ValueError, match="Authorization code not found"):
+        oauth_store.exchange_authorization_code(client, auth_code)
+
+
+def test_refresh_token_is_single_use():
+    _reset_store()
+    client = _client()
+    oauth_store.register_client(client)
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "sk_car_oauth_test_key",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+    pending = oauth_store.pop_pending(session_id)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    redirect = provider.build_resume_redirect(session_id, pending)
+    auth_code = oauth_store.load_authorization_code(
+        client,
+        redirect.split("code=")[1].split("&")[0],
+    )
+    assert auth_code is not None
+    first = oauth_store.exchange_authorization_code(client, auth_code)
+    refresh = oauth_store.load_refresh_token(client, first.refresh_token or "")
+    assert refresh is not None
+    second = oauth_store.exchange_refresh_token(client, refresh, scopes=[])
+    assert second.access_token
+    with pytest.raises(ValueError, match="Refresh token not found"):
+        oauth_store.exchange_refresh_token(client, refresh, scopes=[])
+
+
 def test_configure_hosted_requires_redis_url():
     _reset_store()
     with pytest.raises(RuntimeError, match="REDIS_URL is required"):
@@ -308,6 +375,9 @@ def test_redis_backend_json_roundtrip(monkeypatch):
 
         def get(self, key: str) -> str | None:
             return self._data.get(key)
+
+        def getdel(self, key: str) -> str | None:
+            return self._data.pop(key, None)
 
         def set(self, key: str, value: str) -> None:
             self._data[key] = value
@@ -361,6 +431,9 @@ def test_redis_backend_json_roundtrip(monkeypatch):
     assert resolved is not None
     assert resolved.cartesia_credential == "sk_car_oauth_test_key"
     assert resolved.cartesia_admin_credential == "sk_car_admin_test.key"
+
+    with pytest.raises(ValueError, match="Authorization code not found"):
+        store.exchange_authorization_code(client, loaded_code)
 
 
 def test_revoke_token_removes_access_and_refresh():

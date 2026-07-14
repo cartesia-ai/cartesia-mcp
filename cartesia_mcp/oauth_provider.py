@@ -105,10 +105,13 @@ class CartesiaOAuthProvider(
             set_hosted_admin_credential(stored.cartesia_admin_credential)
 
             return AccessToken(
+                # Tools resolve Cartesia credentials from AccessToken.token.
                 token=stored.cartesia_credential,
                 client_id=stored.client_id,
                 scopes=stored.scopes or ["mcp"],
                 expires_at=stored.expires_at,
+                # Opaque MCP bearer (Redis key); used by revoke_token.
+                claims={"mcp_access_token": token},
             )
 
         from cartesia_mcp.credentials import is_valid_bearer_credential
@@ -127,6 +130,11 @@ class CartesiaOAuthProvider(
         self,
         token: AccessToken | RefreshToken,
     ) -> None:
+        if isinstance(token, AccessToken):
+            mcp_bearer = (token.claims or {}).get("mcp_access_token")
+            if isinstance(mcp_bearer, str) and mcp_bearer:
+                oauth_store.revoke_token(mcp_bearer)
+            return
         oauth_store.revoke_token(token.token)
 
     def build_resume_redirect(

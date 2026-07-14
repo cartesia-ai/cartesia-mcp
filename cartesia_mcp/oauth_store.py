@@ -64,6 +64,8 @@ class StoredMcpRefreshToken:
 class StoreBackend(Protocol):
     def get_json(self, key: str) -> dict[str, Any] | None: ...
 
+    def pop_json(self, key: str) -> dict[str, Any] | None: ...
+
     def set_json(
         self,
         key: str,
@@ -88,6 +90,15 @@ class MemoryBackend:
         value, expires_at = entry
         if expires_at is not None and expires_at < time.time():
             self._data.pop(key, None)
+            return None
+        return value
+
+    def pop_json(self, key: str) -> dict[str, Any] | None:
+        entry = self._data.pop(key, None)
+        if entry is None:
+            return None
+        value, expires_at = entry
+        if expires_at is not None and expires_at < time.time():
             return None
         return value
 
@@ -117,6 +128,13 @@ class RedisBackend:
 
     def get_json(self, key: str) -> dict[str, Any] | None:
         raw = self._redis.get(key)
+        if raw is None:
+            return None
+        return json.loads(raw)
+
+    def pop_json(self, key: str) -> dict[str, Any] | None:
+        # GETDEL is atomic — only one redeeming request can win.
+        raw = self._redis.getdel(key)
         if raw is None:
             return None
         return json.loads(raw)
@@ -520,9 +538,9 @@ class OAuthStore:
         client: OAuthClientInformationFull,
         authorization_code: AuthorizationCode,
     ) -> OAuthToken:
-        creds = self._backend.get_json(f"{_KEY_CODE_CREDENTIALS}{authorization_code.code}")
+        # Atomic pop so concurrent exchanges cannot both mint token pairs.
+        creds = self._backend.pop_json(f"{_KEY_CODE_CREDENTIALS}{authorization_code.code}")
         self._backend.delete(f"{_KEY_AUTH_CODE}{authorization_code.code}")
-        self._backend.delete(f"{_KEY_CODE_CREDENTIALS}{authorization_code.code}")
         if creds is None:
             raise ValueError("Authorization code not found")
         if creds.get("client_id") != client.client_id:
@@ -570,7 +588,8 @@ class OAuthStore:
         refresh_token: RefreshToken,
         scopes: list[str],
     ) -> OAuthToken:
-        data = self._backend.get_json(f"{_KEY_REFRESH}{refresh_token.token}")
+        # Atomic pop so concurrent refreshes cannot both mint token pairs.
+        data = self._backend.pop_json(f"{_KEY_REFRESH}{refresh_token.token}")
         if data is None:
             raise ValueError("Refresh token not found")
         stored = _refresh_from_dict(data)
@@ -585,7 +604,6 @@ class OAuthStore:
 
         if stored.access_token:
             self._backend.delete(f"{_KEY_ACCESS}{stored.access_token}")
-        self._backend.delete(f"{_KEY_REFRESH}{refresh_token.token}")
 
         return self._issue_token_pair(
             client_id=client.client_id,
