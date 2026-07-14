@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import secrets
-from typing import Any
 from urllib.parse import urlencode
 
 from mcp.server.auth.provider import (
@@ -11,13 +10,14 @@ from mcp.server.auth.provider import (
     AuthorizationCode,
     AuthorizationParams,
     OAuthAuthorizationServerProvider,
+    RefreshToken,
     RegistrationError,
     TokenError,
 )
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyUrl
 
-from cartesia_mcp.oauth_store import oauth_store
+from cartesia_mcp.oauth_store import PendingConnectSession, oauth_store
 
 _ALLOWED_REDIRECT_SCHEMES = ("cursor:", "vscode:", "http:", "https:")
 
@@ -28,7 +28,7 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl) -> bool:
 
 
 class CartesiaOAuthProvider(
-    OAuthAuthorizationServerProvider[AuthorizationCode, Any, AuthorizationCode]
+    OAuthAuthorizationServerProvider[AuthorizationCode, RefreshToken, AccessToken]
 ):
     def __init__(self, *, playground_url: str, mcp_server_url: str) -> None:
         self._playground_url = playground_url.rstrip("/")
@@ -83,19 +83,19 @@ class CartesiaOAuthProvider(
         self,
         client: OAuthClientInformationFull,
         refresh_token: str,
-    ) -> None:
-        return None
+    ) -> RefreshToken | None:
+        return oauth_store.load_refresh_token(client, refresh_token)
 
     async def exchange_refresh_token(
         self,
         client: OAuthClientInformationFull,
-        refresh_token: Any,
+        refresh_token: RefreshToken,
         scopes: list[str],
     ) -> OAuthToken:
-        raise TokenError(
-            error="unsupported_grant_type",
-            error_description="Refresh tokens are not supported",
-        )
+        try:
+            return oauth_store.exchange_refresh_token(client, refresh_token, scopes)
+        except ValueError as exc:
+            raise TokenError(error="invalid_grant", error_description=str(exc)) from exc
 
     async def load_access_token(self, token: str) -> AccessToken | None:
         stored = oauth_store.resolve_mcp_access_token(token)
@@ -105,10 +105,13 @@ class CartesiaOAuthProvider(
             set_hosted_admin_credential(stored.cartesia_admin_credential)
 
             return AccessToken(
+                # Tools resolve Cartesia credentials from AccessToken.token.
                 token=stored.cartesia_credential,
                 client_id=stored.client_id,
                 scopes=stored.scopes or ["mcp"],
                 expires_at=stored.expires_at,
+                # Opaque MCP bearer (Redis key); used by revoke_token.
+                claims={"mcp_access_token": token},
             )
 
         from cartesia_mcp.credentials import is_valid_bearer_credential
@@ -125,12 +128,20 @@ class CartesiaOAuthProvider(
 
     async def revoke_token(
         self,
-        token: Any,
+        token: AccessToken | RefreshToken,
     ) -> None:
-        if isinstance(token, str):
-            oauth_store._mcp_tokens.pop(token, None)
+        if isinstance(token, AccessToken):
+            mcp_bearer = (token.claims or {}).get("mcp_access_token")
+            if isinstance(mcp_bearer, str) and mcp_bearer:
+                oauth_store.revoke_token(mcp_bearer)
+            return
+        oauth_store.revoke_token(token.token)
 
-    def build_resume_redirect(self, session_id: str, pending) -> str:
+    def build_resume_redirect(
+        self,
+        session_id: str,
+        pending: PendingConnectSession,
+    ) -> str:
         auth_code = oauth_store.issue_authorization_code(
             client_id=pending.client_id,
             params=pending.params,
@@ -165,7 +176,11 @@ def ensure_dynamic_client(client_id: str, redirect_uri: AnyUrl) -> OAuthClientIn
 
 def register_ephemeral_client(redirect_uri: str | None = None) -> OAuthClientInformationFull:
     client_id = secrets.token_urlsafe(16)
-    redirect_uris = [AnyUrl(redirect_uri)] if redirect_uri else [AnyUrl("cursor://anysphere.cursor-mcp/oauth/callback")]
+    redirect_uris = (
+        [AnyUrl(redirect_uri)]
+        if redirect_uri
+        else [AnyUrl("cursor://anysphere.cursor-mcp/oauth/callback")]
+    )
     client = OAuthClientInformationFull(
         client_id=client_id,
         client_secret=None,

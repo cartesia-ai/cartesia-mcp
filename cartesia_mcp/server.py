@@ -42,7 +42,12 @@ from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_k
 from cartesia_mcp.clients import admin_client, client, require_admin_client
 from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
 from cartesia_mcp.fastmcp_server import CartesiaMCP
-from cartesia_mcp.hosted import fastmcp_hosted_kwargs, hosted_enabled, run_hosted
+from cartesia_mcp.hosted import (
+    configure_hosted_oauth_store,
+    fastmcp_hosted_kwargs,
+    hosted_enabled,
+    run_hosted,
+)
 from cartesia_mcp.request_options import sdk_kwargs_from_request_options
 from cartesia_mcp.utils import (
     create_output_file,
@@ -68,6 +73,8 @@ OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
 
 if _is_hosted:
     configure_hosted_mode()
+    if hosted_enabled():
+        configure_hosted_oauth_store()
 elif CARTESIA_API_KEY:
     configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
 

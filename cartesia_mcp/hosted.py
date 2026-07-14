@@ -14,6 +14,7 @@ from starlette.routing import Route
 
 from cartesia_mcp.config import env_or_none
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
+from cartesia_mcp.oauth_store import configure_oauth_store_from_env
 
 
 def hosted_enabled() -> bool:
@@ -21,6 +22,14 @@ def hosted_enabled() -> bool:
     if value is None:
         return False
     return value.lower() in ("1", "true", "yes", "on")
+
+
+def configure_hosted_oauth_store() -> None:
+    """Require Redis for hosted OAuth state (fail closed if REDIS_URL is missing)."""
+    configure_oauth_store_from_env(
+        hosted=True,
+        redis_url=env_or_none("REDIS_URL"),
+    )
 
 
 def server_public_url() -> str:
@@ -159,5 +168,7 @@ def attach_hosted_routes(mcp: FastMCP) -> None:
 
 
 def run_hosted(mcp: FastMCP) -> None:
+    if hosted_enabled():
+        configure_hosted_oauth_store()
     attach_hosted_routes(mcp)
     mcp.run(transport="streamable-http")

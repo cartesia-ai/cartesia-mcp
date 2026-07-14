@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=1.27.0",
     "python-dotenv>=1.0.0",
+    "redis>=5.0.0",
     "uvicorn>=0.34.0",
 ]
 
