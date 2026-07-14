@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.14.1...cartesia-mcp-v0.15.0) (2026-07-14)
+
+
+### Features
+
+* add group_by to get_credit_usage MCP tool ([#58](https://github.com/cartesia-ai/cartesia-mcp/issues/58)) ([ce846d4](https://github.com/cartesia-ai/cartesia-mcp/commit/ce846d4e0d0b1692e02a15ee4907430ae3c867b6))
+
 ## [0.14.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.14.0...cartesia-mcp-v0.14.1) (2026-07-09)
 
 
