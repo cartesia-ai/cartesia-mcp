@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.16.0...cartesia-mcp-v0.16.1) (2026-07-15)
+
+
+### Bug Fixes
+
+* make MCP structured output schemas allow null optionals ([#62](https://github.com/cartesia-ai/cartesia-mcp/issues/62)) ([e7c4679](https://github.com/cartesia-ai/cartesia-mcp/commit/e7c4679b7b7b7a4f920cde910d1c511589dfda86))
+
 ## [0.16.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.15.0...cartesia-mcp-v0.16.0) (2026-07-14)
 
 
