@@ -6,10 +6,16 @@ class PronunciationDictItemParams(typing.TypedDict):
     pronunciation: str
 
 
-class ListPronunciationDictsResult(typing.TypedDict, total=False):
+class ListPronunciationDictsResult(typing.TypedDict):
+    """Paginated pronunciation-dict list.
+
+    `next_page` must be nullable: FastMCP dumps unset optional TypedDict fields as
+    ``None``, and clients validate structured output against this schema.
+    """
+
     data: typing.List[typing.Any]
     has_more: bool
-    next_page: str
+    next_page: typing.NotRequired[str | None]
 
 
 class DeletePronunciationDictResult(typing.TypedDict):
