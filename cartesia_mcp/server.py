@@ -408,7 +408,8 @@ def voice_change(
         description : str
             The description of the new localized voice.
 
-        language : SupportedLanguage
+        language : typing.Literal["en", "de", "es", "fr", "ja", "pt", "zh", "hi", "it", "ko", "nl", "pl", "ru", "sv", "tr", "ar", "he", "ta", "te", "th"]
+            The language that the new localized voice should speak.
 
         original_speaker_gender : Gender
 
@@ -421,7 +422,28 @@ def localize_voice(
     voice_id: str,
     name: str,
     description: str,
-    language: SupportedLanguage,
+    language: typing.Literal[
+        "en",
+        "de",
+        "es",
+        "fr",
+        "ja",
+        "pt",
+        "zh",
+        "hi",
+        "it",
+        "ko",
+        "nl",
+        "pl",
+        "ru",
+        "sv",
+        "tr",
+        "ar",
+        "he",
+        "ta",
+        "te",
+        "th",
+    ],
     original_speaker_gender: typing.Literal["male", "female"],
     dialect: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
