@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.16.1...cartesia-mcp-v0.17.0) (2026-07-23)
+
+
+### Features
+
+* use SDK localize language, gender, and dialect types ([#65](https://github.com/cartesia-ai/cartesia-mcp/issues/65)) ([79d47e8](https://github.com/cartesia-ai/cartesia-mcp/commit/79d47e81dbd56fe28fbad71c21f153fb33a0d678))
+
 ## [0.16.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.16.0...cartesia-mcp-v0.16.1) (2026-07-15)
 
 
