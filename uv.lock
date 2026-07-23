@@ -50,7 +50,7 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "3.2.0"
+version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -61,9 +61,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/03/fcbb885bc08187d26791206ce67ac469ce1ae256b8f822609a32f1055084/cartesia-3.2.0.tar.gz", hash = "sha256:5d7f627b17c75ed216052d02ee27101a33753c34a8c2c3537217f2ee682b50ac", size = 333356, upload-time = "2026-05-28T05:26:04.493Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a3/87/5cd686fd51b28151f0c3a4efb9a8484c4c2a3cdc38e95da3ee90cb8a842a/cartesia-3.5.0.tar.gz", hash = "sha256:f653eb462efbc6883249fab764f53efd7f7356d5fe172bf8e4545f68fc3769b9", size = 336538, upload-time = "2026-07-23T20:32:50.831Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/46/56ab5977716823edad34cbe4f7238392ede3e8f0615352d412aae6d36d7d/cartesia-3.2.0-py3-none-any.whl", hash = "sha256:982d3cbfce4098318ba58bea13766572ed0b1bb1d4f88f3d025fd13baadcd26f", size = 210659, upload-time = "2026-05-28T05:26:05.707Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/e6/414b7b5df5dd51851ffbfabcdf9eec43fe2d82aa60e0e30a8501c7435d38/cartesia-3.5.0-py3-none-any.whl", hash = "sha256:ed06afce09f99c28e089e0732b0fb38ff9af52f114ee19f1a17e54dbdaa83251", size = 214111, upload-time = "2026-07-23T20:32:52.171Z" },
 ]
 
 [package.optional-dependencies]
@@ -73,7 +73,7 @@ websockets = [
 
 [[package]]
 name = "cartesia-mcp"
-version = "0.15.0"
+version = "0.16.1"
 source = { editable = "." }
 dependencies = [
     { name = "cartesia", extra = ["websockets"] },
@@ -91,7 +91,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], specifier = ">=3.2.0,<4.0.0" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=3.5.0,<4.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },

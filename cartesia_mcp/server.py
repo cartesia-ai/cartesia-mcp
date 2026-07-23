@@ -11,8 +11,11 @@ from dotenv import load_dotenv
 from mcp.types import ToolAnnotations
 from cartesia import Cartesia, RequestOptions, omit
 from cartesia.types import (
+    Gender,
     GenderPresentation,
     GenerationConfigParam,
+    LocalizeDialect,
+    LocalizeTargetLanguage,
     OutputFormatContainer,
     RawEncoding,
     STTEncoding,
@@ -408,11 +411,13 @@ def voice_change(
         description : str
             The description of the new localized voice.
 
-        language : SupportedLanguage
+        language : LocalizeTargetLanguage
+            Target language to localize the voice to. Distinct from TTS SupportedLanguage.
 
         original_speaker_gender : Gender
 
-        dialect : typing.Optional[LocalizeDialectParams]
+        dialect : typing.Optional[LocalizeDialect]
+            Dialect allowlist for English, Spanish, Portuguese, and French.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -421,9 +426,9 @@ def localize_voice(
     voice_id: str,
     name: str,
     description: str,
-    language: SupportedLanguage,
-    original_speaker_gender: typing.Literal["male", "female"],
-    dialect: typing.Optional[str] = None,
+    language: LocalizeTargetLanguage,
+    original_speaker_gender: Gender,
+    dialect: typing.Optional[LocalizeDialect] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
     return client.voices.localize(
