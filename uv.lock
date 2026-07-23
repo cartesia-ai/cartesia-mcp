@@ -51,7 +51,7 @@ wheels = [
 [[package]]
 name = "cartesia"
 version = "3.4.0"
-source = { git = "https://github.com/cartesia-ai/cartesia-python?rev=grant%2Fsur-1468-named-localize-enums#8b989f016087319ba6aaded3a4e8ac35f9eafc3e" }
+source = { git = "https://github.com/cartesia-ai/cartesia-python.git?rev=d435696fd1a9537054afaea59e67739c18510cb2#d435696fd1a9537054afaea59e67739c18510cb2" }
 dependencies = [
     { name = "anyio" },
     { name = "distro" },
@@ -87,7 +87,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], git = "https://github.com/cartesia-ai/cartesia-python?rev=grant%2Fsur-1468-named-localize-enums" },
+    { name = "cartesia", extras = ["websockets"], git = "https://github.com/cartesia-ai/cartesia-python.git?rev=d435696fd1a9537054afaea59e67739c18510cb2" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },

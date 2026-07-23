@@ -5,19 +5,15 @@ description = "The official Cartesia MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "cartesia[websockets]>=3.4.0,<4.0.0",
+    # Temporary: pin until cartesia 3.5.0+ on PyPI exports LocalizeTargetLanguage /
+    # Gender / LocalizeDialect. Direct URL works for both uv and pip (Docker).
+    "cartesia[websockets] @ git+https://github.com/cartesia-ai/cartesia-python.git@d435696fd1a9537054afaea59e67739c18510cb2",
     "httpx>=0.28.1",
     "mcp[cli]>=1.27.0",
     "python-dotenv>=1.0.0",
     "redis>=5.0.0",
     "uvicorn>=0.34.0",
 ]
-
-# Temporary: resolve named localize/Emotion exports from the SDK PR branch until
-# those types ship on PyPI. Remove this override and raise the floor above once
-# cartesia exports LocalizeTargetLanguage / Gender / LocalizeDialect / Emotion.
-[tool.uv.sources]
-cartesia = { git = "https://github.com/cartesia-ai/cartesia-python", rev = "grant/sur-1468-named-localize-enums" }
 
 [project.scripts]
 cartesia-mcp = "cartesia_mcp.server:main"
