@@ -5,9 +5,7 @@ description = "The official Cartesia MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    # Temporary: pin until cartesia 3.5.0+ on PyPI exports LocalizeTargetLanguage /
-    # Gender / LocalizeDialect. Direct URL works for both uv and pip (Docker).
-    "cartesia[websockets] @ git+https://github.com/cartesia-ai/cartesia-python.git@d435696fd1a9537054afaea59e67739c18510cb2",
+    "cartesia[websockets]>=3.5.0,<4.0.0",
     "httpx>=0.28.1",
     "mcp[cli]>=1.27.0",
     "python-dotenv>=1.0.0",

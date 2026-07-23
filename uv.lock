@@ -50,8 +50,8 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "3.4.0"
-source = { git = "https://github.com/cartesia-ai/cartesia-python.git?rev=d435696fd1a9537054afaea59e67739c18510cb2#d435696fd1a9537054afaea59e67739c18510cb2" }
+version = "3.5.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "distro" },
@@ -60,6 +60,10 @@ dependencies = [
     { name = "pydantic", version = "2.13.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
     { name = "sniffio" },
     { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a3/87/5cd686fd51b28151f0c3a4efb9a8484c4c2a3cdc38e95da3ee90cb8a842a/cartesia-3.5.0.tar.gz", hash = "sha256:f653eb462efbc6883249fab764f53efd7f7356d5fe172bf8e4545f68fc3769b9", size = 336538, upload-time = "2026-07-23T20:32:50.831Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6a/e6/414b7b5df5dd51851ffbfabcdf9eec43fe2d82aa60e0e30a8501c7435d38/cartesia-3.5.0-py3-none-any.whl", hash = "sha256:ed06afce09f99c28e089e0732b0fb38ff9af52f114ee19f1a17e54dbdaa83251", size = 214111, upload-time = "2026-07-23T20:32:52.171Z" },
 ]
 
 [package.optional-dependencies]
@@ -87,7 +91,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], git = "https://github.com/cartesia-ai/cartesia-python.git?rev=d435696fd1a9537054afaea59e67739c18510cb2" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=3.5.0,<4.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
