@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.17.0...cartesia-mcp-v0.17.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* restrict MCP OAuth redirect URIs to an allowlist ([#67](https://github.com/cartesia-ai/cartesia-mcp/issues/67)) ([7ea3bac](https://github.com/cartesia-ai/cartesia-mcp/commit/7ea3bac8db38b4fd1019b78055526883347a8397))
+
 ## [0.17.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.16.1...cartesia-mcp-v0.17.0) (2026-07-23)
 
 
