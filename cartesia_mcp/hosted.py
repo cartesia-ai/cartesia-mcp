@@ -122,7 +122,10 @@ async def oauth_internal_complete(request: Request) -> Response:
         completing_user_id,
     )
     if completed is not None:
-        redirect_url = provider.build_resume_redirect(session_id, completed)
+        try:
+            redirect_url = provider.build_resume_redirect(session_id, completed)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
         return JSONResponse({"redirect_url": redirect_url})
 
     try:
@@ -134,12 +137,12 @@ async def oauth_internal_complete(request: Request) -> Response:
             completing_user_id=completing_user_id,
             cartesia_admin_credential=cartesia_admin_credential,
         )
+        redirect_url = provider.build_resume_redirect(session_id, pending)
     except KeyError:
         return JSONResponse({"error": "unknown_session"}, status_code=404)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    redirect_url = provider.build_resume_redirect(session_id, pending)
     oauth_store.remember_completed_session(
         session_id,
         connect_token,

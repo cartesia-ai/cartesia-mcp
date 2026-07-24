@@ -2,9 +2,13 @@
 
 import asyncio
 
-from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
+import pytest
+from cartesia_mcp.oauth_provider import (
+    CartesiaOAuthProvider,
+    _redirect_uri_is_allowed,
+)
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
-from mcp.server.auth.provider import AuthorizationParams
+from mcp.server.auth.provider import AuthorizationParams, RegistrationError
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
@@ -12,6 +16,84 @@ from pydantic import AnyUrl
 def _reset_store() -> None:
     oauth_store.use_backend(MemoryBackend())
     oauth_store.clear()
+
+
+@pytest.mark.parametrize(
+    ("uri", "allowed"),
+    [
+        ("cursor://anysphere.cursor-mcp/oauth/callback", True),
+        ("vscode://vscode.github-authentication/oauth/callback", True),
+        ("vscode-insiders://callback", True),
+        ("http://127.0.0.1:58135/callback", True),
+        ("http://localhost:3118/callback", True),
+        ("http://[::1]:8080/callback", True),
+        ("https://claude.ai/api/mcp/auth_callback", True),
+        ("https://chatgpt.com/connector_platform_oauth_redirect", True),
+        ("https://chatgpt.com/connector/oauth/abc123", True),
+        ("https://evil.attacker.com/steal", False),
+        ("https://example.com/callback", False),
+        ("https://claude.ai/evil", False),
+        ("https://chatgpt.com/other", False),
+        ("javascript:alert(1)", False),
+        ("data:text/html,hi", False),
+        ("http://evil.com/callback", False),
+        ("https://user:pass@claude.ai/api/mcp/auth_callback", False),
+        ("cursor:", False),
+    ],
+)
+def test_redirect_uri_allowlist(uri: str, allowed: bool):
+    assert _redirect_uri_is_allowed(uri) is allowed
+
+
+def test_register_client_rejects_arbitrary_https_redirect():
+    _reset_store()
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    client = OAuthClientInformationFull(
+        client_id="evil-client",
+        client_secret=None,
+        redirect_uris=[AnyUrl("https://evil.attacker.com/steal")],
+        client_name="Evil",
+        token_endpoint_auth_method="none",
+    )
+    with pytest.raises(RegistrationError):
+        asyncio.run(provider.register_client(client))
+
+
+def test_build_resume_redirect_rejects_disallowed_uri():
+    _reset_store()
+    client = _client()
+    # Simulate a client registered before the allowlist existed.
+    client.redirect_uris = [AnyUrl("https://evil.attacker.com/steal")]
+    oauth_store.register_client(client)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        AuthorizationParams(
+            state="s",
+            scopes=["mcp"],
+            code_challenge="challenge",
+            redirect_uri=AnyUrl("https://evil.attacker.com/steal"),
+            redirect_uri_provided_explicitly=True,
+            resource=None,
+        ),
+    )
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "sk_car_oauth_test_key",
+        completing_owner_id="org_test",
+        completing_user_id="user_test",
+    )
+    pending = oauth_store.pop_pending(session_id)
+    with pytest.raises(ValueError, match="redirect_uri is not allowed"):
+        provider.build_resume_redirect(session_id, pending)
+
 
 
 def _client() -> OAuthClientInformationFull:
