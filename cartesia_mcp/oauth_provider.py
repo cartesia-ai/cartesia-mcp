@@ -9,6 +9,7 @@ from mcp.server.auth.provider import (
     AccessToken,
     AuthorizationCode,
     AuthorizationParams,
+    AuthorizeError,
     OAuthAuthorizationServerProvider,
     RefreshToken,
     RegistrationError,
@@ -108,7 +109,10 @@ class CartesiaOAuthProvider(
         params: AuthorizationParams,
     ) -> str:
         if not _redirect_uri_is_allowed(params.redirect_uri):
-            raise ValueError("redirect_uri is not allowed")
+            raise AuthorizeError(
+                error="invalid_request",
+                error_description="redirect_uri is not allowed",
+            )
         session_id, connect_token = oauth_store.create_pending_session(
             client.client_id,
             params,

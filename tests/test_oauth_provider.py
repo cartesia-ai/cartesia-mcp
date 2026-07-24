@@ -8,7 +8,11 @@ from cartesia_mcp.oauth_provider import (
     _redirect_uri_is_allowed,
 )
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
-from mcp.server.auth.provider import AuthorizationParams, RegistrationError
+from mcp.server.auth.provider import (
+    AuthorizationParams,
+    AuthorizeError,
+    RegistrationError,
+)
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
@@ -60,6 +64,33 @@ def test_register_client_rejects_arbitrary_https_redirect():
     )
     with pytest.raises(RegistrationError):
         asyncio.run(provider.register_client(client))
+
+
+def test_authorize_rejects_disallowed_redirect_with_authorize_error():
+    _reset_store()
+    client = _client()
+    # Client registered before allowlisting; authorize must still reject cleanly.
+    client.redirect_uris = [AnyUrl("https://evil.attacker.com/steal")]
+    oauth_store.register_client(client)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    with pytest.raises(AuthorizeError) as exc_info:
+        asyncio.run(
+            provider.authorize(
+                client,
+                AuthorizationParams(
+                    state="s",
+                    scopes=["mcp"],
+                    code_challenge="challenge",
+                    redirect_uri=AnyUrl("https://evil.attacker.com/steal"),
+                    redirect_uri_provided_explicitly=True,
+                    resource=None,
+                ),
+            )
+        )
+    assert exc_info.value.error == "invalid_request"
 
 
 def test_build_resume_redirect_rejects_disallowed_uri():
