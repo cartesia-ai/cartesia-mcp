@@ -157,6 +157,34 @@ async def oauth_internal_complete(request: Request) -> Response:
     return JSONResponse({"redirect_url": redirect_url})
 
 
+async def oauth_internal_session(request: Request) -> Response:
+    """Return pending OAuth client_name + redirect_uri for the Connect UI."""
+    if not _authorized_internal(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    body = await request.json()
+    session_id = body.get("session_id")
+    connect_token = body.get("connect_token")
+    if not session_id or not connect_token:
+        return JSONResponse({"error": "invalid_request"}, status_code=400)
+
+    from cartesia_mcp.oauth_store import oauth_store
+
+    try:
+        pending = oauth_store.get_pending_session(session_id, connect_token)
+    except KeyError:
+        return JSONResponse({"error": "unknown_session"}, status_code=404)
+
+    client = oauth_store.get_client(pending.client_id)
+    return JSONResponse(
+        {
+            "client_id": pending.client_id,
+            "client_name": client.client_name if client is not None else None,
+            "redirect_uri": str(pending.params.redirect_uri),
+        }
+    )
+
+
 def attach_hosted_routes(mcp: FastMCP) -> None:
     mcp._custom_starlette_routes.extend(
         [
@@ -164,6 +192,11 @@ def attach_hosted_routes(mcp: FastMCP) -> None:
             Route(
                 "/internal/oauth/complete",
                 endpoint=oauth_internal_complete,
+                methods=["POST"],
+            ),
+            Route(
+                "/internal/oauth/session",
+                endpoint=oauth_internal_session,
                 methods=["POST"],
             ),
         ]
@@ -174,4 +207,16 @@ def run_hosted(mcp: FastMCP) -> None:
     if hosted_enabled():
         configure_hosted_oauth_store()
     attach_hosted_routes(mcp)
-    mcp.run(transport="streamable-http")
+
+    import uvicorn
+
+    from cartesia_mcp.register_rate_limit import RegisterRateLimitMiddleware
+
+    app = mcp.streamable_http_app()
+    app.add_middleware(RegisterRateLimitMiddleware)
+    uvicorn.run(
+        app,
+        host=mcp.settings.host,
+        port=mcp.settings.port,
+        log_level=mcp.settings.log_level.lower(),
+    )

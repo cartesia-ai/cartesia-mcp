@@ -27,6 +27,7 @@ _KEY_AUTH_CODE = "mcp:oauth:code:"
 _KEY_CODE_CREDENTIALS = "mcp:oauth:code-cred:"
 _KEY_ACCESS = "mcp:oauth:access:"
 _KEY_REFRESH = "mcp:oauth:refresh:"
+_KEY_REGISTER_RL = "mcp:oauth:register-rl:"
 
 
 @dataclass
@@ -78,6 +79,8 @@ class StoreBackend(Protocol):
 
     def expire(self, key: str, ttl_seconds: int) -> None: ...
 
+    def incr(self, key: str, *, ttl_seconds: int) -> int: ...
+
     def delete(self, key: str) -> None: ...
 
     def clear(self) -> None: ...
@@ -86,6 +89,7 @@ class StoreBackend(Protocol):
 class MemoryBackend:
     def __init__(self) -> None:
         self._data: dict[str, tuple[dict[str, Any], float | None]] = {}
+        self._counters: dict[str, tuple[int, float | None]] = {}
 
     def get_json(self, key: str) -> dict[str, Any] | None:
         entry = self._data.get(key)
@@ -123,11 +127,28 @@ class MemoryBackend:
         value, _ = entry
         self._data[key] = (value, time.time() + ttl_seconds)
 
+    def incr(self, key: str, *, ttl_seconds: int) -> int:
+        now = time.time()
+        entry = self._counters.get(key)
+        if entry is not None:
+            count, expires_at = entry
+            if expires_at is not None and expires_at < now:
+                entry = None
+        if entry is None:
+            self._counters[key] = (1, now + ttl_seconds)
+            return 1
+        count, expires_at = entry
+        count += 1
+        self._counters[key] = (count, expires_at)
+        return count
+
     def delete(self, key: str) -> None:
         self._data.pop(key, None)
+        self._counters.pop(key, None)
 
     def clear(self) -> None:
         self._data.clear()
+        self._counters.clear()
 
 
 class RedisBackend:
@@ -165,6 +186,12 @@ class RedisBackend:
 
     def expire(self, key: str, ttl_seconds: int) -> None:
         self._redis.expire(key, ttl_seconds)
+
+    def incr(self, key: str, *, ttl_seconds: int) -> int:
+        count = int(self._redis.incr(key))
+        if count == 1:
+            self._redis.expire(key, ttl_seconds)
+        return count
 
     def delete(self, key: str) -> None:
         self._redis.delete(key)
@@ -322,6 +349,18 @@ class OAuthStore:
         # Refresh TTL on use so active clients are not evicted.
         self._backend.expire(key, CLIENT_TTL_SECONDS)
         return OAuthClientInformationFull.model_validate(data)
+
+    def increment_register_attempts(
+        self,
+        client_ip: str,
+        *,
+        window_seconds: int,
+    ) -> int:
+        """Increment and return the /register attempt count for an IP window."""
+        return self._backend.incr(
+            f"{_KEY_REGISTER_RL}{client_ip}",
+            ttl_seconds=window_seconds,
+        )
 
     def create_pending_session(
         self,
