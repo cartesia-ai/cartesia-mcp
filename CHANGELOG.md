@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.18.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.17.1...cartesia-mcp-v0.18.0) (2026-07-25)
+
+
+### Features
+
+* expire idle MCP OAuth client registrations ([#71](https://github.com/cartesia-ai/cartesia-mcp/issues/71)) ([d2d8e95](https://github.com/cartesia-ai/cartesia-mcp/commit/d2d8e95b8625a8310a2b045e623008b4125638cf))
+* expose pending OAuth session metadata for Connect UI ([#69](https://github.com/cartesia-ai/cartesia-mcp/issues/69)) ([e024e8a](https://github.com/cartesia-ai/cartesia-mcp/commit/e024e8ada1ef0faff63c82ba47a7ca04afe8bf97))
+* rate-limit MCP OAuth dynamic client registration ([#70](https://github.com/cartesia-ai/cartesia-mcp/issues/70)) ([b8f4cdb](https://github.com/cartesia-ai/cartesia-mcp/commit/b8f4cdbbae682503cd6a6b6e67abdbbf95602af8))
+
 ## [0.17.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.17.0...cartesia-mcp-v0.17.1) (2026-07-24)
 
 
