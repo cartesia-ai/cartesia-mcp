@@ -174,4 +174,16 @@ def run_hosted(mcp: FastMCP) -> None:
     if hosted_enabled():
         configure_hosted_oauth_store()
     attach_hosted_routes(mcp)
-    mcp.run(transport="streamable-http")
+
+    import uvicorn
+
+    from cartesia_mcp.register_rate_limit import RegisterRateLimitMiddleware
+
+    app = mcp.streamable_http_app()
+    app.add_middleware(RegisterRateLimitMiddleware)
+    uvicorn.run(
+        app,
+        host=mcp.settings.host,
+        port=mcp.settings.port,
+        log_level=mcp.settings.log_level.lower(),
+    )
