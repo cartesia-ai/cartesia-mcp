@@ -17,6 +17,8 @@ PENDING_SESSION_TTL_SECONDS = 600
 COMPLETED_SESSION_TTL_SECONDS = 600
 ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60
 REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
+# Idle DCR clients expire; authorize/token refresh extends the TTL.
+CLIENT_TTL_SECONDS = 90 * 24 * 60 * 60
 
 _KEY_CLIENT = "mcp:oauth:client:"
 _KEY_PENDING = "mcp:oauth:pending:"
@@ -74,6 +76,8 @@ class StoreBackend(Protocol):
         ttl_seconds: int | None = None,
     ) -> None: ...
 
+    def expire(self, key: str, ttl_seconds: int) -> None: ...
+
     def delete(self, key: str) -> None: ...
 
     def clear(self) -> None: ...
@@ -111,6 +115,13 @@ class MemoryBackend:
     ) -> None:
         expires_at = time.time() + ttl_seconds if ttl_seconds is not None else None
         self._data[key] = (value, expires_at)
+
+    def expire(self, key: str, ttl_seconds: int) -> None:
+        entry = self._data.get(key)
+        if entry is None:
+            return
+        value, _ = entry
+        self._data[key] = (value, time.time() + ttl_seconds)
 
     def delete(self, key: str) -> None:
         self._data.pop(key, None)
@@ -151,6 +162,9 @@ class RedisBackend:
             self._redis.set(key, payload)
         else:
             self._redis.setex(key, ttl_seconds, payload)
+
+    def expire(self, key: str, ttl_seconds: int) -> None:
+        self._redis.expire(key, ttl_seconds)
 
     def delete(self, key: str) -> None:
         self._redis.delete(key)
@@ -297,12 +311,16 @@ class OAuthStore:
         self._backend.set_json(
             f"{_KEY_CLIENT}{client.client_id}",
             client.model_dump(mode="json"),
+            ttl_seconds=CLIENT_TTL_SECONDS,
         )
 
     def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
-        data = self._backend.get_json(f"{_KEY_CLIENT}{client_id}")
+        key = f"{_KEY_CLIENT}{client_id}"
+        data = self._backend.get_json(key)
         if data is None:
             return None
+        # Refresh TTL on use so active clients are not evicted.
+        self._backend.expire(key, CLIENT_TTL_SECONDS)
         return OAuthClientInformationFull.model_validate(data)
 
     def create_pending_session(
