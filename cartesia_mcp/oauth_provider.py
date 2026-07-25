@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 from urllib.parse import urlencode, urlparse
 
@@ -20,18 +21,38 @@ from pydantic import AnyUrl
 
 from cartesia_mcp.oauth_store import PendingConnectSession, oauth_store
 
-# Native IDE / desktop MCP clients (custom URL schemes).
-_NATIVE_REDIRECT_SCHEMES = frozenset({"cursor", "vscode", "vscode-insiders"})
+# Schemes that must never be treated as "native app" redirects.
+_BLOCKED_REDIRECT_SCHEMES = frozenset(
+    {
+        "http",
+        "https",
+        "javascript",
+        "data",
+        "file",
+        "blob",
+        "vbscript",
+        "about",
+    }
+)
 
 # RFC 8252 loopback hosts (port may be ephemeral).
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 # First-party HTTPS OAuth callbacks for known MCP hosts. Path must match exactly
 # unless listed with a trailing "/" as a prefix.
+#
+# Desktop clients usually use loopback http or a custom scheme (allowed below).
+# Hosted web clients need an explicit HTTPS entry here (or via
+# MCP_OAUTH_EXTRA_HTTPS_REDIRECTS) — do not open arbitrary https:// hosts.
 _HTTPS_REDIRECT_EXACT = frozenset(
     {
         ("claude.ai", "/api/mcp/auth_callback"),
+        ("claude.com", "/api/mcp/auth_callback"),
         ("chatgpt.com", "/connector_platform_oauth_redirect"),
+        ("www.cursor.com", "/agents/mcp/oauth/callback"),
+        ("cursor.com", "/agents/mcp/oauth/callback"),
+        ("vscode.dev", "/redirect"),
+        ("insiders.vscode.dev", "/redirect"),
     }
 )
 _HTTPS_REDIRECT_PREFIXES = (
@@ -39,11 +60,38 @@ _HTTPS_REDIRECT_PREFIXES = (
 )
 
 
+def _extra_https_redirects_from_env() -> frozenset[tuple[str, str]]:
+    """Optional exact (host, path) pairs from MCP_OAUTH_EXTRA_HTTPS_REDIRECTS.
+
+    Format: comma-separated ``host|path`` entries, e.g.
+    ``example.com|/oauth/callback,www.example.com|/oauth/callback``.
+    """
+    raw = os.environ.get("MCP_OAUTH_EXTRA_HTTPS_REDIRECTS", "").strip()
+    if not raw:
+        return frozenset()
+    pairs: set[tuple[str, str]] = set()
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry or "|" not in entry:
+            continue
+        host, path = entry.split("|", 1)
+        host = host.strip().lower()
+        path = path.strip()
+        if host and path.startswith("/"):
+            pairs.add((host, path))
+    return frozenset(pairs)
+
+
 def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
     """Return True when a DCR / authorize redirect_uri is safe to use.
 
     Open DCR is required for MCP clients, so the redirect URI is the security
     boundary: reject arbitrary https hosts that would receive auth codes.
+
+    Allowed:
+    - Custom URI schemes (desktop IDEs), except blocked web/script schemes
+    - Loopback http (RFC 8252)
+    - Allowlisted first-party https callbacks (+ env extras)
     """
     raw = (
         redirect_uri.unicode_string()
@@ -55,7 +103,8 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
         return False
 
     scheme = parsed.scheme.lower()
-    if scheme in _NATIVE_REDIRECT_SCHEMES:
+    if scheme and scheme not in _BLOCKED_REDIRECT_SCHEMES:
+        # Native / private-use schemes (cursor://, windsurf://, …).
         # Require a non-empty authority or path (reject bare "cursor:").
         return bool(parsed.netloc or parsed.path)
 
@@ -66,7 +115,8 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
         return host in _LOOPBACK_HOSTS
 
     if scheme == "https":
-        if (host, path) in _HTTPS_REDIRECT_EXACT:
+        exact = _HTTPS_REDIRECT_EXACT | _extra_https_redirects_from_env()
+        if (host, path) in exact:
             return True
         return any(
             host == allowed_host and path.startswith(prefix)
@@ -96,9 +146,8 @@ class CartesiaOAuthProvider(
             raise RegistrationError(
                 error="invalid_client_metadata",
                 error_description=(
-                    "redirect_uris must be a native MCP client scheme "
-                    "(cursor/vscode), loopback http, or an allowlisted "
-                    "https callback"
+                    "redirect_uris must be a native app URI scheme, "
+                    "loopback http, or an allowlisted https callback"
                 ),
             )
         oauth_store.register_client(client_info)

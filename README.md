@@ -161,6 +161,22 @@ Some tools call [management endpoints](https://docs.cartesia.ai/api-reference/us
 
 Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 
+### Hosted OAuth redirect URIs
+
+Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy:
+
+- **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`
+- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path)
+- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, and VS Code Web
+
+To temporarily allow another exact HTTPS callback without a code change, set:
+
+```text
+MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
+```
+
+(comma-separated `host|/path` pairs). Prefer adding durable hosts in code for known products.
+
 ### API version
 
 All tools send `Cartesia-Version` (default `2026-03-01`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.
