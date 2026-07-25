@@ -6,6 +6,7 @@ import pytest
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import (
     ACCESS_TOKEN_TTL_SECONDS,
+    CLIENT_TTL_SECONDS,
     MemoryBackend,
     configure_oauth_store_from_env,
     oauth_store,
@@ -362,6 +363,28 @@ def test_configure_hosted_requires_redis_url():
         configure_oauth_store_from_env(hosted=True, redis_url=None)
 
 
+def test_register_client_sets_ttl_and_get_refreshes():
+    backend = MemoryBackend()
+    oauth_store.use_backend(backend)
+    oauth_store.clear()
+
+    client = _client()
+    oauth_store.register_client(client)
+    key = f"mcp:oauth:client:{client.client_id}"
+    _, expires_at = backend._data[key]
+    assert expires_at is not None
+    assert expires_at > __import__("time").time() + CLIENT_TTL_SECONDS - 5
+
+    # Simulate an older expiry, then load to refresh.
+    value, _ = backend._data[key]
+    backend._data[key] = (value, __import__("time").time() + 60)
+    loaded = oauth_store.get_client(client.client_id)
+    assert loaded is not None
+    _, refreshed_expires_at = backend._data[key]
+    assert refreshed_expires_at is not None
+    assert refreshed_expires_at > __import__("time").time() + CLIENT_TTL_SECONDS - 5
+
+
 def test_redis_backend_json_roundtrip(monkeypatch):
     """RedisBackend must survive JSON encode/decode of OAuth payloads."""
     from cartesia_mcp.oauth_store import RedisBackend, OAuthStore
@@ -384,6 +407,9 @@ def test_redis_backend_json_roundtrip(monkeypatch):
 
         def setex(self, key: str, ttl: int, value: str) -> None:
             self._data[key] = value
+
+        def expire(self, key: str, ttl: int) -> bool:
+            return key in self._data
 
         def delete(self, key: str) -> None:
             self._data.pop(key, None)
