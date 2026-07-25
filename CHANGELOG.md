@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.0...cartesia-mcp-v0.18.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* allow Cursor, Claude.com, and VS Code Web OAuth redirects ([#73](https://github.com/cartesia-ai/cartesia-mcp/issues/73)) ([c33db71](https://github.com/cartesia-ai/cartesia-mcp/commit/c33db71ef76c0997a6975a7a3ce4aa005ddc3023))
+
 ## [0.18.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.17.1...cartesia-mcp-v0.18.0) (2026-07-25)
 
 
