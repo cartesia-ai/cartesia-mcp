@@ -28,18 +28,27 @@ def _reset_store() -> None:
         ("cursor://anysphere.cursor-mcp/oauth/callback", True),
         ("vscode://vscode.github-authentication/oauth/callback", True),
         ("vscode-insiders://callback", True),
+        ("windsurf://oauth/callback", True),
         ("http://127.0.0.1:58135/callback", True),
         ("http://localhost:3118/callback", True),
+        ("http://localhost:8787/callback", True),
         ("http://[::1]:8080/callback", True),
         ("https://claude.ai/api/mcp/auth_callback", True),
+        ("https://claude.com/api/mcp/auth_callback", True),
         ("https://chatgpt.com/connector_platform_oauth_redirect", True),
         ("https://chatgpt.com/connector/oauth/abc123", True),
+        ("https://www.cursor.com/agents/mcp/oauth/callback", True),
+        ("https://cursor.com/agents/mcp/oauth/callback", True),
+        ("https://vscode.dev/redirect", True),
+        ("https://insiders.vscode.dev/redirect", True),
         ("https://evil.attacker.com/steal", False),
         ("https://example.com/callback", False),
         ("https://claude.ai/evil", False),
         ("https://chatgpt.com/other", False),
+        ("https://www.cursor.com/evil", False),
         ("javascript:alert(1)", False),
         ("data:text/html,hi", False),
+        ("file:///etc/passwd", False),
         ("http://evil.com/callback", False),
         ("https://user:pass@claude.ai/api/mcp/auth_callback", False),
         ("cursor:", False),
@@ -47,6 +56,21 @@ def _reset_store() -> None:
 )
 def test_redirect_uri_allowlist(uri: str, allowed: bool):
     assert _redirect_uri_is_allowed(uri) is allowed
+
+
+def test_extra_https_redirects_from_env(monkeypatch):
+    monkeypatch.setenv(
+        "MCP_OAUTH_EXTRA_HTTPS_REDIRECTS",
+        "partner.example|/mcp/oauth/callback, bad-entry, missingpath|",
+    )
+    assert (
+        _redirect_uri_is_allowed("https://partner.example/mcp/oauth/callback") is True
+    )
+    assert _redirect_uri_is_allowed("https://partner.example/other") is False
+    monkeypatch.delenv("MCP_OAUTH_EXTRA_HTTPS_REDIRECTS", raising=False)
+    assert (
+        _redirect_uri_is_allowed("https://partner.example/mcp/oauth/callback") is False
+    )
 
 
 def test_register_client_rejects_arbitrary_https_redirect():
