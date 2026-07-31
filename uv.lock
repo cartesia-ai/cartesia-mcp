@@ -73,7 +73,7 @@ websockets = [
 
 [[package]]
 name = "cartesia-mcp"
-version = "0.16.1"
+version = "0.18.1"
 source = { editable = "." }
 dependencies = [
     { name = "cartesia", extra = ["websockets"] },
@@ -93,7 +93,7 @@ dev = [
 requires-dist = [
     { name = "cartesia", extras = ["websockets"], specifier = ">=3.5.0,<4.0.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.27.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=1.27.0,<2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "redis", specifier = ">=5.0.0" },
     { name = "uvicorn", specifier = ">=0.34.0" },

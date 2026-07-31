@@ -255,7 +255,8 @@ def test_save_downloaded_file_uses_safe_filename(tmp_path) -> None:
     )
 
     assert output.parent == tmp_path
-    assert output.name == "download_name.wav"
+    assert output.name.startswith("download_name_")
+    assert output.suffix == ".wav"
     assert output.read_bytes() == b"data"
 
 
@@ -282,4 +283,4 @@ def test_save_downloaded_file_playback_pcm_saved_as_wav(tmp_path) -> None:
     )
 
     assert output.suffix == ".wav"
-    assert output.name == "download_generation.wav"
+    assert output.name.startswith("download_generation_")

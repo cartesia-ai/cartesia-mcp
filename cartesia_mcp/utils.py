@@ -1,6 +1,7 @@
 import os
 import datetime
 import typing
+import uuid
 import wave
 from pathlib import Path
 
@@ -119,12 +120,11 @@ def save_downloaded_file(
     if not Path(safe_name).suffix:
         safe_name = f"{safe_name}.bin"
 
-    output_path = dir_path / f"download_{safe_name}"
-    if output_path.exists():
-        stem = Path(safe_name).stem
-        suffix = Path(safe_name).suffix
-        ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        output_path = dir_path / f"download_{stem}_{ts}{suffix}"
+    # Always unique: concurrent offloaded download_file calls can race an
+    # exists-check + second-granularity timestamp.
+    stem = Path(safe_name).stem
+    suffix = Path(safe_name).suffix
+    output_path = dir_path / f"download_{stem}_{uuid.uuid4().hex[:8]}{suffix}"
 
     with output_path.open("wb") as f:
         f.write(content)
@@ -142,7 +142,10 @@ def create_output_file(output_directory: str, tool_type: ToolType,
         raise Exception(
             f"Output directory {dir_path} is not writable")
 
-    return dir_path / f"{tool_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.{extension}"
+    # Include a uuid so concurrent offloaded tools in the same second don't
+    # collide on the same path.
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return dir_path / f"{tool_type}_{stamp}_{uuid.uuid4().hex[:8]}.{extension}"
 
 
 def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
