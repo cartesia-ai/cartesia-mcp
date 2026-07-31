@@ -1,6 +1,7 @@
 import os
 import datetime
 import typing
+import uuid
 import wave
 from pathlib import Path
 
@@ -142,7 +143,10 @@ def create_output_file(output_directory: str, tool_type: ToolType,
         raise Exception(
             f"Output directory {dir_path} is not writable")
 
-    return dir_path / f"{tool_type}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.{extension}"
+    # Include a uuid so concurrent offloaded tools in the same second don't
+    # collide on the same path.
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    return dir_path / f"{tool_type}_{stamp}_{uuid.uuid4().hex[:8]}.{extension}"
 
 
 def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
