@@ -19,8 +19,8 @@ def _list_voices_tool():
 def _list_voices_output_schema() -> dict:
     tools = asyncio.run(server.mcp.list_tools())
     tool = next(t for t in tools if t.name == "list_voices")
-    assert tool.outputSchema is not None
-    return tool.outputSchema
+    assert tool.output_schema is not None
+    return tool.output_schema
 
 
 def _structured_content_for(result: dict) -> dict:

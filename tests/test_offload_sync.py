@@ -11,7 +11,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-from cartesia_mcp.fastmcp_server import CartesiaMCP
+from cartesia_mcp.mcpserver import CartesiaMCP
 from cartesia_mcp.offload_sync import is_offloaded_sync_tool, offload_sync_callable
 
 
@@ -88,7 +88,8 @@ def test_health_stays_responsive_while_sync_tool_runs():
             transport=httpx.ASGITransport(app=app),
             base_url="http://test",
         ) as client:
-            tool_task = asyncio.create_task(tool.run({}))
+            # Call the offloaded tool body directly (Tool.run requires a Context).
+            tool_task = asyncio.create_task(tool.fn())
             deadline = time.monotonic() + 2
             while not started.is_set():
                 if time.monotonic() > deadline:

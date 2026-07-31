@@ -1,17 +1,17 @@
-"""Cartesia FastMCP server with session-aware tool listing."""
+"""Cartesia MCP server with session-aware tool listing."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.types import Icon, Tool as MCPTool, ToolAnnotations
 
 from cartesia_mcp.offload_sync import offload_sync_callable
 from cartesia_mcp.tool_visibility import is_tool_visible
 
 
-class CartesiaMCP(FastMCP):
+class CartesiaMCP(MCPServer):
     def add_tool(
         self,
         fn: Any,

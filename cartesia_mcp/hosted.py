@@ -6,7 +6,7 @@ import hmac
 from typing import Any
 
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from pydantic import AnyHttpUrl
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -48,17 +48,22 @@ def internal_secret() -> str | None:
     return env_or_none("MCP_INTERNAL_SECRET")
 
 
-def fastmcp_hosted_kwargs() -> dict[str, Any]:
+def hosted_bind_host() -> str:
+    return "0.0.0.0"
+
+
+def hosted_bind_port() -> int:
+    return int(env_or_none("PORT") or "8000")
+
+
+def hosted_server_kwargs() -> dict[str, Any]:
+    """Constructor kwargs for MCPServer (auth only; transport moved to the app factory)."""
     mcp_url = server_public_url()
     provider = CartesiaOAuthProvider(
         playground_url=playground_public_url(),
         mcp_server_url=mcp_url,
     )
     return {
-        "host": "0.0.0.0",
-        "port": int(env_or_none("PORT") or "8000"),
-        "streamable_http_path": "/mcp",
-        "stateless_http": True,
         "auth_server_provider": provider,
         "auth": AuthSettings(
             issuer_url=AnyHttpUrl(mcp_url),
@@ -70,6 +75,19 @@ def fastmcp_hosted_kwargs() -> dict[str, Any]:
             ),
             required_scopes=["mcp"],
         ),
+    }
+
+
+def hosted_streamable_http_kwargs() -> dict[str, Any]:
+    """Kwargs for MCPServer.streamable_http_app().
+
+    ``host="0.0.0.0"`` keeps DNS-rebinding auto-protection off so public Host
+    headers like mcp.cartesia.ai are accepted (v2 defaults host to 127.0.0.1).
+    """
+    return {
+        "streamable_http_path": "/mcp",
+        "stateless_http": True,
+        "host": hosted_bind_host(),
     }
 
 
@@ -185,7 +203,7 @@ async def oauth_internal_session(request: Request) -> Response:
     )
 
 
-def attach_hosted_routes(mcp: FastMCP) -> None:
+def attach_hosted_routes(mcp: MCPServer) -> None:
     mcp._custom_starlette_routes.extend(
         [
             Route("/health", endpoint=health, methods=["GET"]),
@@ -203,7 +221,7 @@ def attach_hosted_routes(mcp: FastMCP) -> None:
     )
 
 
-def run_hosted(mcp: FastMCP) -> None:
+def run_hosted(mcp: MCPServer) -> None:
     if hosted_enabled():
         configure_hosted_oauth_store()
     attach_hosted_routes(mcp)
@@ -212,11 +230,11 @@ def run_hosted(mcp: FastMCP) -> None:
 
     from cartesia_mcp.register_rate_limit import RegisterRateLimitMiddleware
 
-    app = mcp.streamable_http_app()
+    app = mcp.streamable_http_app(**hosted_streamable_http_kwargs())
     app.add_middleware(RegisterRateLimitMiddleware)
     uvicorn.run(
         app,
-        host=mcp.settings.host,
-        port=mcp.settings.port,
-        log_level=mcp.settings.log_level.lower(),
+        host=hosted_bind_host(),
+        port=hosted_bind_port(),
+        log_level="info",
     )

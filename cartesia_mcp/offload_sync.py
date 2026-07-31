@@ -17,7 +17,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def offload_sync_callable(fn: F) -> F:
-    """Wrap a sync callable so FastMCP awaits it via ``asyncio.to_thread``.
+    """Wrap a sync callable so MCPServer awaits it via ``asyncio.to_thread``.
 
     Contextvars are copied into the worker thread (Python 3.11+), so hosted
     request-scoped API credentials remain available inside the tool body.
