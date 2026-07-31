@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.1...cartesia-mcp-v0.18.2) (2026-07-31)
+
+
+### Bug Fixes
+
+* offload sync MCP tools off the uvicorn event loop ([#75](https://github.com/cartesia-ai/cartesia-mcp/issues/75)) ([d650a95](https://github.com/cartesia-ai/cartesia-mcp/commit/d650a95ce84d6cff5433c4d6f696cab008debf85))
+
 ## [0.18.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.0...cartesia-mcp-v0.18.1) (2026-07-25)
 
 
