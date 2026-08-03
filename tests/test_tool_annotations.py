@@ -14,16 +14,16 @@ def test_all_tools_have_annotation_title_and_hint():
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"
         assert tool.annotations.title, f"{tool.name} is missing annotations.title"
-        assert tool.annotations.readOnlyHint is not None, (
-            f"{tool.name} must set readOnlyHint explicitly"
+        assert tool.annotations.read_only_hint is not None, (
+            f"{tool.name} must set read_only_hint explicitly"
         )
-        if tool.annotations.readOnlyHint:
-            assert tool.annotations.destructiveHint in (None, False), (
-                f"{tool.name} is read-only but sets destructiveHint"
+        if tool.annotations.read_only_hint:
+            assert tool.annotations.destructive_hint in (None, False), (
+                f"{tool.name} is read-only but sets destructive_hint"
             )
         else:
-            assert tool.annotations.destructiveHint is not None, (
-                f"{tool.name} must set destructiveHint when readOnlyHint is false"
+            assert tool.annotations.destructive_hint is not None, (
+                f"{tool.name} must set destructive_hint when read_only_hint is false"
             )
 
 
@@ -41,8 +41,8 @@ def test_read_only_tools():
     for name in read_only:
         annotations = tools[name].annotations
         assert annotations is not None
-        assert annotations.readOnlyHint is True
-        assert annotations.destructiveHint in (None, False)
+        assert annotations.read_only_hint is True
+        assert annotations.destructive_hint in (None, False)
 
 
 def test_additive_tools():
@@ -57,8 +57,8 @@ def test_additive_tools():
     for name in additive_tools:
         annotations = tools[name].annotations
         assert annotations is not None
-        assert annotations.readOnlyHint is False
-        assert annotations.destructiveHint is False
+        assert annotations.read_only_hint is False
+        assert annotations.destructive_hint is False
 
 
 def test_destructive_tools():
@@ -72,8 +72,8 @@ def test_destructive_tools():
     for name in destructive_tools:
         annotations = tools[name].annotations
         assert annotations is not None
-        assert annotations.readOnlyHint is False
-        assert annotations.destructiveHint is True
+        assert annotations.read_only_hint is False
+        assert annotations.destructive_hint is True
 
 
 def test_wire_format_exposes_annotation_title():
@@ -86,5 +86,5 @@ def test_wire_format_exposes_annotation_title():
 def test_text_to_speech_voice_id_has_string_type():
     tools = asyncio.run(server.mcp.list_tools())
     tts = next(tool for tool in tools if tool.name == "text_to_speech")
-    voice_id = tts.inputSchema["properties"]["voice_id"]
+    voice_id = tts.input_schema["properties"]["voice_id"]
     assert voice_id["type"] == "string"

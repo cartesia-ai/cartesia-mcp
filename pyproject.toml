@@ -7,8 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "cartesia[websockets]>=3.5.0,<4.0.0",
     "httpx>=0.28.1",
-    # mcp 2.0 removed mcp.server.fastmcp (renamed MCPServer). Stay on 1.x until we migrate.
-    "mcp[cli]>=1.27.0,<2",
+    "mcp[cli]>=2,<3",
     "python-dotenv>=1.0.0",
     "redis>=5.0.0",
     "uvicorn>=0.34.0",

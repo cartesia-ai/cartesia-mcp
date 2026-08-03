@@ -49,8 +49,8 @@ def test_all_tool_output_schemas_allow_null_defaults() -> None:
     tools = asyncio.run(server.mcp.list_tools())
     failures: list[str] = []
     for tool in tools:
-        if tool.outputSchema is None:
+        if tool.output_schema is None:
             continue
-        for issue in _bad_null_defaults(tool.outputSchema):
+        for issue in _bad_null_defaults(tool.output_schema):
             failures.append(f"{tool.name}: {issue}")
     assert failures == [], "Invalid output schemas:\n" + "\n".join(failures)
