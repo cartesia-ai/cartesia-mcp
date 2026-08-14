@@ -1,4 +1,4 @@
-"""Tests for Cartesia SDK v3 client setup."""
+"""Tests for Cartesia SDK client setup."""
 
 from __future__ import annotations
 

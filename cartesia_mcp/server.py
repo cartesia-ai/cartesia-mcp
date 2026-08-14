@@ -22,12 +22,12 @@ from cartesia.types import (
     STTTranscribeResponse,
     SupportedLanguage,
     Voice,
+    VoiceAccent,
     VoiceMetadata,
 )
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
-from cartesia.types.voice_specifier_param import VoiceSpecifierParam
 
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
@@ -93,10 +93,6 @@ def _additive_tool(title: str) -> ToolAnnotations:
 
 def _destructive_tool(title: str) -> ToolAnnotations:
     return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=True)
-
-
-def _voice_from_id(voice_id: str) -> VoiceSpecifierParam:
-    return VoiceSpecifierParam(mode="id", id=voice_id)
 
 
 def _require_admin_client() -> Cartesia:
@@ -300,7 +296,7 @@ def text_to_speech(
     )
     tts_kwargs: dict[str, typing.Any] = {
         "transcript": transcript,
-        "voice": _voice_from_id(voice_id),
+        "voice": voice_id,
         "output_format": output_format,
         "model_id": model_id,
         "language": language,
@@ -411,6 +407,10 @@ def voice_change(
         description : str
             The description of the new localized voice.
 
+        accent : VoiceAccent
+            Catalog accent id from GET /accents (for example `mexican` or `parisian`).
+            Display names are rejected on this API version.
+
         language : LocalizeTargetLanguage
             Target language to localize the voice to. Distinct from TTS SupportedLanguage.
 
@@ -426,6 +426,7 @@ def localize_voice(
     voice_id: str,
     name: str,
     description: str,
+    accent: VoiceAccent,
     language: LocalizeTargetLanguage,
     original_speaker_gender: Gender,
     dialect: typing.Optional[LocalizeDialect] = None,
@@ -435,6 +436,7 @@ def localize_voice(
         voice_id=voice_id,
         name=name,
         description=description,
+        accent=accent,
         language=language,
         original_speaker_gender=original_speaker_gender,
         dialect=dialect,
