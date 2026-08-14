@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import os
+
 from cartesia_mcp.api_version import CARTESIA_VERSION
 from cartesia_mcp.client_headers import client_request_headers
 from cartesia_mcp.sdk_setup import create_cartesia_client
+
+
+def test_default_cartesia_version() -> None:
+    if os.getenv("CARTESIA_VERSION"):
+        return
+    assert CARTESIA_VERSION == "2026-08-14"
 
 
 def test_create_cartesia_client_sets_default_headers() -> None:
