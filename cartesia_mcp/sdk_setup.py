@@ -1,4 +1,4 @@
-"""Configure the Cartesia Python SDK v3 client for MCP."""
+"""Configure the Cartesia Python SDK client for MCP."""
 
 from __future__ import annotations
 

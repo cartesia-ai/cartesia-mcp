@@ -308,6 +308,7 @@ def main() -> int:
             voice_id=SAMPLE_VOICE_ID,
             name=localized_name,
             description="Temporary localized voice from MCP test",
+            accent="mexican",
             language="es",
             original_speaker_gender="male",
         ),

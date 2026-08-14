@@ -70,7 +70,7 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "3.5.0"
+version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", version = "4.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
@@ -81,9 +81,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/87/5cd686fd51b28151f0c3a4efb9a8484c4c2a3cdc38e95da3ee90cb8a842a/cartesia-3.5.0.tar.gz", hash = "sha256:f653eb462efbc6883249fab764f53efd7f7356d5fe172bf8e4545f68fc3769b9", size = 336538, upload-time = "2026-07-23T20:32:50.831Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/23/1b/796f2d32f4dd7c3b710022014655a7cd302e125f868c94b4d21b055421d7/cartesia-4.0.0.tar.gz", hash = "sha256:ac217da41d06bd1defc196f3648320b059028ef0289e6778c4ea2e819b2b81d4", size = 340308, upload-time = "2026-08-14T15:37:33.032Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/e6/414b7b5df5dd51851ffbfabcdf9eec43fe2d82aa60e0e30a8501c7435d38/cartesia-3.5.0-py3-none-any.whl", hash = "sha256:ed06afce09f99c28e089e0732b0fb38ff9af52f114ee19f1a17e54dbdaa83251", size = 214111, upload-time = "2026-07-23T20:32:52.171Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/ca/f440fb35a6b3161858b4e4d781bdfa5b08da1f4592b1ab5e407a0948df89/cartesia-4.0.0-py3-none-any.whl", hash = "sha256:398b20a86858e6cbdaa9c7d85e636e600766ecde1befa6ef46161d35262881ad", size = 219029, upload-time = "2026-08-14T15:37:34.262Z" },
 ]
 
 [package.optional-dependencies]
@@ -111,7 +111,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], specifier = ">=3.5.0,<4.0.0" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=4.0.0,<5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=2,<3" },
     { name = "python-dotenv", specifier = ">=1.0.0" },

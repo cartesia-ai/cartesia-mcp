@@ -179,4 +179,4 @@ MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
 
 ### API version
 
-All tools send `Cartesia-Version` (default `2026-03-01`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.
+All tools send `Cartesia-Version` (default `2026-08-14`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.
