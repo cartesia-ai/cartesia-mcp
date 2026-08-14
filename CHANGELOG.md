@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.2...cartesia-mcp-v0.19.0) (2026-08-14)
+
+
+### Features
+
+* default Cartesia-Version to 2026-08-14 ([#78](https://github.com/cartesia-ai/cartesia-mcp/issues/78)) ([a2d54b3](https://github.com/cartesia-ai/cartesia-mcp/commit/a2d54b3706742264bdf93feb05cfd1bcf3110916))
+
 ## [0.18.2](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.1...cartesia-mcp-v0.18.2) (2026-07-31)
 
 
