@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 
@@ -12,12 +11,10 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from cartesia_mcp.credentials import looks_like_cartesia_api_key
-from cartesia_mcp.mcp_rate_limit import bearer_token, is_mcp_path
+from cartesia_mcp.mcp_http import bearer_token, is_mcp_path, jsonrpc_method_from_body
 from cartesia_mcp.oauth_store import oauth_store
 
 logger = logging.getLogger("cartesia_mcp.mcp")
-
-_MAX_RPC_METHOD_LEN = 64
 
 
 @dataclass(frozen=True)
@@ -26,23 +23,6 @@ class McpRequestIdentity:
     user_id: str | None = None
     client_name: str | None = None
     auth: str | None = None
-
-
-def jsonrpc_method_from_body(body: bytes) -> str | None:
-    if not body:
-        return None
-    try:
-        payload = json.loads(body)
-    except json.JSONDecodeError:
-        return None
-    method: object = None
-    if isinstance(payload, dict):
-        method = payload.get("method")
-    elif isinstance(payload, list) and payload and isinstance(payload[0], dict):
-        method = payload[0].get("method")
-    if not isinstance(method, str) or not method or len(method) > _MAX_RPC_METHOD_LEN:
-        return None
-    return method
 
 
 def mcp_request_identity(request: Request) -> McpRequestIdentity:

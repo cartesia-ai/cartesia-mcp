@@ -8,10 +8,8 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from cartesia_mcp.mcp_request_log import (
-    McpRequestLogMiddleware,
-    jsonrpc_method_from_body,
-)
+from cartesia_mcp.mcp_http import jsonrpc_method_from_body
+from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 from mcp.server.auth.provider import AuthorizationParams

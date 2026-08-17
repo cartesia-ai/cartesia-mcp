@@ -6,10 +6,13 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from cartesia_mcp.mcp_http import mcp_rate_limit_bucket
 from cartesia_mcp.mcp_rate_limit import (
+    MCP_INITIALIZE_IP_RATE_LIMIT,
+    MCP_INITIALIZE_RATE_LIMIT,
+    MCP_IP_RATE_LIMIT,
     MCP_RATE_LIMIT,
     McpRateLimitMiddleware,
-    mcp_rate_limit_bucket,
 )
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 
@@ -96,6 +99,76 @@ def test_mcp_rate_limit_blocks_over_cap():
         json={},
     )
     assert other.status_code == 200
+
+
+def test_mcp_rate_limit_ip_bucket_applies_with_bearer():
+    _reset_store()
+    client = _client()
+    shared_ip = "198.51.100.44"
+    for i in range(MCP_IP_RATE_LIMIT):
+        response = client.post(
+            "/mcp",
+            headers={
+                "authorization": f"Bearer tok-{i}",
+                "x-forwarded-for": shared_ip,
+            },
+            json={},
+        )
+        assert response.status_code == 200
+
+    blocked = client.post(
+        "/mcp",
+        headers={
+            "authorization": "Bearer tok-overflow",
+            "x-forwarded-for": shared_ip,
+        },
+        json={},
+    )
+    assert blocked.status_code == 429
+    assert "IP" in blocked.json()["error_description"]
+
+
+def test_mcp_initialize_rate_limit_blocks_handshake_storm():
+    _reset_store()
+    client = _client()
+    headers = {
+        "authorization": "Bearer init-storm",
+        "x-forwarded-for": "198.51.100.55",
+    }
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    for _ in range(MCP_INITIALIZE_RATE_LIMIT):
+        assert client.post("/mcp", headers=headers, json=payload).status_code == 200
+
+    blocked = client.post("/mcp", headers=headers, json=payload)
+    assert blocked.status_code == 429
+    assert "initialize" in blocked.json()["error_description"]
+
+
+def test_mcp_initialize_ip_rate_limit_blocks_shared_egress():
+    _reset_store()
+    client = _client()
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    for i in range(MCP_INITIALIZE_IP_RATE_LIMIT):
+        response = client.post(
+            "/mcp",
+            headers={
+                "authorization": f"Bearer init-key-{i}",
+                "x-forwarded-for": "198.51.100.66",
+            },
+            json=payload,
+        )
+        assert response.status_code == 200
+
+    blocked = client.post(
+        "/mcp",
+        headers={
+            "authorization": "Bearer init-key-overflow",
+            "x-forwarded-for": "198.51.100.66",
+        },
+        json=payload,
+    )
+    assert blocked.status_code == 429
+    assert "IP" in blocked.json()["error_description"]
 
 
 def test_mcp_rate_limit_unauthenticated_keys_by_ip():

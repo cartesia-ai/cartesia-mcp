@@ -2,40 +2,42 @@
 
 from __future__ import annotations
 
-import hashlib
-
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
+from cartesia_mcp.mcp_http import (
+    is_mcp_path,
+    jsonrpc_method_from_body,
+    mcp_rate_limit_bucket,
+)
 from cartesia_mcp.oauth_store import oauth_store
 from cartesia_mcp.register_rate_limit import client_ip
 
-# Burst of ~60 in 10s covers initialize + tools/list + SSE; tens of rps reconnects trip it.
-MCP_RATE_LIMIT = 60
+# General /mcp burst; reconnect storms still need initialize-specific limits below.
+MCP_RATE_LIMIT = 30
 MCP_RATE_WINDOW_SECONDS = 10
 
+# Secondary IP bucket so one egress cannot mint sessions across many API keys.
+MCP_IP_RATE_LIMIT = 120
+MCP_IP_RATE_WINDOW_SECONDS = 10
 
-def is_mcp_path(path: str) -> bool:
-    return path.rstrip("/") == "/mcp"
-
-
-def bearer_token(request: Request) -> str | None:
-    auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
-        return None
-    token = auth[7:].strip()
-    return token or None
+# New session handshakes are expensive; keep well below general /mcp throughput.
+MCP_INITIALIZE_RATE_LIMIT = 5
+MCP_INITIALIZE_RATE_WINDOW_SECONDS = 60
+MCP_INITIALIZE_IP_RATE_LIMIT = 15
 
 
-def mcp_rate_limit_bucket(request: Request) -> str:
-    """Prefer a hashed bearer so shared egress IPs do not share one bucket."""
-    token = bearer_token(request)
-    if token is not None:
-        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
-        return f"tok:{digest}"
-    return f"ip:{client_ip(request)}"
+def _too_many_requests(retry_after: int, description: str) -> JSONResponse:
+    return JSONResponse(
+        {
+            "error": "too_many_requests",
+            "error_description": description,
+        },
+        status_code=429,
+        headers={"Retry-After": str(retry_after)},
+    )
 
 
 class McpRateLimitMiddleware(BaseHTTPMiddleware):
@@ -43,19 +45,56 @@ class McpRateLimitMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if request.method in ("GET", "POST", "DELETE") and is_mcp_path(request.url.path):
-            bucket = mcp_rate_limit_bucket(request)
-            count = oauth_store.increment_mcp_attempts(
-                bucket,
-                window_seconds=MCP_RATE_WINDOW_SECONDS,
+        if request.method not in ("GET", "POST", "DELETE") or not is_mcp_path(
+            request.url.path
+        ):
+            return await call_next(request)
+
+        ip = client_ip(request)
+        bucket = mcp_rate_limit_bucket(request)
+
+        if bucket.startswith("tok:"):
+            ip_count = oauth_store.increment_mcp_attempts(
+                f"allip:{ip}",
+                window_seconds=MCP_IP_RATE_WINDOW_SECONDS,
             )
-            if count > MCP_RATE_LIMIT:
-                return JSONResponse(
-                    {
-                        "error": "too_many_requests",
-                        "error_description": "MCP request rate limit exceeded",
-                    },
-                    status_code=429,
-                    headers={"Retry-After": str(MCP_RATE_WINDOW_SECONDS)},
+            if ip_count > MCP_IP_RATE_LIMIT:
+                return _too_many_requests(
+                    MCP_IP_RATE_WINDOW_SECONDS,
+                    "MCP request rate limit exceeded for this IP",
                 )
+
+        count = oauth_store.increment_mcp_attempts(
+            bucket,
+            window_seconds=MCP_RATE_WINDOW_SECONDS,
+        )
+        if count > MCP_RATE_LIMIT:
+            return _too_many_requests(
+                MCP_RATE_WINDOW_SECONDS,
+                "MCP request rate limit exceeded",
+            )
+
+        if request.method == "POST":
+            rpc_method = jsonrpc_method_from_body(await request.body())
+            if rpc_method == "initialize":
+                init_count = oauth_store.increment_mcp_attempts(
+                    f"init:{bucket}",
+                    window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+                )
+                if init_count > MCP_INITIALIZE_RATE_LIMIT:
+                    return _too_many_requests(
+                        MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+                        "MCP initialize rate limit exceeded",
+                    )
+
+                ip_init_count = oauth_store.increment_mcp_attempts(
+                    f"init:ip:{ip}",
+                    window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+                )
+                if ip_init_count > MCP_INITIALIZE_IP_RATE_LIMIT:
+                    return _too_many_requests(
+                        MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+                        "MCP initialize rate limit exceeded for this IP",
+                    )
+
         return await call_next(request)
