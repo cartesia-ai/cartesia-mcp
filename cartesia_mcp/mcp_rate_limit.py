@@ -9,11 +9,11 @@ from starlette.types import ASGIApp
 
 from cartesia_mcp.mcp_http import (
     is_mcp_path,
-    jsonrpc_method_from_body,
     mcp_rate_limit_bucket,
 )
 from cartesia_mcp.oauth_store import oauth_store
 from cartesia_mcp.register_rate_limit import client_ip
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 
 # General /mcp burst; reconnect storms still need initialize-specific limits below.
 MCP_RATE_LIMIT = 30
@@ -74,27 +74,26 @@ class McpRateLimitMiddleware(BaseHTTPMiddleware):
                 "MCP request rate limit exceeded",
             )
 
-        if request.method == "POST":
-            rpc_method = jsonrpc_method_from_body(await request.body())
-            if rpc_method == "initialize":
-                init_count = oauth_store.increment_mcp_attempts(
-                    f"init:{bucket}",
-                    window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+        if request.method == "POST" and request.headers.get(MCP_SESSION_ID_HEADER) is None:
+            init_count = oauth_store.increment_mcp_attempts(
+                f"init:{bucket}",
+                window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+            )
+            if init_count > MCP_INITIALIZE_RATE_LIMIT:
+                return _too_many_requests(
+                    MCP_INITIALIZE_RATE_WINDOW_SECONDS,
+                    "MCP session creation rate limit exceeded",
                 )
-                if init_count > MCP_INITIALIZE_RATE_LIMIT:
-                    return _too_many_requests(
-                        MCP_INITIALIZE_RATE_WINDOW_SECONDS,
-                        "MCP initialize rate limit exceeded",
-                    )
 
+            if bucket.startswith("tok:"):
                 ip_init_count = oauth_store.increment_mcp_attempts(
-                    f"init:ip:{ip}",
+                    f"initallip:{ip}",
                     window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
                 )
                 if ip_init_count > MCP_INITIALIZE_IP_RATE_LIMIT:
                     return _too_many_requests(
                         MCP_INITIALIZE_RATE_WINDOW_SECONDS,
-                        "MCP initialize rate limit exceeded for this IP",
+                        "MCP session creation rate limit exceeded for this IP",
                     )
 
         return await call_next(request)
