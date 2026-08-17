@@ -40,5 +40,5 @@ def test_hosted_server_auth_urls(monkeypatch):
 def test_hosted_streamable_http_kwargs(monkeypatch):
     kwargs = hosted_streamable_http_kwargs()
     assert kwargs["streamable_http_path"] == "/mcp"
-    assert kwargs["stateless_http"] is True
+    assert kwargs["stateless_http"] is False
     assert kwargs["host"] == "0.0.0.0"

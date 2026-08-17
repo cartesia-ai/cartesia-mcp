@@ -83,10 +83,16 @@ def hosted_streamable_http_kwargs() -> dict[str, Any]:
 
     ``host="0.0.0.0"`` keeps DNS-rebinding auto-protection off so public Host
     headers like mcp.cartesia.ai are accepted (v2 defaults host to 127.0.0.1).
+
+    Stateful sessions emit ``Mcp-Session-Id`` and keep GET /mcp SSE open.
+    Stateless mode never assigns a session id (logs ``Terminating session: None``)
+    and some Streamable HTTP clients reconnect in a tight initialize/list/SSE
+    loop. Hosted MCP is a single Render replica, so in-memory sessions are OK;
+    deploys drop them and clients reconnect once.
     """
     return {
         "streamable_http_path": "/mcp",
-        "stateless_http": True,
+        "stateless_http": False,
         "host": hosted_bind_host(),
     }
 
