@@ -235,10 +235,12 @@ def run_hosted(mcp: MCPServer) -> None:
     import uvicorn
 
     from cartesia_mcp.mcp_rate_limit import McpRateLimitMiddleware
+    from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware
     from cartesia_mcp.register_rate_limit import RegisterRateLimitMiddleware
 
     app = mcp.streamable_http_app(**hosted_streamable_http_kwargs())
     app.add_middleware(McpRateLimitMiddleware)
+    app.add_middleware(McpRequestLogMiddleware)
     app.add_middleware(RegisterRateLimitMiddleware)
     uvicorn.run(
         app,

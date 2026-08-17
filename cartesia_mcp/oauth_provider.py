@@ -257,6 +257,8 @@ class CartesiaOAuthProvider(
             params=pending.params,
             cartesia_credential=pending.cartesia_credential or "",
             cartesia_admin_credential=pending.cartesia_admin_credential,
+            completing_owner_id=pending.completing_owner_id,
+            completing_user_id=pending.completing_user_id,
         )
         query = urlencode(
             {
