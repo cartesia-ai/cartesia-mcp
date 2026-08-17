@@ -448,6 +448,8 @@ def test_redis_backend_json_roundtrip(monkeypatch):
         params=pending.params,
         cartesia_credential=pending.cartesia_credential or "",
         cartesia_admin_credential=pending.cartesia_admin_credential,
+        completing_owner_id=pending.completing_owner_id,
+        completing_user_id=pending.completing_user_id,
     )
     loaded_code = store.load_authorization_code(client, auth_code.code)
     assert loaded_code is not None
@@ -457,6 +459,8 @@ def test_redis_backend_json_roundtrip(monkeypatch):
     assert resolved is not None
     assert resolved.cartesia_credential == "sk_car_oauth_test_key"
     assert resolved.cartesia_admin_credential == "sk_car_admin_test.key"
+    assert resolved.owner_id == "org_test"
+    assert resolved.user_id == "user_test"
 
     with pytest.raises(ValueError, match="Authorization code not found"):
         store.exchange_authorization_code(client, loaded_code)
@@ -492,3 +496,45 @@ def test_revoke_token_removes_access_and_refresh():
     oauth_store.revoke_token(token.access_token)
     assert oauth_store.resolve_mcp_access_token(token.access_token) is None
     assert oauth_store.load_refresh_token(client, token.refresh_token or "") is None
+
+
+def test_resume_redirect_persists_owner_on_access_token():
+    _reset_store()
+    client = _client()
+    oauth_store.register_client(client)
+    session_id, connect_token = oauth_store.create_pending_session(
+        client.client_id,
+        _params(),
+    )
+    oauth_store.attach_credential(
+        session_id,
+        connect_token,
+        "sk_car_oauth_test_key",
+        completing_owner_id="org_logged",
+        completing_user_id="user_logged",
+    )
+    pending = oauth_store.pop_pending(session_id)
+    provider = CartesiaOAuthProvider(
+        playground_url="https://play.cartesia.ai",
+        mcp_server_url="https://mcp.cartesia.ai",
+    )
+    redirect = provider.build_resume_redirect(session_id, pending)
+    auth_code = oauth_store.load_authorization_code(
+        client,
+        redirect.split("code=")[1].split("&")[0],
+    )
+    assert auth_code is not None
+    token = oauth_store.exchange_authorization_code(client, auth_code)
+    resolved = oauth_store.resolve_mcp_access_token(token.access_token)
+    assert resolved is not None
+    assert resolved.owner_id == "org_logged"
+    assert resolved.user_id == "user_logged"
+    refreshed = oauth_store.exchange_refresh_token(
+        client,
+        oauth_store.load_refresh_token(client, token.refresh_token or ""),
+        ["mcp"],
+    )
+    resolved_refresh = oauth_store.resolve_mcp_access_token(refreshed.access_token)
+    assert resolved_refresh is not None
+    assert resolved_refresh.owner_id == "org_logged"
+    assert resolved_refresh.user_id == "user_logged"

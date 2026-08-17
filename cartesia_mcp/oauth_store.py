@@ -52,6 +52,8 @@ class StoredMcpAccessToken:
     expires_at: int
     cartesia_admin_credential: str | None = None
     refresh_token: str | None = None
+    owner_id: str | None = None
+    user_id: str | None = None
 
 
 @dataclass
@@ -63,6 +65,8 @@ class StoredMcpRefreshToken:
     expires_at: int
     cartesia_admin_credential: str | None = None
     access_token: str | None = None
+    owner_id: str | None = None
+    user_id: str | None = None
 
 
 class StoreBackend(Protocol):
@@ -258,6 +262,8 @@ def _access_to_dict(stored: StoredMcpAccessToken) -> dict[str, Any]:
         "expires_at": stored.expires_at,
         "cartesia_admin_credential": stored.cartesia_admin_credential,
         "refresh_token": stored.refresh_token,
+        "owner_id": stored.owner_id,
+        "user_id": stored.user_id,
     }
 
 
@@ -270,6 +276,8 @@ def _access_from_dict(data: dict[str, Any]) -> StoredMcpAccessToken:
         expires_at=int(data["expires_at"]),
         cartesia_admin_credential=data.get("cartesia_admin_credential"),
         refresh_token=data.get("refresh_token"),
+        owner_id=data.get("owner_id"),
+        user_id=data.get("user_id"),
     )
 
 
@@ -282,6 +290,8 @@ def _refresh_to_dict(stored: StoredMcpRefreshToken) -> dict[str, Any]:
         "expires_at": stored.expires_at,
         "cartesia_admin_credential": stored.cartesia_admin_credential,
         "access_token": stored.access_token,
+        "owner_id": stored.owner_id,
+        "user_id": stored.user_id,
     }
 
 
@@ -294,6 +304,8 @@ def _refresh_from_dict(data: dict[str, Any]) -> StoredMcpRefreshToken:
         expires_at=int(data["expires_at"]),
         cartesia_admin_credential=data.get("cartesia_admin_credential"),
         access_token=data.get("access_token"),
+        owner_id=data.get("owner_id"),
+        user_id=data.get("user_id"),
     )
 
 
@@ -509,6 +521,8 @@ class OAuthStore:
         params: AuthorizationParams,
         cartesia_credential: str,
         cartesia_admin_credential: str | None = None,
+        completing_owner_id: str | None = None,
+        completing_user_id: str | None = None,
     ) -> AuthorizationCode:
         code = secrets.token_urlsafe(32)
         auth_code = AuthorizationCode(
@@ -533,6 +547,8 @@ class OAuthStore:
                 "cartesia_admin_credential": cartesia_admin_credential,
                 "client_id": client_id,
                 "scopes": list(params.scopes or []),
+                "owner_id": completing_owner_id,
+                "user_id": completing_user_id,
             },
             ttl_seconds=AUTH_CODE_TTL_SECONDS,
         )
@@ -560,6 +576,8 @@ class OAuthStore:
         scopes: list[str],
         cartesia_credential: str,
         cartesia_admin_credential: str | None,
+        owner_id: str | None = None,
+        user_id: str | None = None,
     ) -> OAuthToken:
         access_token = secrets.token_urlsafe(32)
         refresh_token = secrets.token_urlsafe(32)
@@ -575,6 +593,8 @@ class OAuthStore:
             expires_at=access_expires_at,
             cartesia_admin_credential=cartesia_admin_credential,
             refresh_token=refresh_token,
+            owner_id=owner_id,
+            user_id=user_id,
         )
         refresh = StoredMcpRefreshToken(
             token=refresh_token,
@@ -584,6 +604,8 @@ class OAuthStore:
             expires_at=refresh_expires_at,
             cartesia_admin_credential=cartesia_admin_credential,
             access_token=access_token,
+            owner_id=owner_id,
+            user_id=user_id,
         )
         self._backend.set_json(
             f"{_KEY_ACCESS}{access_token}",
@@ -621,6 +643,8 @@ class OAuthStore:
             scopes=list(creds.get("scopes") or authorization_code.scopes or []),
             cartesia_credential=creds["cartesia_credential"],
             cartesia_admin_credential=creds.get("cartesia_admin_credential"),
+            owner_id=creds.get("owner_id"),
+            user_id=creds.get("user_id"),
         )
 
     def resolve_mcp_access_token(self, token: str) -> StoredMcpAccessToken | None:
@@ -680,6 +704,8 @@ class OAuthStore:
             scopes=list(requested_scopes),
             cartesia_credential=stored.cartesia_credential,
             cartesia_admin_credential=stored.cartesia_admin_credential,
+            owner_id=stored.owner_id,
+            user_id=stored.user_id,
         )
 
     def revoke_token(self, token: str) -> None:
