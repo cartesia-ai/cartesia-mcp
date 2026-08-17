@@ -28,6 +28,7 @@ _KEY_CODE_CREDENTIALS = "mcp:oauth:code-cred:"
 _KEY_ACCESS = "mcp:oauth:access:"
 _KEY_REFRESH = "mcp:oauth:refresh:"
 _KEY_REGISTER_RL = "mcp:oauth:register-rl:"
+_KEY_MCP_RL = "mcp:http:rl:"
 
 
 @dataclass
@@ -359,6 +360,18 @@ class OAuthStore:
         """Increment and return the /register attempt count for an IP window."""
         return self._backend.incr(
             f"{_KEY_REGISTER_RL}{client_ip}",
+            ttl_seconds=window_seconds,
+        )
+
+    def increment_mcp_attempts(
+        self,
+        bucket: str,
+        *,
+        window_seconds: int,
+    ) -> int:
+        """Increment and return the /mcp attempt count for a rate-limit bucket."""
+        return self._backend.incr(
+            f"{_KEY_MCP_RL}{bucket}",
             ttl_seconds=window_seconds,
         )
 
