@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.19.0...cartesia-mcp-v0.20.0) (2026-08-20)
+
+
+### Features
+
+* advertise Cartesia icon and use cartesia as the client name ([#85](https://github.com/cartesia-ai/cartesia-mcp/issues/85)) ([5a658db](https://github.com/cartesia-ai/cartesia-mcp/commit/5a658db9767cc805b23deb6db12539578354b0dd))
+* log owner and JSON-RPC method on hosted /mcp ([#81](https://github.com/cartesia-ai/cartesia-mcp/issues/81)) ([80d9590](https://github.com/cartesia-ai/cartesia-mcp/commit/80d9590aff61f9f2b2c6b7da66e923552eed8a03))
+* rate-limit hosted Streamable HTTP /mcp ([#80](https://github.com/cartesia-ai/cartesia-mcp/issues/80)) ([b6df5da](https://github.com/cartesia-ai/cartesia-mcp/commit/b6df5dab381639687f7d62f10d2047deafe40e99))
+
+
+### Bug Fixes
+
+* cap hosted MCP sessions and tighten initialize rate limits ([#84](https://github.com/cartesia-ai/cartesia-mcp/issues/84)) ([fc80fc3](https://github.com/cartesia-ai/cartesia-mcp/commit/fc80fc31baabfb2f47c6240b44dee13dd8de3667))
+* keep hosted Streamable HTTP sessions stateful ([#82](https://github.com/cartesia-ai/cartesia-mcp/issues/82)) ([8df1ac0](https://github.com/cartesia-ai/cartesia-mcp/commit/8df1ac012c6d4e0acc64e12018216e67ddae5f29))
+
 ## [0.19.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.18.2...cartesia-mcp-v0.19.0) (2026-08-14)
 
 
