@@ -1,12 +1,14 @@
 """Tests for hosted mode configuration."""
 
 from cartesia_mcp.hosted import (
+    attach_hosted_routes,
     hosted_enabled,
     hosted_server_kwargs,
     hosted_streamable_http_kwargs,
     mcp_resource_url,
     server_public_url,
 )
+from cartesia_mcp.mcpserver import CartesiaMCP
 
 
 def test_hosted_enabled_parses_truthy_values(monkeypatch):
@@ -42,3 +44,12 @@ def test_hosted_streamable_http_kwargs(monkeypatch):
     assert kwargs["streamable_http_path"] == "/mcp"
     assert kwargs["stateless_http"] is False
     assert kwargs["host"] == "0.0.0.0"
+
+
+def test_attach_hosted_routes_includes_icon():
+    mcp = CartesiaMCP("test-icon")
+    attach_hosted_routes(mcp)
+    paths = {route.path for route in mcp._custom_starlette_routes}
+    assert "/health" in paths
+    assert "/icon.png" in paths
+    assert "/favicon.ico" in paths

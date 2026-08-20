@@ -9,12 +9,15 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.mcpserver import MCPServer
 from pydantic import AnyHttpUrl
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
+from cartesia_mcp.branding import ICON_PNG_PATH
 from cartesia_mcp.config import env_or_none
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import configure_oauth_store_from_env
+
+_ICON_CACHE_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 
 def hosted_enabled() -> bool:
@@ -110,6 +113,14 @@ def _authorized_internal(request: Request) -> bool:
 
 async def health(_: Request) -> Response:
     return JSONResponse({"status": "ok"})
+
+
+async def icon_png(_: Request) -> Response:
+    return FileResponse(
+        ICON_PNG_PATH,
+        media_type="image/png",
+        headers=_ICON_CACHE_HEADERS,
+    )
 
 
 async def oauth_internal_complete(request: Request) -> Response:
@@ -213,6 +224,8 @@ def attach_hosted_routes(mcp: MCPServer) -> None:
     mcp._custom_starlette_routes.extend(
         [
             Route("/health", endpoint=health, methods=["GET"]),
+            Route("/icon.png", endpoint=icon_png, methods=["GET"]),
+            Route("/favicon.ico", endpoint=icon_png, methods=["GET"]),
             Route(
                 "/internal/oauth/complete",
                 endpoint=oauth_internal_complete,
