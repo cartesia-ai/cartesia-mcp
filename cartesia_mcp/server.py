@@ -38,8 +38,14 @@ from cartesia_mcp.custom_types import (
     ListVoicesResult,
     PronunciationDictItemParams,
 )
+from cartesia_mcp import __version__, extra_api
+from cartesia_mcp.branding import (
+    SERVER_DESCRIPTION,
+    SERVER_NAME,
+    WEBSITE_URL,
+    server_icons,
+)
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
-from cartesia_mcp import extra_api
 from cartesia_mcp.extra_api import DownloadFormat, UsageCreditsGroupBy, UsageInterval
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
@@ -49,6 +55,7 @@ from cartesia_mcp.hosted import (
     hosted_enabled,
     hosted_server_kwargs,
     run_hosted,
+    server_public_url,
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
 from cartesia_mcp.request_options import sdk_kwargs_from_request_options
@@ -81,7 +88,14 @@ if _is_hosted:
 elif CARTESIA_API_KEY:
     configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
 
-mcp = CartesiaMCP("Cartesia", **(hosted_server_kwargs() if _is_hosted else {}))
+mcp = CartesiaMCP(
+    SERVER_NAME,
+    description=SERVER_DESCRIPTION,
+    website_url=WEBSITE_URL,
+    icons=server_icons(origin=server_public_url() if _is_hosted else None),
+    version=__version__,
+    **(hosted_server_kwargs() if _is_hosted else {}),
+)
 
 def _read_only_tool(title: str) -> ToolAnnotations:
     return ToolAnnotations(title=title, read_only_hint=True)
