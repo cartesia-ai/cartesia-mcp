@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.20.0...cartesia-mcp-v0.21.0) (2026-08-27)
+
+
+### Features
+
+* add voice accent attach and detach tools ([#87](https://github.com/cartesia-ai/cartesia-mcp/issues/87)) ([05c2e5f](https://github.com/cartesia-ai/cartesia-mcp/commit/05c2e5f39a372eb1e5b42fe54348dbe6bbb4250f))
+
 ## [0.20.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.19.0...cartesia-mcp-v0.20.0) (2026-08-20)
 
 
