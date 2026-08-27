@@ -523,6 +523,67 @@ def update_voice(
         **sdk_kwargs_from_request_options(request_options),
     )
 
+
+@mcp.tool(
+    annotations=_additive_tool("Add voice accents"),
+    description="""
+        Add accents to an instant voice clone you own so a single voice_id can speak
+        multiple accents natively. A voice can support up to 10 accents in total,
+        including native.
+
+        Parameters
+        ----------
+        voice_id : str
+            The ID of the voice.
+
+        accents : list[VoiceAccent]
+            Catalog accent ids from GET /accents (for example `british` or `parisian`).
+            Display names are rejected on this API version.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+        """)
+def add_voice_accents(
+    voice_id: str,
+    accents: list[VoiceAccent],
+    request_options: typing.Optional[RequestOptions] = None,
+) -> Voice:
+    return client.voices.add_accents(
+        id=voice_id,
+        accents=accents,
+        **sdk_kwargs_from_request_options(request_options),
+    )
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Delete voice accent"),
+    description="""
+        Remove an accent an instant voice clone supports.
+
+        Parameters
+        ----------
+        voice_id : str
+            The ID of the voice.
+
+        accent : VoiceAccent
+            Catalog accent id from GET /accents (for example `british` or `parisian`).
+            Display names are rejected on this API version.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+        """)
+def delete_voice_accent(
+    voice_id: str,
+    accent: VoiceAccent,
+    request_options: typing.Optional[RequestOptions] = None,
+) -> Voice:
+    return client.voices.delete_accent(
+        accent,
+        id=voice_id,
+        **sdk_kwargs_from_request_options(request_options),
+    )
+
+
 @mcp.tool(
     annotations=_additive_tool("Clone voice"),
     description="""

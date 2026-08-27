@@ -285,8 +285,22 @@ def main() -> int:
                         description="Updated by MCP smoke test",
                     ),
                 )
+                run(
+                    "add_voice_accents",
+                    lambda: s.add_voice_accents(
+                        voice_id=cloned_voice_id,
+                        accents=["british"],
+                    ),
+                )
+                run(
+                    "delete_voice_accent",
+                    lambda: s.delete_voice_accent(
+                        voice_id=cloned_voice_id,
+                        accent="british",
+                    ),
+                )
     else:
-        print(f"  SKIP clone_voice / update_voice — no sample wav at {sample_wav}")
+        print(f"  SKIP clone_voice / update_voice / add_voice_accents / delete_voice_accent — no sample wav at {sample_wav}")
         failures.append("clone_voice(skipped)")
 
     if tts_path and os.path.isfile(tts_path):

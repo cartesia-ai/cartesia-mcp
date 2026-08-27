@@ -66,6 +66,8 @@ Ask your agent things like:
 | `delete_voice` | Delete a cloned voice |
 | `voice_change` | Re-render audio with a different voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
+| `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
+| `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |
 | `create_pronunciation_dict` | Create a pronunciation dictionary |
 | `get_pronunciation_dict` | Get a pronunciation dictionary by ID |
