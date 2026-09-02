@@ -4,6 +4,7 @@ import typing
 class PronunciationDictItemParams(typing.TypedDict):
     text: str
     pronunciation: str
+    case_sensitive: typing.NotRequired[bool]
 
 
 class ListPronunciationDictsResult(typing.TypedDict):

@@ -1043,6 +1043,21 @@ def list_pronunciation_dicts(
     return typing.cast(ListPronunciationDictsResult, cursor_page_to_result(page))
 
 
+def _pronunciation_dict_items_for_sdk(
+    items: typing.Sequence[PronunciationDictItemParams],
+) -> list[dict[str, typing.Any]]:
+    mapped: list[dict[str, typing.Any]] = []
+    for item in items:
+        row: dict[str, typing.Any] = {
+            "text": item["text"],
+            "alias": item["pronunciation"],
+        }
+        if "case_sensitive" in item:
+            row["case_sensitive"] = item["case_sensitive"]
+        mapped.append(row)
+    return mapped
+
+
 @mcp.tool(
     annotations=_additive_tool("Create pronunciation dictionary"),
     description="""
@@ -1054,6 +1069,8 @@ def list_pronunciation_dicts(
 
         items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
             Mappings of `text` to `pronunciation` (IPA or sounds-like).
+            Optional `case_sensitive` (default false): when false, match every
+            capitalization of `text` on Sonic 3.6.
         """)
 def create_pronunciation_dict(
     name: str,
@@ -1061,7 +1078,7 @@ def create_pronunciation_dict(
 ) -> dict[str, typing.Any]:
     return client.pronunciation_dicts.create(
         name=name,
-        items=list(items) if items is not None else omit,
+        items=_pronunciation_dict_items_for_sdk(items) if items is not None else omit,
     ).model_dump(mode="json")
 
 
@@ -1089,6 +1106,7 @@ def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
         name : typing.Optional[str]
 
         items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
+            Optional `case_sensitive` (default false) on each item.
         """)
 def update_pronunciation_dict(
     dict_id: str,
@@ -1101,7 +1119,7 @@ def update_pronunciation_dict(
     if name is not None:
         kwargs["name"] = name
     if items is not None:
-        kwargs["items"] = list(items)
+        kwargs["items"] = _pronunciation_dict_items_for_sdk(items)
     return client.pronunciation_dicts.update(dict_id, **kwargs).model_dump(mode="json")
 
 
