@@ -70,7 +70,7 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "4.1.0"
+version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", version = "4.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
@@ -81,9 +81,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8d/27/e1304a1ee3328e7204a5ec08ad331a1ae54d430c3545aee5db6e1b38aeb5/cartesia-4.1.0.tar.gz", hash = "sha256:fdca5e0b2ec98851ba0e983452dea9f0ceace7511b424c8029b40e99f891722b", size = 341798, upload-time = "2026-08-26T23:15:45.67Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/cd/8841344c7753667f00357abdafdb3417a7ba86abdb7de43e93b6c09ea154/cartesia-4.2.0.tar.gz", hash = "sha256:c36c905f8a459eafaa555dc75d811f2d47770bc4a784e59b9428f3668248ac99", size = 342000, upload-time = "2026-09-02T21:35:03.479Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/ca/acb84fde8eec31eab4d9d1423ee6e87e803eb551b9eb7d562ec0fd2812ce/cartesia-4.1.0-py3-none-any.whl", hash = "sha256:d91c3b97198bb725a1b763fbde601b680c9da77aae04ca8ca4248548661df974", size = 220463, upload-time = "2026-08-26T23:15:44.022Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/52/eb40886f218f8613f1fd62d3aa2d3d92595bd1eca8c1a2ecfed6d4dcf4e2/cartesia-4.2.0-py3-none-any.whl", hash = "sha256:8ad6648670819da99e43722b52151ba0b050eb1898da485af8f3767f24b43715", size = 220715, upload-time = "2026-09-02T21:35:05.076Z" },
 ]
 
 [package.optional-dependencies]
@@ -93,7 +93,7 @@ websockets = [
 
 [[package]]
 name = "cartesia-mcp"
-version = "0.20.0"
+version = "0.21.0"
 source = { editable = "." }
 dependencies = [
     { name = "cartesia", extra = ["websockets"] },
@@ -111,7 +111,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], specifier = ">=4.1.0,<5" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=4.2.0,<5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=2,<3" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
