@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 
@@ -57,14 +58,18 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
         identity = mcp_request_identity(request)
         response = await call_next(request)
         logger.info(
-            "mcp request method=%s rpc=%s owner_id=%s user_id=%s "
-            "client_name=%s auth=%s status=%s",
-            request.method,
-            rpc_method or "-",
-            identity.owner_id or "-",
-            identity.user_id or "-",
-            identity.client_name or "-",
-            identity.auth or "-",
-            response.status_code,
+            json.dumps(
+                {
+                    "event": "mcp_request",
+                    "method": request.method,
+                    "rpc": rpc_method,
+                    "owner_id": identity.owner_id,
+                    "user_id": identity.user_id,
+                    "client_name": identity.client_name,
+                    "auth": identity.auth,
+                    "status": response.status_code,
+                },
+                separators=(",", ":"),
+            )
         )
         return response

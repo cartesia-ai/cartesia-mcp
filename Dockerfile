@@ -15,8 +15,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 COPY pyproject.toml uv.lock README.md ./
 COPY cartesia_mcp ./cartesia_mcp
 
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-editable --extra hosted
 
 EXPOSE 8000
 
-CMD ["cartesia-mcp", "--transport", "streamable-http"]
+CMD ["ddtrace-run", "cartesia-mcp", "--transport", "streamable-http"]

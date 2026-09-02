@@ -1,5 +1,6 @@
 """Tests for hosted /mcp request logging."""
 
+import json
 import logging
 
 from starlette.applications import Starlette
@@ -15,6 +16,18 @@ from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 from mcp.server.auth.provider import AuthorizationParams
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
+
+
+def _mcp_request_payloads(caplog) -> list[dict]:
+    payloads: list[dict] = []
+    for record in caplog.records:
+        message = record.getMessage()
+        if not message.startswith("{"):
+            continue
+        payload = json.loads(message)
+        if payload.get("event") == "mcp_request":
+            payloads.append(payload)
+    return payloads
 
 
 def _reset_store() -> None:
@@ -100,14 +113,16 @@ def test_mcp_request_log_includes_owner_and_rpc(caplog):
             json={"jsonrpc": "2.0", "method": "tools/list", "id": 1},
         )
     assert response.status_code == 200
-    records = [r.getMessage() for r in caplog.records if "mcp request" in r.getMessage()]
-    assert records
-    message = records[-1]
-    assert "rpc=tools/list" in message
-    assert "owner_id=org_logged" in message
-    assert "user_id=user_logged" in message
-    assert "client_name=Cursor" in message
-    assert "auth=oauth" in message
+    payloads = _mcp_request_payloads(caplog)
+    assert payloads
+    payload = payloads[-1]
+    assert payload["rpc"] == "tools/list"
+    assert payload["owner_id"] == "org_logged"
+    assert payload["user_id"] == "user_logged"
+    assert payload["client_name"] == "Cursor"
+    assert payload["auth"] == "oauth"
+    assert payload["status"] == 200
+    message = json.dumps(payload)
     assert access not in message
     assert "sk_car_oauth_test_key" not in message
 
@@ -117,4 +132,4 @@ def test_mcp_request_log_skips_health(caplog):
     client = _client_app()
     with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
         assert client.get("/health").status_code == 200
-    assert not [r for r in caplog.records if "mcp request" in r.getMessage()]
+    assert not _mcp_request_payloads(caplog)
