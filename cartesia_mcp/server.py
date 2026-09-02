@@ -1046,16 +1046,14 @@ def list_pronunciation_dicts(
 def _pronunciation_dict_items_for_sdk(
     items: typing.Sequence[PronunciationDictItemParams],
 ) -> list[dict[str, typing.Any]]:
-    mapped: list[dict[str, typing.Any]] = []
-    for item in items:
-        row: dict[str, typing.Any] = {
+    return [
+        {
             "text": item["text"],
             "alias": item["pronunciation"],
+            "case_sensitive": item.get("case_sensitive", False),
         }
-        if "case_sensitive" in item:
-            row["case_sensitive"] = item["case_sensitive"]
-        mapped.append(row)
-    return mapped
+        for item in items
+    ]
 
 
 @mcp.tool(
