@@ -16,6 +16,11 @@ dependencies = [
 [project.scripts]
 cartesia-mcp = "cartesia_mcp.server:main"
 
+[project.optional-dependencies]
+hosted = [
+    "ddtrace>=4.8.2,<5",
+]
+
 [dependency-groups]
 dev = ["pytest>=8.0"]
 
