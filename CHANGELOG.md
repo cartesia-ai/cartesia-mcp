@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.21.0...cartesia-mcp-v0.22.0) (2026-09-09)
+
+
+### Features
+
+* add case_sensitive on pronunciation dict items ([#90](https://github.com/cartesia-ai/cartesia-mcp/issues/90)) ([f2303fb](https://github.com/cartesia-ai/cartesia-mcp/commit/f2303fb12456cff968058e49d4fa8d79a47251fa))
+* instrument hosted HTTP with Datadog APM ([#89](https://github.com/cartesia-ai/cartesia-mcp/issues/89)) ([20a7314](https://github.com/cartesia-ai/cartesia-mcp/commit/20a7314f614b7384cb49e0977ca18c60d5a39b64))
+
+
+### Bug Fixes
+
+* evict oldest MCP sessions at cap instead of rejecting auth ([#93](https://github.com/cartesia-ai/cartesia-mcp/issues/93)) ([eb5f27d](https://github.com/cartesia-ai/cartesia-mcp/commit/eb5f27d5e7964120797e48efb45a14bbb3b9f8b3))
+
 ## [0.21.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.20.0...cartesia-mcp-v0.21.0) (2026-08-27)
 
 
