@@ -14,6 +14,11 @@ from starlette.routing import Route
 
 from cartesia_mcp.branding import ICON_PNG_PATH
 from cartesia_mcp.config import env_or_none
+from cartesia_mcp.mcp_session_guard import (
+    MCP_MAX_CONCURRENT_SESSIONS,
+    bound_session_count,
+    report_session_metrics,
+)
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import configure_oauth_store_from_env
 
@@ -112,7 +117,15 @@ def _authorized_internal(request: Request) -> bool:
 
 
 async def health(_: Request) -> Response:
-    return JSONResponse({"status": "ok"})
+    sessions = bound_session_count()
+    report_session_metrics(sessions)
+    return JSONResponse(
+        {
+            "status": "ok",
+            "sessions": sessions,
+            "session_cap": MCP_MAX_CONCURRENT_SESSIONS,
+        }
+    )
 
 
 async def icon_png(_: Request) -> Response:
