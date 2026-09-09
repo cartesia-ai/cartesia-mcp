@@ -13,6 +13,7 @@ from starlette.types import ASGIApp
 
 from cartesia_mcp.credentials import looks_like_cartesia_api_key
 from cartesia_mcp.mcp_http import bearer_token, is_mcp_path, jsonrpc_method_from_body
+from cartesia_mcp.mcp_session_guard import bound_session_count
 from cartesia_mcp.oauth_store import oauth_store
 
 logger = logging.getLogger("cartesia_mcp.mcp")
@@ -68,6 +69,7 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
                     "client_name": identity.client_name,
                     "auth": identity.auth,
                     "status": response.status_code,
+                    "sessions": bound_session_count(),
                 },
                 separators=(",", ":"),
             )

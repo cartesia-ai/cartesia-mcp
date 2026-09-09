@@ -122,6 +122,7 @@ def test_mcp_request_log_includes_owner_and_rpc(caplog):
     assert payload["client_name"] == "Cursor"
     assert payload["auth"] == "oauth"
     assert payload["status"] == 200
+    assert isinstance(payload["sessions"], int)
     message = json.dumps(payload)
     assert access not in message
     assert "sk_car_oauth_test_key" not in message
