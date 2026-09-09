@@ -27,6 +27,9 @@ dev = ["pytest>=8.0"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.uv]
+constraint-dependencies = ["python-multipart>=0.0.22"]
+
 [tool.setuptools.package-data]
 cartesia_mcp = ["static/*"]
 
