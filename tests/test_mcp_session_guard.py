@@ -52,15 +52,16 @@ def _token_bucket(token: str) -> str:
 def _session_manager(
     *,
     active: int,
-    owners: dict[str, str] | None = None,
+    buckets: dict[str, str] | None = None,
     last_seen: dict[str, float] | None = None,
 ) -> StreamableHTTPSessionManager:
     now = time.monotonic()
     manager = StreamableHTTPSessionManager(_FakeServer())
     manager._server_instances = {f"s{i}": _FakeTransport() for i in range(active)}
-    manager._session_owners = (
-        owners
-        if owners is not None
+    manager._session_owners = {f"s{i}": object() for i in range(active)}
+    manager._session_buckets = (
+        buckets
+        if buckets is not None
         else {f"s{i}": f"tok:other-{i}" for i in range(active)}
     )
     manager._session_last_seen = (
@@ -111,11 +112,11 @@ def test_session_cap_allows_new_session_under_limit():
 
 def test_session_cap_same_bucket_replaces_owner_not_fifo(caplog):
     caller = "caller-token"
-    owners = {f"s{i}": f"tok:other-{i}" for i in range(MCP_MAX_CONCURRENT_SESSIONS)}
-    owners["s1"] = _token_bucket(caller)
+    buckets = {f"s{i}": f"tok:other-{i}" for i in range(MCP_MAX_CONCURRENT_SESSIONS)}
+    buckets["s1"] = _token_bucket(caller)
     manager = _session_manager(
         active=MCP_MAX_CONCURRENT_SESSIONS,
-        owners=owners,
+        buckets=buckets,
     )
     fifo = manager._server_instances["s0"]
     owned = manager._server_instances["s1"]
@@ -130,6 +131,7 @@ def test_session_cap_same_bucket_replaces_owner_not_fifo(caplog):
     assert "s0" in manager._server_instances
     assert owned.terminated
     assert "s1" not in manager._server_instances
+    assert "s1" not in manager._session_buckets
     assert "s1" not in manager._session_owners
     assert "s1" not in manager._session_last_seen
     payloads = _eviction_payloads(caplog)
@@ -157,6 +159,7 @@ def test_session_cap_evicts_idle_before_recently_used(caplog):
     assert "s0" in manager._server_instances
     assert idle.terminated
     assert "s1" not in manager._server_instances
+    assert "s1" not in manager._session_buckets
     assert "s1" not in manager._session_owners
     payloads = _eviction_payloads(caplog)
     assert len(payloads) == 1
@@ -201,26 +204,30 @@ def test_session_cap_existing_session_at_cap_refreshes_last_seen():
     )
 
 
-def test_session_owners_written_on_create_and_cleaned_on_evict(caplog):
+def test_session_buckets_written_on_create_and_cleaned_on_evict(caplog):
     caller = "create-token"
     manager = _session_manager(active=0)
+    sdk_owner = object()
+    manager._session_owners = {CREATED_SESSION_ID: sdk_owner}
     create = _client(manager).post(
         "/mcp",
         headers={"authorization": f"Bearer {caller}"},
         json={"jsonrpc": "2.0", "method": "initialize"},
     )
     assert create.status_code == 200
-    assert manager._session_owners[CREATED_SESSION_ID] == _token_bucket(caller)
+    assert manager._session_owners[CREATED_SESSION_ID] is sdk_owner
+    assert manager._session_buckets[CREATED_SESSION_ID] == _token_bucket(caller)
     assert CREATED_SESSION_ID in manager._session_last_seen
 
     now = time.monotonic()
     manager._server_instances = {
         f"s{i}": _FakeTransport() for i in range(MCP_MAX_CONCURRENT_SESSIONS)
     }
-    manager._session_owners = {
+    manager._session_owners = {f"s{i}": object() for i in range(MCP_MAX_CONCURRENT_SESSIONS)}
+    manager._session_buckets = {
         f"s{i}": f"tok:other-{i}" for i in range(MCP_MAX_CONCURRENT_SESSIONS)
     }
-    manager._session_owners["s3"] = _token_bucket(caller)
+    manager._session_buckets["s3"] = _token_bucket(caller)
     manager._session_last_seen = {
         f"s{i}": now for i in range(MCP_MAX_CONCURRENT_SESSIONS)
     }
@@ -231,9 +238,10 @@ def test_session_owners_written_on_create_and_cleaned_on_evict(caplog):
             json={"jsonrpc": "2.0", "method": "initialize"},
         )
     assert replace.status_code == 200
+    assert "s3" not in manager._session_buckets
     assert "s3" not in manager._session_owners
     assert "s3" not in manager._session_last_seen
-    assert manager._session_owners[CREATED_SESSION_ID] == _token_bucket(caller)
+    assert manager._session_buckets[CREATED_SESSION_ID] == _token_bucket(caller)
     assert _eviction_payloads(caplog)[0]["reason"] == "replace"
 
 

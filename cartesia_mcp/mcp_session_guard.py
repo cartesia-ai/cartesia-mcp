@@ -118,12 +118,11 @@ async def _terminate_session(
     transport = session_manager._server_instances.pop(session_id, None)
     if transport is None:
         return None
-    owners = getattr(session_manager, "_session_owners", None)
-    if isinstance(owners, dict):
-        owners.pop(session_id, None)
-    last_seen = getattr(session_manager, "_session_last_seen", None)
-    if isinstance(last_seen, dict):
-        last_seen.pop(session_id, None)
+    # `_session_owners` is the SDK principal map; `_session_buckets` is ours.
+    for attr in ("_session_owners", "_session_buckets", "_session_last_seen"):
+        meta = getattr(session_manager, attr, None)
+        if isinstance(meta, dict):
+            meta.pop(session_id, None)
     terminate = getattr(transport, "terminate", None)
     if callable(terminate):
         await terminate()
@@ -140,10 +139,10 @@ async def _evict_for_new_session(
     Returns (None, None) when every live session is still hot.
     """
     instances = session_manager._server_instances
-    owners = getattr(session_manager, "_session_owners", None)
+    buckets = getattr(session_manager, "_session_buckets", None)
     owned = [
         session_id
-        for session_id, owner in (owners.items() if isinstance(owners, dict) else ())
+        for session_id, owner in (buckets.items() if isinstance(buckets, dict) else ())
         if owner == bucket and session_id in instances
     ]
     if owned:
@@ -222,6 +221,6 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         created = response.headers.get(MCP_SESSION_ID_HEADER)
         if created:
-            _ensure_dict(self._session_manager, "_session_owners")[created] = bucket
+            _ensure_dict(self._session_manager, "_session_buckets")[created] = bucket
             _ensure_dict(self._session_manager, "_session_last_seen")[created] = time.monotonic()
         return response
