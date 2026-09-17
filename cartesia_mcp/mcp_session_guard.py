@@ -21,8 +21,8 @@ from cartesia_mcp.mcp_http import is_mcp_path, mcp_rate_limit_bucket
 
 logger = logging.getLogger("cartesia_mcp.mcp")
 
-# In-memory sessions on one replica. At cap, replace the caller's session or
-# an idle LRU session; never evict a hot session to admit a new one.
+# In-memory sessions on one replica. One live session per client bucket.
+# At cap, also reclaim idle LRU, else 503. Never evict a hot other client.
 MCP_MAX_CONCURRENT_SESSIONS = 1024
 
 # Reclaim idle SSE sessions; SDK default is None (no timeout).
@@ -129,15 +129,10 @@ async def _terminate_session(
     return session_id
 
 
-async def _evict_for_new_session(
+async def _replace_owned_session(
     session_manager: StreamableHTTPSessionManager,
     bucket: str,
-) -> tuple[str | None, str | None]:
-    """Free one slot: replace this bucket's session, else the idle LRU.
-
-    Returns (session_id, reason) with reason ``replace`` or ``idle``.
-    Returns (None, None) when every live session is still hot.
-    """
+) -> str | None:
     instances = session_manager._server_instances
     buckets = getattr(session_manager, "_session_buckets", None)
     owned = [
@@ -145,21 +140,25 @@ async def _evict_for_new_session(
         for session_id, owner in (buckets.items() if isinstance(buckets, dict) else ())
         if owner == bucket and session_id in instances
     ]
-    if owned:
-        victim = min(owned, key=lambda session_id: _last_seen_at(session_manager, session_id))
-        return await _terminate_session(session_manager, victim), "replace"
+    if not owned:
+        return None
+    victim = min(owned, key=lambda session_id: _last_seen_at(session_manager, session_id))
+    return await _terminate_session(session_manager, victim)
 
+
+async def _evict_idle_session(
+    session_manager: StreamableHTTPSessionManager,
+) -> str | None:
     idle_deadline = time.monotonic() - MCP_SESSION_IDLE_TIMEOUT_SECONDS
     idle = [
         session_id
-        for session_id in instances
+        for session_id in session_manager._server_instances
         if _last_seen_at(session_manager, session_id) <= idle_deadline
     ]
-    if idle:
-        victim = min(idle, key=lambda session_id: _last_seen_at(session_manager, session_id))
-        return await _terminate_session(session_manager, victim), "idle"
-
-    return None, None
+    if not idle:
+        return None
+    victim = min(idle, key=lambda session_id: _last_seen_at(session_manager, session_id))
+    return await _terminate_session(session_manager, victim)
 
 
 class McpSessionCapMiddleware(BaseHTTPMiddleware):
@@ -190,8 +189,10 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
         bucket = mcp_rate_limit_bucket(request)
         active = active_session_count(self._session_manager)
         report_session_metrics(active)
-        if active >= MCP_MAX_CONCURRENT_SESSIONS:
-            evicted, reason = await _evict_for_new_session(self._session_manager, bucket)
+        evicted = await _replace_owned_session(self._session_manager, bucket)
+        reason = "replace" if evicted else None
+        if evicted is None and active >= MCP_MAX_CONCURRENT_SESSIONS:
+            evicted = await _evict_idle_session(self._session_manager)
             if evicted is None:
                 return JSONResponse(
                     {
@@ -201,6 +202,8 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
                     status_code=503,
                     headers={"Retry-After": "30"},
                 )
+            reason = "idle"
+        if evicted is not None:
             logger.warning(
                 json.dumps(
                     {
