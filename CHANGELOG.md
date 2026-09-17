@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.0...cartesia-mcp-v0.22.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **deps:** bump python-multipart past CVE-2026-24486 ([#94](https://github.com/cartesia-ai/cartesia-mcp/issues/94)) ([2a4e220](https://github.com/cartesia-ai/cartesia-mcp/commit/2a4e2207f855e2b7fa79cca027fe1af31c8282ab))
+* evict idle or same-client MCP sessions at cap ([#96](https://github.com/cartesia-ai/cartesia-mcp/issues/96)) ([3d67f47](https://github.com/cartesia-ai/cartesia-mcp/commit/3d67f478ca995b4f3ee69467aaf920d84f41fe9e))
+
 ## [0.22.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.21.0...cartesia-mcp-v0.22.0) (2026-09-09)
 
 
