@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import socket
+import time
 from urllib.parse import urlparse
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -16,11 +17,12 @@ from starlette.types import ASGIApp
 from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
-from cartesia_mcp.mcp_http import is_mcp_path
+from cartesia_mcp.mcp_http import is_mcp_path, mcp_rate_limit_bucket
 
 logger = logging.getLogger("cartesia_mcp.mcp")
 
-# In-memory sessions on one replica. LRU eviction absorbs reconnect storms.
+# In-memory sessions on one replica. At cap, replace the caller's session or
+# an idle LRU session; never evict a hot session to admit a new one.
 MCP_MAX_CONCURRENT_SESSIONS = 1024
 
 # Reclaim idle SSE sessions; SDK default is None (no timeout).
@@ -88,21 +90,76 @@ def report_session_metrics(active: int, *, evicted: int = 0) -> None:
         _dogstatsd_send("mcp.sessions.evicted", evicted, "c")
 
 
-async def evict_oldest_session(
+def _ensure_dict(session_manager: StreamableHTTPSessionManager, attr: str) -> dict:
+    value = getattr(session_manager, attr, None)
+    if not isinstance(value, dict):
+        value = {}
+        setattr(session_manager, attr, value)
+    return value
+
+
+def _last_seen_at(
     session_manager: StreamableHTTPSessionManager,
+    session_id: str,
+) -> float:
+    last_seen = getattr(session_manager, "_session_last_seen", None)
+    if not isinstance(last_seen, dict):
+        return 0.0
+    seen = last_seen.get(session_id)
+    if not isinstance(seen, (int, float)):
+        return 0.0
+    return float(seen)
+
+
+async def _terminate_session(
+    session_manager: StreamableHTTPSessionManager,
+    session_id: str,
 ) -> str | None:
-    try:
-        oldest_id = next(iter(session_manager._server_instances))
-    except StopIteration:
+    transport = session_manager._server_instances.pop(session_id, None)
+    if transport is None:
         return None
-    transport = session_manager._server_instances.pop(oldest_id, None)
-    owners = getattr(session_manager, "_session_owners", None)
-    if isinstance(owners, dict):
-        owners.pop(oldest_id, None)
+    # `_session_owners` is the SDK principal map; `_session_buckets` is ours.
+    for attr in ("_session_owners", "_session_buckets", "_session_last_seen"):
+        meta = getattr(session_manager, attr, None)
+        if isinstance(meta, dict):
+            meta.pop(session_id, None)
     terminate = getattr(transport, "terminate", None)
     if callable(terminate):
         await terminate()
-    return oldest_id
+    return session_id
+
+
+async def _evict_for_new_session(
+    session_manager: StreamableHTTPSessionManager,
+    bucket: str,
+) -> tuple[str | None, str | None]:
+    """Free one slot: replace this bucket's session, else the idle LRU.
+
+    Returns (session_id, reason) with reason ``replace`` or ``idle``.
+    Returns (None, None) when every live session is still hot.
+    """
+    instances = session_manager._server_instances
+    buckets = getattr(session_manager, "_session_buckets", None)
+    owned = [
+        session_id
+        for session_id, owner in (buckets.items() if isinstance(buckets, dict) else ())
+        if owner == bucket and session_id in instances
+    ]
+    if owned:
+        victim = min(owned, key=lambda session_id: _last_seen_at(session_manager, session_id))
+        return await _terminate_session(session_manager, victim), "replace"
+
+    idle_deadline = time.monotonic() - MCP_SESSION_IDLE_TIMEOUT_SECONDS
+    idle = [
+        session_id
+        for session_id in instances
+        if _last_seen_at(session_manager, session_id) <= idle_deadline
+    ]
+    if idle:
+        victim = min(idle, key=lambda session_id: _last_seen_at(session_manager, session_id))
+        return await _terminate_session(session_manager, victim), "idle"
+
+    return None, None
 
 
 class McpSessionCapMiddleware(BaseHTTPMiddleware):
@@ -116,37 +173,54 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
         self._session_manager = session_manager
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        if (
-            request.method in _NEW_SESSION_METHODS
-            and is_mcp_path(request.url.path)
-            and request.headers.get(MCP_SESSION_ID_HEADER) is None
-        ):
-            active = active_session_count(self._session_manager)
-            report_session_metrics(active)
-            if active >= MCP_MAX_CONCURRENT_SESSIONS:
-                evicted = await evict_oldest_session(self._session_manager)
-                if evicted is None:
-                    return JSONResponse(
-                        {
-                            "error": "service_unavailable",
-                            "error_description": "Too many active MCP sessions",
-                        },
-                        status_code=503,
-                        headers={"Retry-After": "30"},
-                    )
-                logger.warning(
-                    json.dumps(
-                        {
-                            "event": "mcp_session_evicted",
-                            "active": active,
-                            "cap": MCP_MAX_CONCURRENT_SESSIONS,
-                            "evicted": evicted,
-                        },
-                        separators=(",", ":"),
-                    )
+        if not is_mcp_path(request.url.path):
+            return await call_next(request)
+
+        session_id = request.headers.get(MCP_SESSION_ID_HEADER)
+        if session_id is not None:
+            if session_id in self._session_manager._server_instances:
+                _ensure_dict(self._session_manager, "_session_last_seen")[session_id] = (
+                    time.monotonic()
                 )
-                report_session_metrics(
-                    active_session_count(self._session_manager),
-                    evicted=1,
+            return await call_next(request)
+
+        if request.method not in _NEW_SESSION_METHODS:
+            return await call_next(request)
+
+        bucket = mcp_rate_limit_bucket(request)
+        active = active_session_count(self._session_manager)
+        report_session_metrics(active)
+        if active >= MCP_MAX_CONCURRENT_SESSIONS:
+            evicted, reason = await _evict_for_new_session(self._session_manager, bucket)
+            if evicted is None:
+                return JSONResponse(
+                    {
+                        "error": "service_unavailable",
+                        "error_description": "Too many active MCP sessions",
+                    },
+                    status_code=503,
+                    headers={"Retry-After": "30"},
                 )
-        return await call_next(request)
+            logger.warning(
+                json.dumps(
+                    {
+                        "event": "mcp_session_evicted",
+                        "active": active,
+                        "cap": MCP_MAX_CONCURRENT_SESSIONS,
+                        "evicted": evicted,
+                        "reason": reason,
+                    },
+                    separators=(",", ":"),
+                )
+            )
+            report_session_metrics(
+                active_session_count(self._session_manager),
+                evicted=1,
+            )
+
+        response = await call_next(request)
+        created = response.headers.get(MCP_SESSION_ID_HEADER)
+        if created:
+            _ensure_dict(self._session_manager, "_session_buckets")[created] = bucket
+            _ensure_dict(self._session_manager, "_session_last_seen")[created] = time.monotonic()
+        return response
