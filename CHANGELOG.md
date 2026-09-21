@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.3](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.2...cartesia-mcp-v0.22.3) (2026-09-21)
+
+
+### Documentation
+
+* recommend hosted MCP in the README ([#99](https://github.com/cartesia-ai/cartesia-mcp/issues/99)) ([f2690c1](https://github.com/cartesia-ai/cartesia-mcp/commit/f2690c1dd86c6dbd33fc3ffab82c7a22bf54c178))
+
 ## [0.22.2](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.1...cartesia-mcp-v0.22.2) (2026-09-21)
 
 
