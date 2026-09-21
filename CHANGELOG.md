@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.2](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.1...cartesia-mcp-v0.22.2) (2026-09-21)
+
+
+### Bug Fixes
+
+* keep one live MCP session per client bucket ([#97](https://github.com/cartesia-ai/cartesia-mcp/issues/97)) ([1dce186](https://github.com/cartesia-ai/cartesia-mcp/commit/1dce186d217330543f972964ba1f318419db832b))
+
 ## [0.22.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.0...cartesia-mcp-v0.22.1) (2026-09-17)
 
 
