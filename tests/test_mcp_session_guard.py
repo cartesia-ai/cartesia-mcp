@@ -22,8 +22,6 @@ from cartesia_mcp.mcp_session_guard import (
 from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
-CREATED_SESSION_ID = "created-session"
-
 
 class _FakeServer:
     pass
@@ -37,16 +35,31 @@ class _FakeTransport:
         self.terminated = True
 
 
-async def _ok_mcp(request: Request) -> JSONResponse:
-    headers = {}
-    if request.headers.get(MCP_SESSION_ID_HEADER) is None:
-        headers[MCP_SESSION_ID_HEADER] = CREATED_SESSION_ID
-    return JSONResponse({"ok": True}, headers=headers)
-
-
 def _token_bucket(token: str) -> str:
     digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
     return f"tok:{digest}"
+
+
+def _client(session_manager: StreamableHTTPSessionManager) -> TestClient:
+    created = 0
+
+    async def _ok_mcp(request: Request) -> JSONResponse:
+        nonlocal created
+        if request.headers.get(MCP_SESSION_ID_HEADER) is not None:
+            return JSONResponse({"ok": True})
+        created += 1
+        new_id = f"created-{created}"
+        session_manager._server_instances[new_id] = _FakeTransport()
+        return JSONResponse({"ok": True}, headers={MCP_SESSION_ID_HEADER: new_id})
+
+    app = Starlette(
+        routes=[Route("/mcp", endpoint=_ok_mcp, methods=["GET", "POST"])]
+    )
+    app.add_middleware(
+        McpSessionCapMiddleware,
+        session_manager=session_manager,
+    )
+    return TestClient(app)
 
 
 def _session_manager(
@@ -70,17 +83,6 @@ def _session_manager(
         else {f"s{i}": now for i in range(active)}
     )
     return manager
-
-
-def _client(session_manager: StreamableHTTPSessionManager) -> TestClient:
-    app = Starlette(
-        routes=[Route("/mcp", endpoint=_ok_mcp, methods=["GET", "POST"])]
-    )
-    app.add_middleware(
-        McpSessionCapMiddleware,
-        session_manager=session_manager,
-    )
-    return TestClient(app)
 
 
 def _eviction_payloads(caplog) -> list[dict]:
@@ -108,6 +110,56 @@ def test_session_cap_allows_new_session_under_limit():
     )
     assert response.status_code == 200
     assert not next(iter(manager._server_instances.values())).terminated
+
+
+def test_same_bucket_initialize_below_cap_replaces_and_does_not_grow(caplog):
+    caller = "caller-token"
+    manager = _session_manager(
+        active=1,
+        buckets={"s0": _token_bucket(caller)},
+    )
+    prior = manager._server_instances["s0"]
+    with caplog.at_level(logging.WARNING, logger="cartesia_mcp.mcp"):
+        response = _client(manager).post(
+            "/mcp",
+            headers={"authorization": f"Bearer {caller}"},
+            json={"jsonrpc": "2.0", "method": "initialize"},
+        )
+    assert response.status_code == 200
+    assert prior.terminated
+    assert "s0" not in manager._server_instances
+    assert len(manager._server_instances) == 1
+    created = response.headers[MCP_SESSION_ID_HEADER]
+    assert manager._session_buckets[created] == _token_bucket(caller)
+    payloads = _eviction_payloads(caplog)
+    assert len(payloads) == 1
+    assert payloads[0]["reason"] == "replace"
+
+
+def test_different_buckets_coexist_below_cap():
+    manager = _session_manager(active=0)
+    client = _client(manager)
+    first = client.post(
+        "/mcp",
+        headers={"authorization": "Bearer tok-a"},
+        json={"jsonrpc": "2.0", "method": "initialize"},
+    )
+    second = client.post(
+        "/mcp",
+        headers={"authorization": "Bearer tok-b"},
+        json={"jsonrpc": "2.0", "method": "initialize"},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    first_id = first.headers[MCP_SESSION_ID_HEADER]
+    second_id = second.headers[MCP_SESSION_ID_HEADER]
+    assert first_id != second_id
+    assert len(manager._server_instances) == 2
+    assert manager._session_buckets[first_id] == _token_bucket("tok-a")
+    assert manager._session_buckets[second_id] == _token_bucket("tok-b")
+    assert not any(
+        transport.terminated for transport in manager._server_instances.values()
+    )
 
 
 def test_session_cap_same_bucket_replaces_owner_not_fifo(caplog):
@@ -208,16 +260,17 @@ def test_session_buckets_written_on_create_and_cleaned_on_evict(caplog):
     caller = "create-token"
     manager = _session_manager(active=0)
     sdk_owner = object()
-    manager._session_owners = {CREATED_SESSION_ID: sdk_owner}
+    manager._session_owners = {"created-1": sdk_owner}
     create = _client(manager).post(
         "/mcp",
         headers={"authorization": f"Bearer {caller}"},
         json={"jsonrpc": "2.0", "method": "initialize"},
     )
     assert create.status_code == 200
-    assert manager._session_owners[CREATED_SESSION_ID] is sdk_owner
-    assert manager._session_buckets[CREATED_SESSION_ID] == _token_bucket(caller)
-    assert CREATED_SESSION_ID in manager._session_last_seen
+    created = create.headers[MCP_SESSION_ID_HEADER]
+    assert manager._session_owners[created] is sdk_owner
+    assert manager._session_buckets[created] == _token_bucket(caller)
+    assert created in manager._session_last_seen
 
     now = time.monotonic()
     manager._server_instances = {
@@ -238,10 +291,11 @@ def test_session_buckets_written_on_create_and_cleaned_on_evict(caplog):
             json={"jsonrpc": "2.0", "method": "initialize"},
         )
     assert replace.status_code == 200
+    replaced = replace.headers[MCP_SESSION_ID_HEADER]
     assert "s3" not in manager._session_buckets
     assert "s3" not in manager._session_owners
     assert "s3" not in manager._session_last_seen
-    assert manager._session_buckets[CREATED_SESSION_ID] == _token_bucket(caller)
+    assert manager._session_buckets[replaced] == _token_bucket(caller)
     assert _eviction_payloads(caplog)[0]["reason"] == "replace"
 
 
