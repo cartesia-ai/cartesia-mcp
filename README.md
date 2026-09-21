@@ -6,26 +6,41 @@ The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [
 
 **Documentation:** [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)
 
-## Requirements
-
-- **[uv](https://docs.astral.sh/uv/)** — runs the server via `uvx` with no global install
-- **Python 3.13+** (installed automatically by `uvx`)
-- A **[Cartesia API key](https://play.cartesia.ai/keys)** for TTS, STT, voices, and related APIs
-- Optionally, an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for management tools such as `get_credit_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
-
 ## Setup
 
-Get an [API key](https://play.cartesia.ai/keys). Full instructions: [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp).
+**Hosted (recommended)** — connect to `https://mcp.cartesia.ai/mcp` and sign in when prompted. A Cartesia MCP API key is created for your organization if one does not exist yet. You can also connect from [API Keys](https://play.cartesia.ai/keys) in the Playground.
 
-**CLI (recommended)** — `npx add-mcp "uvx cartesia-mcp" --name cartesia --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'`
+**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia-mcp&config=eyJ1cmwiOiJodHRwczovL21jcC5jYXJ0ZXNpYS5haS9tY3AifQ==), then sign in to the Playground when your browser opens.
 
-**Cursor** — [Install Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=), then set `CARTESIA_API_KEY` in **Settings → MCP**.
+**Claude Code:**
+
+```bash
+claude mcp add --transport http --scope user cartesia-mcp https://mcp.cartesia.ai/mcp
+```
+
+Run `/mcp`, select **cartesia-mcp**, and sign in when prompted.
+
+Or add to `.cursor/mcp.json` / your client’s MCP config:
+
+```json
+{
+  "mcpServers": {
+    "cartesia-mcp": {
+      "url": "https://mcp.cartesia.ai/mcp"
+    }
+  }
+}
+```
+
+### Local (`uvx`)
+
+Run the published package on your machine with an API key. Requires **[uv](https://docs.astral.sh/uv/)** (Python 3.13+ is installed by `uvx`) and a **[Cartesia API key](https://play.cartesia.ai/keys)**. Optionally set an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for `get_credit_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
+
+**CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'`
+
+**Cursor** — [Install local Cartesia MCP](cursor://anysphere.cursor-deeplink/mcp/install?name=cartesia&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJjYXJ0ZXNpYS1tY3AiXX0=), then set `CARTESIA_API_KEY` in **Settings → MCP**.
 
 **Claude Code** — `claude mcp add -e CARTESIA_API_KEY=<your-api-key> cartesia -- uvx cartesia-mcp`
-
-## Manual setup
-
-Add to `.cursor/mcp.json`, `.mcp.json` (Claude Code), or your client’s MCP config:
 
 ```json
 {
@@ -153,6 +168,8 @@ By default, generated audio is written to the server's working directory. To cho
 ### Local audio files
 
 Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent. For `speech_to_text`, use the default batch mode for common containers (mp3, flac, wav, etc.). Use `mode="stream"` for mono PCM WAV or raw PCM with `encoding` and `sample_rate`.
+
+On hosted MCP (`mcp.cartesia.ai`), those paths are on the server — use `download_url` from `text_to_speech` / `download_file` instead of a local `file_path`.
 
 ### Admin API key
 
