@@ -99,7 +99,8 @@ def test_configure_hosted_session_manager_sets_idle_timeout():
     manager = _session_manager(active=0)
     assert manager.session_idle_timeout is None
     configure_hosted_session_manager(manager)
-    assert manager.session_idle_timeout == 300
+    assert manager.session_idle_timeout == MCP_SESSION_IDLE_TIMEOUT_SECONDS
+    assert MCP_SESSION_IDLE_TIMEOUT_SECONDS == 30 * 60
     assert bound_session_count() == 0
 
 

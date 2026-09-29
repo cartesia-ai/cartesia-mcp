@@ -26,7 +26,8 @@ logger = logging.getLogger("cartesia_mcp.mcp")
 MCP_MAX_CONCURRENT_SESSIONS = 1024
 
 # Reclaim idle SSE sessions; SDK default is None (no timeout).
-MCP_SESSION_IDLE_TIMEOUT_SECONDS = 300
+# 30 minutes covers a paused agent turn. Live sessions stay well under the cap.
+MCP_SESSION_IDLE_TIMEOUT_SECONDS = 30 * 60
 
 _NEW_SESSION_METHODS = frozenset({"GET", "POST"})
 
