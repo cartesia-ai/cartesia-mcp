@@ -186,7 +186,9 @@ Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 
 ### Hosted sessions and rate limits
 
-Hosted MCP keeps one live session per client. After `initialize`, reuse the `mcp-session-id` response header on later requests. A `POST /mcp` without that header starts a new session and replaces the previous one for that client.
+Hosted MCP keeps one live session per client on handshake-era protocol versions. After `initialize`, reuse the `mcp-session-id` response header on later requests. A `POST /mcp` without that header starts a new session and replaces the previous one for that client.
+
+Requests with `MCP-Protocol-Version: 2026-07-28` do not open a session. They are not counted against the new-session limit below.
 
 A session with no requests for 30 minutes is closed. Call `initialize` again to open a new one.
 
