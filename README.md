@@ -189,6 +189,8 @@ Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 
 Hosted MCP keeps one live session per client. After `initialize`, reuse the `mcp-session-id` response header on later requests. A `POST /mcp` without that header starts a new session and replaces the previous one for that client.
 
+A session with no requests for 30 minutes is closed. Call `initialize` again to open a new one.
+
 New sessions are limited to **5 per minute per access token** and **15 per minute per client IP**. Over the limit, the server returns HTTP 429:
 
 ```json
