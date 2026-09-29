@@ -208,11 +208,12 @@ def _try_create_download_link(
         return None
 
 
-def _deliver_cloud_file(
+def _cloud_file_on_disk(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
-) -> DownloadedFileResult:
+) -> tuple[Path, str]:
+    """Download a cloud file onto this MCP server. Returns ``(path, filename)``."""
     metadata = extra_api.get_file_info(client, file_id)
     filename = metadata.get("filename")
     if not isinstance(filename, str) or not filename.strip():
@@ -230,6 +231,35 @@ def _deliver_cloud_file(
         filename=local_filename,
         content=content,
     )
+    return output_path, local_filename
+
+
+def _resolve_audio_input(
+    file_path: typing.Optional[str],
+    file_id: typing.Optional[str],
+) -> str:
+    """Resolve ``file_id`` (cloud) or ``file_path`` (this machine) to a local path."""
+    path = file_path.strip() if isinstance(file_path, str) else ""
+    cloud_id = file_id.strip() if isinstance(file_id, str) else ""
+    if path and cloud_id:
+        raise ValueError("Pass file_id or file_path, not both.")
+    if cloud_id:
+        output_path, _filename = _cloud_file_on_disk(cloud_id)
+        return str(output_path)
+    if path:
+        return path
+    raise ValueError(
+        "Pass file_id (a Cartesia cloud file) or file_path "
+        "(an absolute path on this MCP server)."
+    )
+
+
+def _deliver_cloud_file(
+    file_id: str,
+    *,
+    format: typing.Optional[DownloadFormat] = None,
+) -> DownloadedFileResult:
+    output_path, local_filename = _cloud_file_on_disk(file_id, format=format)
     delivered: DownloadedFileResult = {
         "file_id": file_id,
         "file_path": str(output_path),
@@ -246,9 +276,10 @@ def _deliver_cloud_file(
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
-        (24-hour public link). Hosted clients (Claude, ChatGPT) should use `download_url`.
-        `file_path` is a copy on the MCP server host — useful for local `uvx` and for
-        server-side tools like `speech_to_text` in the same MCP session.
+        (24-hour public link). Pass that `file_id` to `speech_to_text`, `voice_change`,
+        or `clone_voice` — including from a hosted client whose disk is not this server.
+        `download_url` is a browser link. `file_path` is a copy on the MCP server host
+        (local `uvx`, or the same hosted session).
 
         Parameters
         ----------
@@ -355,16 +386,23 @@ def text_to_speech(
     description="""
         Takes an audio file of speech, and returns an audio file of speech spoken with the same intonation, but with a different voice.
 
+        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
+        from `text_to_speech` or `download_file`. `file_path` is an absolute path on
+        this MCP server (local `uvx`, or a path returned in this same session).
+
         Parameters
         ----------
-        file_path : str
-            The absolute path to the audio file to change.
-
         voice_id : str
 
         output_format_container : OutputFormatContainer
 
         output_format_sample_rate : int
+
+        file_path : typing.Optional[str]
+            Absolute path on this MCP server.
+
+        file_id : typing.Optional[str]
+            Cartesia cloud file id. The server downloads it.
 
         output_format_encoding : typing.Optional[RawEncoding]
             Required for `raw` and `wav` containers.
@@ -377,15 +415,17 @@ def text_to_speech(
 
         """)
 def voice_change(
-    file_path: str,
     voice_id: str,
     output_format_container: OutputFormatContainer,
     output_format_sample_rate: int,
+    file_path: typing.Optional[str] = None,
+    file_id: typing.Optional[str] = None,
     output_format_encoding: typing.Optional[RawEncoding] = None,
     output_format_bit_rate: typing.Optional[int] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
-    with open(file_path, "rb") as clip:
+    source = _resolve_audio_input(file_path, file_id)
+    with open(source, "rb") as clip:
         result = client.voice_changer.generate(
             clip=clip,
             voice_id=voice_id,
@@ -397,13 +437,13 @@ def voice_change(
         )
         audio_bytes = result.read()
 
-    file_path = _write_audio_output(
+    written = _write_audio_output(
         audio_bytes,
         "voice_change",
         output_format_container,
     )
 
-    return GeneratedAudioResult(file_path=file_path)
+    return GeneratedAudioResult(file_path=written)
 
 @mcp.tool(
     annotations=_additive_tool("Localize voice"),
@@ -593,11 +633,12 @@ def delete_voice_accent(
 
         Stability mode clones are more stable, but may not sound as similar to the source clip. For these, use an audio clip 10-20 seconds long.
 
+        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
+        from `text_to_speech` or `download_file`. `file_path` is an absolute path on
+        this MCP server (local `uvx`, or a path returned in this same session).
+
         Parameters
         ----------
-        file_path : str
-            The absolute path to the audio file to clone.
-
         name : str
             The name of the voice.
 
@@ -607,6 +648,12 @@ def delete_voice_accent(
         mode : CloneMode
             Tradeoff between similarity and stability. Similarity clones sound more like the source clip, but may reproduce background noise. Stability clones always sound like a studio recording, but may not sound as similar to the source clip.
 
+        file_path : typing.Optional[str]
+            Absolute path on this MCP server.
+
+        file_id : typing.Optional[str]
+            Cartesia cloud file id. The server downloads it.
+
         description : typing.Optional[str]
             A description for the voice.
 
@@ -614,16 +661,18 @@ def delete_voice_accent(
             Request-specific configuration.
         """)
 def clone_voice(
-    file_path: str,
     name: str,
     language: SupportedLanguage,
     mode: str,
+    file_path: typing.Optional[str] = None,
+    file_id: typing.Optional[str] = None,
     description: typing.Optional[str] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
+    source = _resolve_audio_input(file_path, file_id)
     clone_kwargs = sdk_kwargs_from_request_options(request_options)
     _merge_extra_body(clone_kwargs, {"mode": mode})
-    with open(file_path, "rb") as clip:
+    with open(source, "rb") as clip:
         return client.voices.clone(
             clip=clip,
             name=name,
@@ -889,10 +938,14 @@ def _speech_to_text_stream(
 
         **Pricing:** See [STT pricing](https://docs.cartesia.ai/pricing#speech-to-text).
 
+        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
+        from `text_to_speech` or `download_file`. Do not pass a path from the agent
+        machine — `file_path` is an absolute path on this MCP server.
+
         Parameters
         ----------
-        file_path : str
-            Absolute path to the audio file.
+        file_path : typing.Optional[str]
+            Absolute path on this MCP server.
 
         mode : str
             `batch` (default) or `stream`.
@@ -912,11 +965,14 @@ def _speech_to_text_stream(
         timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
             Pass `["word"]` for word-level timestamps when supported.
 
+        file_id : typing.Optional[str]
+            Cartesia cloud file id. The server downloads it. Use this from hosted clients.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration (batch mode only).
         """)
 def speech_to_text(
-    file_path: str,
+    file_path: typing.Optional[str] = None,
     mode: SttMode = "batch",
     model: typing.Optional[str] = None,
     language: typing.Optional[str] = None,
@@ -924,12 +980,14 @@ def speech_to_text(
     sample_rate: typing.Optional[int] = None,
     timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]] = None,
     request_options: typing.Optional[RequestOptions] = None,
+    file_id: typing.Optional[str] = None,
 ) -> STTTranscribeResponse:
+    source = _resolve_audio_input(file_path, file_id)
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
         _ = request_options
         return _speech_to_text_stream(
-            file_path=file_path,
+            file_path=source,
             model=stt_model,
             language=language,
             encoding=encoding,
@@ -937,7 +995,7 @@ def speech_to_text(
             timestamp_granularities=timestamp_granularities,
         )
     return _speech_to_text_batch(
-        file_path=file_path,
+        file_path=source,
         model=stt_model,
         language=language,
         encoding=encoding,

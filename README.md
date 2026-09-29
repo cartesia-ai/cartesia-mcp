@@ -73,13 +73,13 @@ Ask your agent things like:
 | Tool | Description |
 |------|-------------|
 | `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
-| `speech_to_text` | Transcribe an audio file (`mode=batch` default, or `mode=stream`) |
+| `speech_to_text` | Transcribe audio from `file_id` or a server `file_path` (`mode=batch` default, or `mode=stream`) |
 | `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
-| `clone_voice` | Clone a voice from an audio sample |
+| `clone_voice` | Clone a voice from `file_id` or a server `file_path` |
 | `update_voice` | Update a cloned voice's name or description |
 | `delete_voice` | Delete a cloned voice |
-| `voice_change` | Re-render audio with a different voice |
+| `voice_change` | Re-render `file_id` or a server `file_path` with a different voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
@@ -165,11 +165,16 @@ By default, generated audio is written to the server's working directory. To cho
 }
 ```
 
-### Local audio files
+### Audio inputs (`file_id` or `file_path`)
 
-Tools like `speech_to_text` and `voice_change` need paths to existing audio files on disk. Pass the full path to each file when prompting your agent. For `speech_to_text`, use the default batch mode for common containers (mp3, flac, wav, etc.). Use `mode="stream"` for mono PCM WAV or raw PCM with `encoding` and `sample_rate`.
+`speech_to_text`, `voice_change`, and `clone_voice` take one of:
 
-On hosted MCP (`mcp.cartesia.ai`), those paths are on the server — use `download_url` from `text_to_speech` / `download_file` instead of a local `file_path`.
+- **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
+- **`file_path`** — an absolute path on the machine running MCP. Use this with local `uvx`, or pass the `file_path` returned by an earlier tool in the same hosted session.
+
+`download_url` is a 24-hour browser link. It is not an input to those tools.
+
+For `speech_to_text`, use the default batch mode for common containers (mp3, flac, wav, etc.). Use `mode="stream"` for mono PCM WAV or raw PCM with `encoding` and `sample_rate`.
 
 ### Admin API key
 
