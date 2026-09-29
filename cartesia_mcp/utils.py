@@ -159,8 +159,19 @@ def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typin
     return result
 
 
+def coerce_null_voice_locales(voice: Voice) -> Voice:
+    """Catalog voices often have ``locales: null``. Voice output schemas require an array."""
+    if voice.locales is None:
+        return voice.model_copy(update={"locales": []})
+    return voice
+
+
 def voice_list_page_to_result(page: SyncCursorIDPage[Voice]) -> ListVoicesResult:
-    return typing.cast(ListVoicesResult, cursor_page_to_result(page))
+    result = typing.cast(ListVoicesResult, cursor_page_to_result(page))
+    for item in result["data"]:
+        if item.get("locales") is None:
+            item["locales"] = []
+    return result
 
 
 def pronunciation_dict_list_to_result(

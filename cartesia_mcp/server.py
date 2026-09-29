@@ -62,6 +62,7 @@ from cartesia_mcp.request_options import sdk_kwargs_from_request_options
 from cartesia_mcp.utils import (
     create_output_file,
     cursor_page_to_result,
+    coerce_null_voice_locales,
     iter_stt_audio_chunks,
     resolve_local_download_filename,
     save_downloaded_file,
@@ -491,7 +492,8 @@ def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    return client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    voice = client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    return coerce_null_voice_locales(voice)
 
 
 @mcp.tool(
@@ -516,12 +518,13 @@ def update_voice(
         description: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    return client.voices.update(
+    voice = client.voices.update(
         id=voice_id,
         name=name,
         description=description,
         **sdk_kwargs_from_request_options(request_options),
     )
+    return coerce_null_voice_locales(voice)
 
 
 @mcp.tool(
@@ -548,11 +551,12 @@ def add_voice_accents(
     accents: list[VoiceAccent],
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    return client.voices.add_accents(
+    voice = client.voices.add_accents(
         id=voice_id,
         accents=accents,
         **sdk_kwargs_from_request_options(request_options),
     )
+    return coerce_null_voice_locales(voice)
 
 
 @mcp.tool(
@@ -577,11 +581,12 @@ def delete_voice_accent(
     accent: VoiceAccent,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    return client.voices.delete_accent(
+    voice = client.voices.delete_accent(
         accent,
         id=voice_id,
         **sdk_kwargs_from_request_options(request_options),
     )
+    return coerce_null_voice_locales(voice)
 
 
 @mcp.tool(
