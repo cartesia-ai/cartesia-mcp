@@ -58,27 +58,6 @@ def test_speech_to_text_accepts_file_id(mock_download: MagicMock, mock_client: M
 
 @patch("cartesia_mcp.server.client")
 @patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.wav"), "clip.wav"))
-def test_voice_change_accepts_file_id(mock_download: MagicMock, mock_client: MagicMock) -> None:
-    mock_client.voice_changer.generate.return_value = MagicMock(read=lambda: b"audio")
-
-    with (
-        patch("builtins.open", mock_open(read_data=b"audio")),
-        patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"),
-    ):
-        result = server.voice_change(
-            voice_id="voice",
-            output_format_container="wav",
-            output_format_sample_rate=44100,
-            file_id="file_abc",
-        )
-
-    assert result["file_path"] == "/tmp/out.wav"
-    mock_download.assert_called_once_with("file_abc")
-    assert mock_client.voice_changer.generate.call_args.kwargs["voice_id"] == "voice"
-
-
-@patch("cartesia_mcp.server.client")
-@patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.wav"), "clip.wav"))
 def test_clone_voice_accepts_file_id(mock_download: MagicMock, mock_client: MagicMock) -> None:
     mock_client.voices.clone.return_value = MagicMock(id="voice_new")
 

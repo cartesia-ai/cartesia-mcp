@@ -6,11 +6,10 @@ class DeleteVoiceResult(typing.TypedDict):
 
 
 class GeneratedAudioResult(typing.TypedDict, total=False):
-    """Audio delivery fields for `text_to_speech` / `voice_change`.
+    """Audio delivery fields for `text_to_speech`.
 
-    Fields are optional because paths differ (`save=false` is local-only;
-    `voice_change` never mints cloud links). Optional string fields must be
-    nullable: FastMCP dumps unset TypedDict keys as ``None``.
+    Fields are optional because `save=false` is local-only. Optional string
+    fields must be nullable: FastMCP dumps unset TypedDict keys as ``None``.
     """
 
     file_id: str | None

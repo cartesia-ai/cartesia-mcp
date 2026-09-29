@@ -17,7 +17,6 @@ from cartesia.types import (
     LocalizeDialect,
     LocalizeTargetLanguage,
     OutputFormatContainer,
-    RawEncoding,
     STTEncoding,
     STTTranscribeResponse,
     SupportedLanguage,
@@ -187,7 +186,7 @@ def _stream_stt_uses_manual_finalize(
 
 def _write_audio_output(
     audio_bytes: bytes,
-    tool_type: typing.Literal["text_to_speech", "voice_change"],
+    tool_type: typing.Literal["text_to_speech"],
     extension: OutputFormatContainer,
 ) -> str:
     output_file = create_output_file(OUTPUT_DIRECTORY, tool_type, extension)
@@ -277,8 +276,8 @@ def _deliver_cloud_file(
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
-        (24-hour public link). Pass that `file_id` to `speech_to_text`, `voice_change`,
-        or `clone_voice` — including from a hosted client whose disk is not this server.
+        (24-hour public link). Pass that `file_id` to `speech_to_text` or `clone_voice`
+        — including from a hosted client whose disk is not this server.
         `download_url` is a browser link. `file_path` is a copy on the MCP server host
         (local `uvx`, or the same hosted session).
 
@@ -381,70 +380,6 @@ def text_to_speech(
         saved["download_url"] = download_url
     return saved
 
-
-@mcp.tool(
-    annotations=_additive_tool("Change voice in audio"),
-    description="""
-        Takes an audio file of speech, and returns an audio file of speech spoken with the same intonation, but with a different voice.
-
-        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
-        from `text_to_speech` or `download_file`. `file_path` is an absolute path on
-        this MCP server (local `uvx`, or a path returned in this same session).
-
-        Parameters
-        ----------
-        voice_id : str
-
-        output_format_container : OutputFormatContainer
-
-        output_format_sample_rate : int
-
-        file_path : typing.Optional[str]
-            Absolute path on this MCP server.
-
-        file_id : typing.Optional[str]
-            Cartesia cloud file id. The server downloads it.
-
-        output_format_encoding : typing.Optional[RawEncoding]
-            Required for `raw` and `wav` containers.
-
-        output_format_bit_rate : typing.Optional[int]
-            Required for `mp3` containers.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params).
-
-        """)
-def voice_change(
-    voice_id: str,
-    output_format_container: OutputFormatContainer,
-    output_format_sample_rate: int,
-    file_path: typing.Optional[str] = None,
-    file_id: typing.Optional[str] = None,
-    output_format_encoding: typing.Optional[RawEncoding] = None,
-    output_format_bit_rate: typing.Optional[int] = None,
-    request_options: typing.Optional[RequestOptions] = None,
-) -> GeneratedAudioResult:
-    source = _resolve_audio_input(file_path, file_id)
-    with open(source, "rb") as clip:
-        result = client.voice_changer.generate(
-            clip=clip,
-            voice_id=voice_id,
-            output_format_container=output_format_container,
-            output_format_sample_rate=output_format_sample_rate,
-            output_format_encoding=output_format_encoding,
-            output_format_bit_rate=output_format_bit_rate,
-            **sdk_kwargs_from_request_options(request_options),
-        )
-        audio_bytes = result.read()
-
-    written = _write_audio_output(
-        audio_bytes,
-        "voice_change",
-        output_format_container,
-    )
-
-    return GeneratedAudioResult(file_path=written)
 
 @mcp.tool(
     annotations=_additive_tool("Localize voice"),

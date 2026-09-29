@@ -19,7 +19,7 @@ from typing import Any
 OUTPUT_DIR = os.environ.get(
     "OUTPUT_DIRECTORY", os.path.join(os.path.dirname(__file__), "..", "test-output")
 )
-# Public catalog voices — read / TTS / voice_change only; never delete.
+# Public catalog voices — read / TTS only; never delete.
 SAMPLE_VOICE_ID = "ef191366-f52f-447a-a398-ed8c0f2943a1"  # Archie
 ALT_VOICE_ID = "47c38ca4-5f35-497b-b1a3-415245fb35e1"  # Daniel
 PROTECTED_VOICE_IDS = frozenset({SAMPLE_VOICE_ID, ALT_VOICE_ID})
@@ -302,18 +302,6 @@ def main() -> int:
     else:
         print(f"  SKIP clone_voice / update_voice / add_voice_accents / delete_voice_accent — no sample wav at {sample_wav}")
         failures.append("clone_voice(skipped)")
-
-    if tts_path and os.path.isfile(tts_path):
-        run(
-            "voice_change",
-            lambda: s.voice_change(
-                file_path=tts_path,
-                voice_id=ALT_VOICE_ID,
-                output_format_container="wav",
-                output_format_sample_rate=44100,
-                output_format_encoding="pcm_s16le",
-            ),
-        )
 
     localized_name = f"{TEST_LOCALIZED_NAME_PREFIX} {run_id}"
     loc_result = run(

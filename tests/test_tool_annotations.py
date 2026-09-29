@@ -9,7 +9,7 @@ import cartesia_mcp.server as server
 
 def test_all_tools_have_annotation_title_and_hint():
     tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 18
+    assert len(tools) == 17
 
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"
@@ -48,7 +48,6 @@ def test_read_only_tools():
 def test_additive_tools():
     additive_tools = {
         "text_to_speech",
-        "voice_change",
         "localize_voice",
         "clone_voice",
         "add_voice_accents",

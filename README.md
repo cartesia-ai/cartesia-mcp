@@ -79,7 +79,6 @@ Ask your agent things like:
 | `clone_voice` | Clone a voice from `file_id` or a server `file_path` |
 | `update_voice` | Update a cloned voice's name or description |
 | `delete_voice` | Delete a cloned voice |
-| `voice_change` | Re-render `file_id` or a server `file_path` with a different voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
@@ -167,7 +166,7 @@ By default, generated audio is written to the server's working directory. To cho
 
 ### Audio inputs (`file_id` or `file_path`)
 
-`speech_to_text`, `voice_change`, and `clone_voice` take one of:
+`speech_to_text` and `clone_voice` take one of:
 
 - **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
 - **`file_path`** — an absolute path on the machine running MCP. Use this with local `uvx`, or pass the `file_path` returned by an earlier tool in the same hosted session.
@@ -180,7 +179,7 @@ For `speech_to_text`, use the default batch mode for common containers (mp3, fla
 
 Some tools call [management endpoints](https://docs.cartesia.ai/api-reference/usage/credits) that accept **admin** API keys only (`sk_car_admin_...`). Set `CARTESIA_ADMIN_API_KEY` in `env` alongside `CARTESIA_API_KEY`:
 
-- `CARTESIA_API_KEY` — TTS, STT, voices, pronunciation dictionaries, voice changer, etc.
+- `CARTESIA_API_KEY` — TTS, STT, voices, pronunciation dictionaries, etc.
 - `CARTESIA_ADMIN_API_KEY` — optional; required for `get_credit_usage` today. Admin keys do not work on generation routes, and standard keys do not work on admin routes.
 
 Mint admin keys in the Playground under **Keys → Admin** (org admins only).
