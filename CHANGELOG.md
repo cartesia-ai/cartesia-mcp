@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.24.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.23.0...cartesia-mcp-v0.24.0) (2026-09-29)
+
+
+### Features
+
+* keep hosted MCP sessions idle for 30 minutes ([#108](https://github.com/cartesia-ai/cartesia-mcp/issues/108)) ([7412e09](https://github.com/cartesia-ai/cartesia-mcp/commit/7412e096eef7332bb596bb36ae9231142a8c69a9))
+* log hosted MCP tool name and outcome ([#109](https://github.com/cartesia-ai/cartesia-mcp/issues/109)) ([eebe6d6](https://github.com/cartesia-ai/cartesia-mcp/commit/eebe6d66c53b7a4017c60243c710c4a35dc86837))
+
+
+### Bug Fixes
+
+* remove the sunset voice changer tool ([#111](https://github.com/cartesia-ai/cartesia-mcp/issues/111)) ([cb7409a](https://github.com/cartesia-ai/cartesia-mcp/commit/cb7409a58663f2809f501af793e358c9a373f305))
+
 ## [0.23.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.3...cartesia-mcp-v0.23.0) (2026-09-29)
 
 
