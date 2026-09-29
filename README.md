@@ -180,6 +180,21 @@ Some tools call [management endpoints](https://docs.cartesia.ai/api-reference/us
 
 Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 
+### Hosted sessions and rate limits
+
+Hosted MCP keeps one live session per client. After `initialize`, reuse the `mcp-session-id` response header on later requests. A `POST /mcp` without that header starts a new session and replaces the previous one for that client.
+
+New sessions are limited to **5 per minute per access token** and **15 per minute per client IP**. Over the limit, the server returns HTTP 429:
+
+```json
+{
+  "error": "too_many_requests",
+  "error_description": "MCP session creation rate limit exceeded"
+}
+```
+
+`Retry-After` is the window in seconds (60 for session creation). Wait and retry with the same session id when you still have one. A 429 is not an expired login — do not mark the connector failed or start a new OAuth flow.
+
 ### Hosted OAuth redirect URIs
 
 Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy:
