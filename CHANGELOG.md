@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.23.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.3...cartesia-mcp-v0.23.0) (2026-09-29)
+
+
+### Features
+
+* accept file_id on speech, voice change, and clone ([#105](https://github.com/cartesia-ai/cartesia-mcp/issues/105)) ([6e6fc7a](https://github.com/cartesia-ai/cartesia-mcp/commit/6e6fc7a587919b4c701ea90299e927e2a61145d0))
+
+
+### Bug Fixes
+
+* coerce null voice locales to an empty list ([#104](https://github.com/cartesia-ai/cartesia-mcp/issues/104)) ([9853f5f](https://github.com/cartesia-ai/cartesia-mcp/commit/9853f5fc7f8db92a69e42c1eeff7dc87e1f75181))
+
+
+### Documentation
+
+* document hosted MCP session-creation limits ([#106](https://github.com/cartesia-ai/cartesia-mcp/issues/106)) ([277885f](https://github.com/cartesia-ai/cartesia-mcp/commit/277885f80ffca9b4815b4fe2ecce501c47e0f992))
+
 ## [0.22.3](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.22.2...cartesia-mcp-v0.22.3) (2026-09-21)
 
 
