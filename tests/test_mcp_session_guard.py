@@ -18,6 +18,7 @@ from cartesia_mcp.mcp_session_guard import (
     McpSessionCapMiddleware,
     bound_session_count,
     configure_hosted_session_manager,
+    report_tool_call,
 )
 from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
@@ -311,3 +312,33 @@ def test_health_includes_session_count():
         "sessions": 3,
         "session_cap": MCP_MAX_CONCURRENT_SESSIONS,
     }
+
+
+def test_report_tool_call_emits_dogstatsd_count(monkeypatch):
+    sent: list[bytes] = []
+
+    class _Sock:
+        def setblocking(self, _flag: bool) -> None:
+            return None
+
+        def sendto(self, payload: bytes, _addr: tuple[str, int]) -> None:
+            sent.append(payload)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setenv("DD_DOGSTATSD_URL", "udp://127.0.0.1:8125")
+    monkeypatch.setenv("DD_ENV", "test")
+    monkeypatch.setattr(
+        "cartesia_mcp.mcp_session_guard.socket.socket",
+        lambda *_args, **_kwargs: _Sock(),
+    )
+    report_tool_call("text_to_speech", "ok")
+    report_tool_call("bad tool", "nope")
+    assert len(sent) == 2
+    assert b"mcp.tool.calls:1|c|" in sent[0]
+    assert b"tool:text_to_speech" in sent[0]
+    assert b"outcome:ok" in sent[0]
+    assert b"env:test" in sent[0]
+    assert b"tool:other" in sent[1]
+    assert b"outcome:unknown" in sent[1]

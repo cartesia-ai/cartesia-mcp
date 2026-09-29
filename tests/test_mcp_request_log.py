@@ -9,8 +9,8 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from cartesia_mcp.mcp_http import jsonrpc_method_from_body
-from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware
+from cartesia_mcp.mcp_http import jsonrpc_method_from_body, jsonrpc_tool_name_from_body
+from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware, tool_call_outcome
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 from mcp.server.auth.provider import AuthorizationParams
@@ -102,6 +102,25 @@ def test_jsonrpc_method_from_body_reads_initialize():
     assert jsonrpc_method_from_body(b'{"params":{}}') is None
 
 
+def test_jsonrpc_tool_name_from_body_reads_tools_call():
+    body = b'{"jsonrpc":"2.0","method":"tools/call","params":{"name":"text_to_speech"}}'
+    assert jsonrpc_tool_name_from_body(body) == "text_to_speech"
+    assert jsonrpc_tool_name_from_body(b'{"method":"tools/list"}') is None
+    weird = b'{"method":"tools/call","params":{"name":"text to speech"}}'
+    assert jsonrpc_tool_name_from_body(weird) is None
+
+
+def test_tool_call_outcome_classifies_json_results():
+    ok = b'{"jsonrpc":"2.0","result":{"content":[]}}'
+    assert tool_call_outcome(200, ok) == "ok"
+    tool_error = b'{"jsonrpc":"2.0","result":{"isError":true,"content":[]}}'
+    assert tool_call_outcome(200, tool_error) == "tool_error"
+    rpc_error = b'{"jsonrpc":"2.0","error":{"code":-32602,"message":"bad"}}'
+    assert tool_call_outcome(200, rpc_error) == "rpc_error"
+    assert tool_call_outcome(429, ok) == "http_error"
+    assert tool_call_outcome(200, None) == "unknown"
+
+
 def test_mcp_request_log_includes_owner_and_rpc(caplog):
     _reset_store()
     access = _mint_oauth_token()
@@ -126,6 +145,46 @@ def test_mcp_request_log_includes_owner_and_rpc(caplog):
     message = json.dumps(payload)
     assert access not in message
     assert "sk_car_oauth_test_key" not in message
+
+
+def test_mcp_request_log_records_tool_call(caplog):
+    _reset_store()
+    client = _client_app()
+    body = {
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "id": 1,
+        "params": {"name": "speech_to_text", "arguments": {"file_id": "file_123"}},
+    }
+    with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
+        response = client.post("/mcp", json=body)
+    assert response.status_code == 200
+    payload = _mcp_request_payloads(caplog)[-1]
+    assert payload["rpc"] == "tools/call"
+    assert payload["tool"] == "speech_to_text"
+    assert payload["outcome"] == "ok"
+    assert "file_123" not in json.dumps(payload)
+
+
+def test_mcp_request_log_marks_tool_errors(caplog):
+    _reset_store()
+
+    async def _tool_error(_: Request) -> JSONResponse:
+        return JSONResponse(
+            {"jsonrpc": "2.0", "id": 1, "result": {"isError": True, "content": []}}
+        )
+
+    app = Starlette(routes=[Route("/mcp", endpoint=_tool_error, methods=["POST"])])
+    app.add_middleware(McpRequestLogMiddleware)
+    client = TestClient(app)
+    with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
+        client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "get_voice"}},
+        )
+    payload = _mcp_request_payloads(caplog)[-1]
+    assert payload["tool"] == "get_voice"
+    assert payload["outcome"] == "tool_error"
 
 
 def test_mcp_request_log_skips_health(caplog):

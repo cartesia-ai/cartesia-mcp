@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 
 from starlette.requests import Request
 
 from cartesia_mcp.register_rate_limit import client_ip
 
 _MAX_RPC_METHOD_LEN = 64
+_TOOL_NAME = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 
 def is_mcp_path(path: str) -> bool:
@@ -24,20 +26,41 @@ def bearer_token(request: Request) -> str | None:
 
 
 def jsonrpc_method_from_body(body: bytes) -> str | None:
+    message = _first_jsonrpc_message(body)
+    if message is None:
+        return None
+    method = message.get("method")
+    if not isinstance(method, str) or not method or len(method) > _MAX_RPC_METHOD_LEN:
+        return None
+    return method
+
+
+def _first_jsonrpc_message(body: bytes) -> dict | None:
     if not body:
         return None
     try:
         payload = json.loads(body)
     except json.JSONDecodeError:
         return None
-    method: object = None
     if isinstance(payload, dict):
-        method = payload.get("method")
-    elif isinstance(payload, list) and payload and isinstance(payload[0], dict):
-        method = payload[0].get("method")
-    if not isinstance(method, str) or not method or len(method) > _MAX_RPC_METHOD_LEN:
+        return payload
+    if isinstance(payload, list) and payload and isinstance(payload[0], dict):
+        return payload[0]
+    return None
+
+
+def jsonrpc_tool_name_from_body(body: bytes) -> str | None:
+    """Tool name on a tools/call request. Other methods and unsafe names are omitted."""
+    message = _first_jsonrpc_message(body)
+    if message is None or message.get("method") != "tools/call":
         return None
-    return method
+    params = message.get("params")
+    if not isinstance(params, dict):
+        return None
+    name = params.get("name")
+    if not isinstance(name, str) or _TOOL_NAME.fullmatch(name) is None:
+        return None
+    return name
 
 
 def mcp_rate_limit_bucket(request: Request) -> str:
