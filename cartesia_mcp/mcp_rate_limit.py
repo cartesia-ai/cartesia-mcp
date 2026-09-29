@@ -24,6 +24,7 @@ MCP_IP_RATE_LIMIT = 120
 MCP_IP_RATE_WINDOW_SECONDS = 10
 
 # New session handshakes are expensive; keep well below general /mcp throughput.
+# Documented in README "Hosted sessions and rate limits" — update both together.
 MCP_INITIALIZE_RATE_LIMIT = 5
 MCP_INITIALIZE_RATE_WINDOW_SECONDS = 60
 MCP_INITIALIZE_IP_RATE_LIMIT = 15
