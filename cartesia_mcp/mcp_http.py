@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 
+from mcp.shared.inbound import MCP_PROTOCOL_VERSION_HEADER
+from mcp_types.version import HANDSHAKE_PROTOCOL_VERSIONS
 from starlette.requests import Request
 
 from cartesia_mcp.register_rate_limit import client_ip
@@ -15,6 +17,19 @@ _TOOL_NAME = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 def is_mcp_path(path: str) -> bool:
     return path.rstrip("/") == "/mcp"
+
+
+def opens_legacy_mcp_session(request: Request) -> bool:
+    """True when this request can mint an Mcp-Session-Id.
+
+    Streamable HTTP routes on MCP-Protocol-Version. A header outside the
+    handshake-era versions is served statelessly and never opens a session.
+    A missing header, or a 2024/2025 handshake version, still does.
+    """
+    version = request.headers.get(MCP_PROTOCOL_VERSION_HEADER)
+    if version is None:
+        return True
+    return version in HANDSHAKE_PROTOCOL_VERSIONS
 
 
 def bearer_token(request: Request) -> str | None:

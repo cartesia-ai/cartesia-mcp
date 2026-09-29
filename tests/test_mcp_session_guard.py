@@ -12,6 +12,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from cartesia_mcp.hosted import health
+from cartesia_mcp.mcp_http import opens_legacy_mcp_session
 from cartesia_mcp.mcp_session_guard import (
     MCP_MAX_CONCURRENT_SESSIONS,
     MCP_SESSION_IDLE_TIMEOUT_SECONDS,
@@ -47,6 +48,8 @@ def _client(session_manager: StreamableHTTPSessionManager) -> TestClient:
     async def _ok_mcp(request: Request) -> JSONResponse:
         nonlocal created
         if request.headers.get(MCP_SESSION_ID_HEADER) is not None:
+            return JSONResponse({"ok": True})
+        if not opens_legacy_mcp_session(request):
             return JSONResponse({"ok": True})
         created += 1
         new_id = f"created-{created}"
@@ -235,6 +238,53 @@ def test_session_cap_all_hot_returns_503_and_terminates_nobody():
     assert not any(
         transport.terminated for transport in manager._server_instances.values()
     )
+
+
+def test_modern_request_does_not_open_or_replace_a_session():
+    caller = "caller-token"
+    manager = _session_manager(
+        active=1,
+        buckets={"s0": _token_bucket(caller)},
+    )
+    prior = manager._server_instances["s0"]
+    response = _client(manager).post(
+        "/mcp",
+        headers={
+            "authorization": f"Bearer {caller}",
+            "mcp-protocol-version": "2026-07-28",
+        },
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/call"},
+    )
+    assert response.status_code == 200
+    assert MCP_SESSION_ID_HEADER not in response.headers
+    assert not prior.terminated
+    assert "s0" in manager._server_instances
+    assert len(manager._server_instances) == 1
+
+
+def test_modern_request_at_cap_is_not_rejected():
+    manager = _session_manager(active=MCP_MAX_CONCURRENT_SESSIONS)
+    response = _client(manager).post(
+        "/mcp",
+        headers={"mcp-protocol-version": "2026-07-28"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/call"},
+    )
+    assert response.status_code == 200
+    assert len(manager._server_instances) == MCP_MAX_CONCURRENT_SESSIONS
+    assert not any(
+        transport.terminated for transport in manager._server_instances.values()
+    )
+
+
+def test_handshake_protocol_version_still_counts_as_new_session():
+    manager = _session_manager(active=MCP_MAX_CONCURRENT_SESSIONS)
+    response = _client(manager).post(
+        "/mcp",
+        headers={"mcp-protocol-version": "2025-11-25"},
+        json={"jsonrpc": "2.0", "method": "initialize"},
+    )
+    assert response.status_code == 503
+    assert len(manager._server_instances) == MCP_MAX_CONCURRENT_SESSIONS
 
 
 def test_session_cap_existing_session_at_cap_refreshes_last_seen():

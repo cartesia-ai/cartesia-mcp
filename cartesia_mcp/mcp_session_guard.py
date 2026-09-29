@@ -18,7 +18,11 @@ from starlette.types import ASGIApp
 from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
-from cartesia_mcp.mcp_http import is_mcp_path, mcp_rate_limit_bucket
+from cartesia_mcp.mcp_http import (
+    is_mcp_path,
+    mcp_rate_limit_bucket,
+    opens_legacy_mcp_session,
+)
 
 logger = logging.getLogger("cartesia_mcp.mcp")
 
@@ -210,7 +214,9 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
                 )
             return await call_next(request)
 
-        if request.method not in _NEW_SESSION_METHODS:
+        if request.method not in _NEW_SESSION_METHODS or not opens_legacy_mcp_session(
+            request
+        ):
             return await call_next(request)
 
         bucket = mcp_rate_limit_bucket(request)

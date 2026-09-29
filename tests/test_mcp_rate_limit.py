@@ -175,6 +175,36 @@ def test_mcp_session_creation_limit_applies_without_initialize_method():
     assert "session creation" in blocked.json()["error_description"]
 
 
+def test_modern_protocol_version_skips_session_creation_limit():
+    _reset_store()
+    client = _client()
+    headers = {
+        "authorization": "Bearer modern-client",
+        "x-forwarded-for": "198.51.100.90",
+        "mcp-protocol-version": "2026-07-28",
+    }
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {}}
+    for _ in range(MCP_INITIALIZE_RATE_LIMIT + 3):
+        assert client.post("/mcp", headers=headers, json=payload).status_code == 200
+
+
+def test_handshake_protocol_version_counts_as_session_creation():
+    _reset_store()
+    client = _client()
+    headers = {
+        "authorization": "Bearer handshake-client",
+        "x-forwarded-for": "198.51.100.91",
+        "mcp-protocol-version": "2025-11-25",
+    }
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    for _ in range(MCP_INITIALIZE_RATE_LIMIT):
+        assert client.post("/mcp", headers=headers, json=payload).status_code == 200
+
+    blocked = client.post("/mcp", headers=headers, json=payload)
+    assert blocked.status_code == 429
+    assert "session creation" in blocked.json()["error_description"]
+
+
 def test_mcp_session_creation_limit_skips_existing_session():
     _reset_store()
     client = _client()

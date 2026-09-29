@@ -10,6 +10,7 @@ from starlette.types import ASGIApp
 from cartesia_mcp.mcp_http import (
     is_mcp_path,
     mcp_rate_limit_bucket,
+    opens_legacy_mcp_session,
 )
 from cartesia_mcp.oauth_store import oauth_store
 from cartesia_mcp.register_rate_limit import client_ip
@@ -75,7 +76,11 @@ class McpRateLimitMiddleware(BaseHTTPMiddleware):
                 "MCP request rate limit exceeded",
             )
 
-        if request.method == "POST" and request.headers.get(MCP_SESSION_ID_HEADER) is None:
+        if (
+            request.method == "POST"
+            and request.headers.get(MCP_SESSION_ID_HEADER) is None
+            and opens_legacy_mcp_session(request)
+        ):
             init_count = oauth_store.increment_mcp_attempts(
                 f"init:{bucket}",
                 window_seconds=MCP_INITIALIZE_RATE_WINDOW_SECONDS,
