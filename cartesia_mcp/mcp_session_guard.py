@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import socket
 import time
 from urllib.parse import urlparse
@@ -69,11 +70,19 @@ def _dogstatsd_tags() -> str:
     return ",".join(tags)
 
 
-def _dogstatsd_send(metric: str, value: float, kind: str) -> None:
+def _dogstatsd_send(
+    metric: str,
+    value: float,
+    kind: str,
+    extra_tags: list[str] | None = None,
+) -> None:
     addr = _dogstatsd_addr()
     if addr is None:
         return
-    payload = f"{metric}:{value}|{kind}|#{_dogstatsd_tags()}\n"
+    tags = _dogstatsd_tags()
+    if extra_tags:
+        tags = f"{tags},{','.join(extra_tags)}"
+    payload = f"{metric}:{value}|{kind}|#{tags}\n"
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setblocking(False)
@@ -81,6 +90,23 @@ def _dogstatsd_send(metric: str, value: float, kind: str) -> None:
         sock.close()
     except OSError:
         return
+
+
+_TOOL_CALL_OUTCOMES = frozenset(
+    {"ok", "http_error", "rpc_error", "tool_error", "unknown"}
+)
+_TOOL_TAG = re.compile(r"^[A-Za-z0-9_]{1,64}$")
+
+
+def report_tool_call(tool: str, outcome: str) -> None:
+    safe_tool = tool if _TOOL_TAG.fullmatch(tool) else "other"
+    safe_outcome = outcome if outcome in _TOOL_CALL_OUTCOMES else "unknown"
+    _dogstatsd_send(
+        "mcp.tool.calls",
+        1,
+        "c",
+        extra_tags=[f"tool:{safe_tool}", f"outcome:{safe_outcome}"],
+    )
 
 
 def report_session_metrics(active: int, *, evicted: int = 0) -> None:
