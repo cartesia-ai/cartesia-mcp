@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.24.0...cartesia-mcp-v0.24.1) (2026-09-29)
+
+
+### Bug Fixes
+
+* do not count 2026-07-28 requests as new MCP sessions ([#112](https://github.com/cartesia-ai/cartesia-mcp/issues/112)) ([fa283bf](https://github.com/cartesia-ai/cartesia-mcp/commit/fa283bf19346e5641cad6de497d0932eae94a19e))
+
 ## [0.24.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.23.0...cartesia-mcp-v0.24.0) (2026-09-29)
 
 
