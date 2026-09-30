@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.24.1...cartesia-mcp-v0.25.0) (2026-09-30)
+
+
+### Features
+
+* accept accent on instant voice clone ([#114](https://github.com/cartesia-ai/cartesia-mcp/issues/114)) ([50799a8](https://github.com/cartesia-ai/cartesia-mcp/commit/50799a8a84502c612440d4aee2d139ca92b33b52))
+
 ## [0.24.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.24.0...cartesia-mcp-v0.24.1) (2026-09-29)
 
 
