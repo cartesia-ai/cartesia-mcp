@@ -1,6 +1,37 @@
 from unittest.mock import MagicMock, patch
 
+from cartesia.types import ListAccentsResponse
+
 import cartesia_mcp.server as server
+
+
+@patch("cartesia_mcp.server.client")
+def test_list_accents_returns_catalog_ids(mock_client: MagicMock) -> None:
+    mock_client.voices.list_accents.return_value = ListAccentsResponse(
+        accents=[
+            {
+                "id": "british",
+                "name": "British English",
+                "language": "en",
+                "locale": "en-GB",
+                "is_locale_default": False,
+                "is_localizable": True,
+            },
+            {
+                "id": "standard-japanese",
+                "name": "Standard Japanese",
+                "language": "ja",
+                "locale": "ja-JP",
+                "is_locale_default": True,
+                "is_localizable": True,
+            },
+        ]
+    )
+
+    result = server.list_accents()
+
+    mock_client.voices.list_accents.assert_called_once_with()
+    assert [accent.id for accent in result.accents] == ["british", "standard-japanese"]
 
 
 @patch("cartesia_mcp.server.client")

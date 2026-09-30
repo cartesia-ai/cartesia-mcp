@@ -66,7 +66,7 @@ Ask your agent things like:
 - Create a pronunciation dictionary and use it in TTS
 - Check credit usage for your account
 - Localize an existing voice into another language
-- Change an audio file to use a different voice
+- List catalog accent IDs, then add British English to a cloned voice
 
 ## Tools
 
@@ -80,6 +80,7 @@ Ask your agent things like:
 | `update_voice` | Update a cloned voice's name or description |
 | `delete_voice` | Delete a cloned voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
+| `list_accents` | List catalog accent IDs and metadata (`british`, `standard-japanese`, …) |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |

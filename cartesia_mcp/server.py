@@ -14,6 +14,7 @@ from cartesia.types import (
     Gender,
     GenderPresentation,
     GenerationConfigParam,
+    ListAccentsResponse,
     LocalizeDialect,
     LocalizeTargetLanguage,
     OutputFormatContainer,
@@ -500,6 +501,29 @@ def update_voice(
         **sdk_kwargs_from_request_options(request_options),
     )
     return coerce_null_voice_locales(voice)
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List accents"),
+    description="""
+        List the official accent catalog from GET /accents.
+
+        Each entry includes the canonical accent `id` plus display metadata
+        (`name`, `language`, `locale`, `is_locale_default`, `is_localizable`).
+        Pass `id` to `clone_voice`, `add_voice_accents`, `delete_voice_accent`,
+        and `localize_voice`. Display names are rejected on this API version.
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+        """)
+def list_accents(
+    request_options: typing.Optional[RequestOptions] = None,
+) -> ListAccentsResponse:
+    return client.voices.list_accents(
+        **sdk_kwargs_from_request_options(request_options),
+    )
 
 
 @mcp.tool(
