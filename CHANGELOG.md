@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.25.0...cartesia-mcp-v0.26.0) (2026-09-30)
+
+
+### Features
+
+* add list_accents MCP tool ([#117](https://github.com/cartesia-ai/cartesia-mcp/issues/117)) ([e87ffb0](https://github.com/cartesia-ai/cartesia-mcp/commit/e87ffb062944b2e0a09ce36c56cb438f83da5d82))
+
 ## [0.25.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.24.1...cartesia-mcp-v0.25.0) (2026-09-30)
 
 
