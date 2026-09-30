@@ -597,6 +597,10 @@ def delete_voice_accent(
         description : typing.Optional[str]
             A description for the voice.
 
+        accent : typing.Optional[VoiceAccent]
+            Catalog accent id from GET /accents (for example `southern-us` or `parisian`).
+            Display names are rejected on this API version. Omit to leave unset.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
         """)
@@ -607,6 +611,7 @@ def clone_voice(
     file_path: typing.Optional[str] = None,
     file_id: typing.Optional[str] = None,
     description: typing.Optional[str] = None,
+    accent: typing.Optional[VoiceAccent] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
     source = _resolve_audio_input(file_path, file_id)
@@ -618,6 +623,7 @@ def clone_voice(
             name=name,
             language=language,
             description=description,
+            accent=accent if accent is not None else omit,
             **clone_kwargs,
         )
 

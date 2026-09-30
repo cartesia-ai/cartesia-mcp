@@ -54,6 +54,23 @@ def test_clone_voice_passes_mode_via_extra_body(mock_client: MagicMock) -> None:
 
     kwargs = mock_client.voices.clone.call_args.kwargs
     assert kwargs["extra_body"] == {"mode": "stability"}
+    assert kwargs["accent"] is server.omit
+
+
+@patch("cartesia_mcp.server.client")
+def test_clone_voice_passes_accent(mock_client: MagicMock) -> None:
+    mock_client.voices.clone.return_value = MagicMock()
+
+    with patch("builtins.open", mock_open(read_data=b"clip")):
+        server.clone_voice(
+            file_path="/tmp/clip.wav",
+            name="Test Voice",
+            language="en",
+            mode="similarity",
+            accent="southern-us",
+        )
+
+    assert mock_client.voices.clone.call_args.kwargs["accent"] == "southern-us"
 
 
 @patch("cartesia_mcp.server.client")
