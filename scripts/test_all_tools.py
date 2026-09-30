@@ -124,6 +124,23 @@ def main() -> int:
         else:
             ok("list_voices(language=it)", f"{len(items)} Italian catalog voices")
 
+    accents_result = run("list_accents", lambda: s.list_accents())
+    if accents_result is not None:
+        accents = (
+            accents_result.get("accents")
+            if isinstance(accents_result, dict)
+            else getattr(accents_result, "accents", None)
+        )
+        ids = [
+            accent["id"] if isinstance(accent, dict) else accent.id
+            for accent in (accents or [])
+        ]
+        if not ids or "british" not in ids:
+            failures.append("list_accents(catalog)")
+            print("  FAIL list_accents: missing catalog accent ids")
+        else:
+            ok("list_accents", f"{len(ids)} accents")
+
     run(
         "get_voice",
         lambda: s.get_voice(voice_id=SAMPLE_VOICE_ID),
