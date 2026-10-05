@@ -114,6 +114,15 @@ def _require_admin_client() -> Cartesia:
     return require_admin_client()
 
 
+def _client_for_request_options(
+    request_options: typing.Optional[RequestOptions],
+) -> Cartesia:
+    if request_options is not None and "max_retries" in request_options:
+        # Retry limits are client options in the SDK, not resource method kwargs.
+        return client.with_options(max_retries=request_options["max_retries"])
+    return typing.cast(Cartesia, client)
+
+
 def _build_generation_config(
     *,
     speed: typing.Optional[float] = None,
@@ -354,7 +363,7 @@ def text_to_speech(
     if duration is not None:
         _merge_extra_body(tts_kwargs, {"duration": duration})
     _apply_tts_save_flag(tts_kwargs, save)
-    result = client.tts.generate(**tts_kwargs)
+    result = _client_for_request_options(request_options).tts.generate(**tts_kwargs)
 
     audio_bytes = result.read()
     file_path = _write_audio_output(
@@ -423,7 +432,7 @@ def localize_voice(
     dialect: typing.Optional[LocalizeDialect] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    return client.voices.localize(
+    return _client_for_request_options(request_options).voices.localize(
         voice_id=voice_id,
         name=name,
         description=description,
@@ -450,7 +459,9 @@ def delete_voice(
     voice_id: str,
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
-    client.voices.delete(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    _client_for_request_options(request_options).voices.delete(
+        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    )
     return DeleteVoiceResult(success=True)
 
 @mcp.tool(
@@ -468,7 +479,9 @@ def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    voice = client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    voice = _client_for_request_options(request_options).voices.get(
+        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    )
     return coerce_null_voice_locales(voice)
 
 
@@ -494,7 +507,7 @@ def update_voice(
         description: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    voice = client.voices.update(
+    voice = _client_for_request_options(request_options).voices.update(
         id=voice_id,
         name=name,
         description=description,
@@ -521,7 +534,7 @@ def update_voice(
 def list_accents(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> ListAccentsResponse:
-    return client.voices.list_accents(
+    return _client_for_request_options(request_options).voices.list_accents(
         **sdk_kwargs_from_request_options(request_options),
     )
 
@@ -550,7 +563,7 @@ def add_voice_accents(
     accents: list[VoiceAccent],
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    voice = client.voices.add_accents(
+    voice = _client_for_request_options(request_options).voices.add_accents(
         id=voice_id,
         accents=accents,
         **sdk_kwargs_from_request_options(request_options),
@@ -580,7 +593,7 @@ def delete_voice_accent(
     accent: VoiceAccent,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    voice = client.voices.delete_accent(
+    voice = _client_for_request_options(request_options).voices.delete_accent(
         accent,
         id=voice_id,
         **sdk_kwargs_from_request_options(request_options),
@@ -642,7 +655,7 @@ def clone_voice(
     clone_kwargs = sdk_kwargs_from_request_options(request_options)
     _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(source, "rb") as clip:
-        return client.voices.clone(
+        return _client_for_request_options(request_options).voices.clone(
             clip=clip,
             name=name,
             language=language,
@@ -711,7 +724,7 @@ def list_voices(
         extra_query["language"] = language
     if is_starred is not None:
         extra_query["is_starred"] = is_starred
-    pager = client.voices.list(
+    pager = _client_for_request_options(request_options).voices.list(
         limit=limit,
         gender=gender,
         is_owner=is_owner,
@@ -759,7 +772,7 @@ def _speech_to_text_batch(
             kwargs["sample_rate"] = sample_rate
         if timestamp_granularities is not None:
             kwargs["timestamp_granularities"] = list(timestamp_granularities)
-        return client.stt.transcribe(**kwargs)
+        return _client_for_request_options(request_options).stt.transcribe(**kwargs)
 
 
 def _speech_to_text_stream_auto_finalize(
