@@ -22,7 +22,7 @@ def test_resolve_audio_input_requires_exactly_one() -> None:
 @patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.wav"), "clip.wav"))
 def test_resolve_audio_input_downloads_file_id(mock_download: MagicMock) -> None:
     assert server._resolve_audio_input(None, " file_abc ") == "/tmp/clip.wav"
-    mock_download.assert_called_once_with("file_abc")
+    mock_download.assert_called_once_with("file_abc", request_options=None)
 
 
 def test_resolve_audio_input_keeps_server_path() -> None:
@@ -52,7 +52,7 @@ def test_speech_to_text_accepts_file_id(mock_download: MagicMock, mock_client: M
         result = server.speech_to_text(file_id="file_abc", language="en")
 
     assert result.text == "hello"
-    mock_download.assert_called_once_with("file_abc")
+    mock_download.assert_called_once_with("file_abc", request_options=None)
     opened.assert_called_once_with("/tmp/clip.mp3", "rb")
 
 
@@ -69,5 +69,5 @@ def test_clone_voice_accepts_file_id(mock_download: MagicMock, mock_client: Magi
             file_id="file_abc",
         )
 
-    mock_download.assert_called_once_with("file_abc")
+    mock_download.assert_called_once_with("file_abc", request_options=None)
     assert mock_client.voices.clone.call_args.kwargs["name"] == "Test"

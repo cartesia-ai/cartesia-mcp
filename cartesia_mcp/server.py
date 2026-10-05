@@ -209,10 +209,13 @@ def _try_create_download_link(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> typing.Optional[str]:
     """Mint a time-limited public download link; None if POST /links fails."""
     try:
-        link_url = extra_api.create_file_download_link(client, file_id)
+        link_url = extra_api.create_file_download_link(
+            _client_for_request_options(request_options), file_id
+        )
         return extra_api.with_download_format(link_url, format)
     except Exception:
         return None
@@ -222,9 +225,11 @@ def _cloud_file_on_disk(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> tuple[Path, str]:
     """Download a cloud file onto this MCP server. Returns ``(path, filename)``."""
-    metadata = extra_api.get_file_info(client, file_id)
+    sdk_client = _client_for_request_options(request_options)
+    metadata = extra_api.get_file_info(sdk_client, file_id)
     filename = metadata.get("filename")
     if not isinstance(filename, str) or not filename.strip():
         filename = file_id
@@ -234,7 +239,7 @@ def _cloud_file_on_disk(
         file_id,
         as_wav=format == "playback",
     )
-    content = extra_api.download_file_bytes(client, file_id, format=format)
+    content = extra_api.download_file_bytes(sdk_client, file_id, format=format)
     output_path = save_downloaded_file(
         OUTPUT_DIRECTORY,
         file_id=file_id,
@@ -247,6 +252,8 @@ def _cloud_file_on_disk(
 def _resolve_audio_input(
     file_path: typing.Optional[str],
     file_id: typing.Optional[str],
+    *,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> str:
     """Resolve ``file_id`` (cloud) or ``file_path`` (this machine) to a local path."""
     path = file_path.strip() if isinstance(file_path, str) else ""
@@ -254,7 +261,7 @@ def _resolve_audio_input(
     if path and cloud_id:
         raise ValueError("Pass file_id or file_path, not both.")
     if cloud_id:
-        output_path, _filename = _cloud_file_on_disk(cloud_id)
+        output_path, _filename = _cloud_file_on_disk(cloud_id, request_options=request_options)
         return str(output_path)
     if path:
         return path
@@ -385,7 +392,7 @@ def text_to_speech(
         "file_id": file_id,
         "file_path": file_path,
     }
-    download_url = _try_create_download_link(file_id)
+    download_url = _try_create_download_link(file_id, request_options=request_options)
     if download_url is not None:
         saved["download_url"] = download_url
     return saved
@@ -651,7 +658,7 @@ def clone_voice(
     accent: typing.Optional[VoiceAccent] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    source = _resolve_audio_input(file_path, file_id)
+    source = _resolve_audio_input(file_path, file_id, request_options=request_options)
     clone_kwargs = sdk_kwargs_from_request_options(request_options)
     _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(source, "rb") as clip:
@@ -965,7 +972,9 @@ def speech_to_text(
     request_options: typing.Optional[RequestOptions] = None,
     file_id: typing.Optional[str] = None,
 ) -> STTTranscribeResponse:
-    source = _resolve_audio_input(file_path, file_id)
+    source = _resolve_audio_input(
+        file_path, file_id, request_options=request_options if mode == "batch" else None
+    )
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
         _ = request_options

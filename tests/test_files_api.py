@@ -123,7 +123,7 @@ def test_text_to_speech_save_returns_cloud_ids(
 
     mock_client.tts.generate.assert_called_once()
     assert mock_client.tts.generate.call_args.kwargs["save"] is True
-    mock_cloud_url.assert_called_once_with("file_new")
+    mock_cloud_url.assert_called_once_with("file_new", request_options=None)
     assert result == {
         "file_id": "file_new",
         "download_url": "https://files.cartesia.ai/link/link_new",
