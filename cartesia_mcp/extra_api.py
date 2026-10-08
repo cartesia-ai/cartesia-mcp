@@ -97,7 +97,7 @@ def download_file_bytes(
     return client.get(
         _files_url(f"/files/{file_id}/download"),
         cast_to=bytes,
-        options={"params": params} if params else None,
+        options={"params": params},
     )
 
 

@@ -114,6 +114,15 @@ def _require_admin_client() -> Cartesia:
     return require_admin_client()
 
 
+def _client_for_request_options(
+    request_options: typing.Optional[RequestOptions],
+) -> Cartesia:
+    if request_options is not None and "max_retries" in request_options:
+        # Retry limits are client options in the SDK, not resource method kwargs.
+        return client.with_options(max_retries=request_options["max_retries"])
+    return typing.cast(Cartesia, client)
+
+
 def _build_generation_config(
     *,
     speed: typing.Optional[float] = None,
@@ -200,10 +209,13 @@ def _try_create_download_link(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> typing.Optional[str]:
     """Mint a time-limited public download link; None if POST /links fails."""
     try:
-        link_url = extra_api.create_file_download_link(client, file_id)
+        link_url = extra_api.create_file_download_link(
+            _client_for_request_options(request_options), file_id
+        )
         return extra_api.with_download_format(link_url, format)
     except Exception:
         return None
@@ -213,9 +225,11 @@ def _cloud_file_on_disk(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> tuple[Path, str]:
     """Download a cloud file onto this MCP server. Returns ``(path, filename)``."""
-    metadata = extra_api.get_file_info(client, file_id)
+    sdk_client = _client_for_request_options(request_options)
+    metadata = extra_api.get_file_info(sdk_client, file_id)
     filename = metadata.get("filename")
     if not isinstance(filename, str) or not filename.strip():
         filename = file_id
@@ -225,7 +239,7 @@ def _cloud_file_on_disk(
         file_id,
         as_wav=format == "playback",
     )
-    content = extra_api.download_file_bytes(client, file_id, format=format)
+    content = extra_api.download_file_bytes(sdk_client, file_id, format=format)
     output_path = save_downloaded_file(
         OUTPUT_DIRECTORY,
         file_id=file_id,
@@ -238,6 +252,8 @@ def _cloud_file_on_disk(
 def _resolve_audio_input(
     file_path: typing.Optional[str],
     file_id: typing.Optional[str],
+    *,
+    request_options: typing.Optional[RequestOptions] = None,
 ) -> str:
     """Resolve ``file_id`` (cloud) or ``file_path`` (this machine) to a local path."""
     path = file_path.strip() if isinstance(file_path, str) else ""
@@ -245,7 +261,7 @@ def _resolve_audio_input(
     if path and cloud_id:
         raise ValueError("Pass file_id or file_path, not both.")
     if cloud_id:
-        output_path, _filename = _cloud_file_on_disk(cloud_id)
+        output_path, _filename = _cloud_file_on_disk(cloud_id, request_options=request_options)
         return str(output_path)
     if path:
         return path
@@ -318,7 +334,7 @@ def _deliver_cloud_file(
             or write another local copy.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields).
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
 
           """)
 def text_to_speech(
@@ -354,7 +370,7 @@ def text_to_speech(
     if duration is not None:
         _merge_extra_body(tts_kwargs, {"duration": duration})
     _apply_tts_save_flag(tts_kwargs, save)
-    result = client.tts.generate(**tts_kwargs)
+    result = _client_for_request_options(request_options).tts.generate(**tts_kwargs)
 
     audio_bytes = result.read()
     file_path = _write_audio_output(
@@ -376,7 +392,7 @@ def text_to_speech(
         "file_id": file_id,
         "file_path": file_path,
     }
-    download_url = _try_create_download_link(file_id)
+    download_url = _try_create_download_link(file_id, request_options=request_options)
     if download_url is not None:
         saved["download_url"] = download_url
     return saved
@@ -411,7 +427,7 @@ def text_to_speech(
             Dialect allowlist for English, Spanish, Portuguese, and French.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def localize_voice(
     voice_id: str,
@@ -423,7 +439,7 @@ def localize_voice(
     dialect: typing.Optional[LocalizeDialect] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    return client.voices.localize(
+    return _client_for_request_options(request_options).voices.localize(
         voice_id=voice_id,
         name=name,
         description=description,
@@ -444,13 +460,15 @@ def localize_voice(
             The ID of the voice to delete.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def delete_voice(
     voice_id: str,
     request_options: typing.Optional[RequestOptions] = None
 ) -> DeleteVoiceResult:
-    client.voices.delete(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    _client_for_request_options(request_options).voices.delete(
+        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    )
     return DeleteVoiceResult(success=True)
 
 @mcp.tool(
@@ -462,13 +480,15 @@ def delete_voice(
             The ID of the voice to get.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def get_voice(
         voice_id: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    voice = client.voices.get(id=voice_id, **sdk_kwargs_from_request_options(request_options))
+    voice = _client_for_request_options(request_options).voices.get(
+        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    )
     return coerce_null_voice_locales(voice)
 
 
@@ -486,7 +506,7 @@ def get_voice(
             The description of the voice.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def update_voice(
         voice_id: str,
@@ -494,7 +514,7 @@ def update_voice(
         description: str,
         request_options: typing.Optional[RequestOptions] = None
 ) -> Voice:
-    voice = client.voices.update(
+    voice = _client_for_request_options(request_options).voices.update(
         id=voice_id,
         name=name,
         description=description,
@@ -516,12 +536,12 @@ def update_voice(
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def list_accents(
     request_options: typing.Optional[RequestOptions] = None,
 ) -> ListAccentsResponse:
-    return client.voices.list_accents(
+    return _client_for_request_options(request_options).voices.list_accents(
         **sdk_kwargs_from_request_options(request_options),
     )
 
@@ -543,14 +563,14 @@ def list_accents(
             Display names are rejected on this API version.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def add_voice_accents(
     voice_id: str,
     accents: list[VoiceAccent],
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    voice = client.voices.add_accents(
+    voice = _client_for_request_options(request_options).voices.add_accents(
         id=voice_id,
         accents=accents,
         **sdk_kwargs_from_request_options(request_options),
@@ -573,14 +593,14 @@ def add_voice_accents(
             Display names are rejected on this API version.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def delete_voice_accent(
     voice_id: str,
     accent: VoiceAccent,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> Voice:
-    voice = client.voices.delete_accent(
+    voice = _client_for_request_options(request_options).voices.delete_accent(
         accent,
         id=voice_id,
         **sdk_kwargs_from_request_options(request_options),
@@ -626,7 +646,7 @@ def delete_voice_accent(
             Display names are rejected on this API version. Omit to leave unset.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def clone_voice(
     name: str,
@@ -638,11 +658,11 @@ def clone_voice(
     accent: typing.Optional[VoiceAccent] = None,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> VoiceMetadata:
-    source = _resolve_audio_input(file_path, file_id)
+    source = _resolve_audio_input(file_path, file_id, request_options=request_options)
     clone_kwargs = sdk_kwargs_from_request_options(request_options)
     _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(source, "rb") as clip:
-        return client.voices.clone(
+        return _client_for_request_options(request_options).voices.clone(
             clip=clip,
             name=name,
             language=language,
@@ -692,7 +712,7 @@ def clone_voice(
             Additional fields to include in the response, such as `preview_file_url`.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def list_voices(
     limit: typing.Optional[int] = 10,
@@ -711,7 +731,7 @@ def list_voices(
         extra_query["language"] = language
     if is_starred is not None:
         extra_query["is_starred"] = is_starred
-    pager = client.voices.list(
+    pager = _client_for_request_options(request_options).voices.list(
         limit=limit,
         gender=gender,
         is_owner=is_owner,
@@ -759,7 +779,7 @@ def _speech_to_text_batch(
             kwargs["sample_rate"] = sample_rate
         if timestamp_granularities is not None:
             kwargs["timestamp_granularities"] = list(timestamp_granularities)
-        return client.stt.transcribe(**kwargs)
+        return _client_for_request_options(request_options).stt.transcribe(**kwargs)
 
 
 def _speech_to_text_stream_auto_finalize(
@@ -939,7 +959,7 @@ def _speech_to_text_stream(
             Cartesia cloud file id. The server downloads it. Use this from hosted clients.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (batch mode only).
+            Request-specific configuration for batch mode (timeout, headers, query params, extra body fields, max_retries). Ignored in stream mode.
         """)
 def speech_to_text(
     file_path: typing.Optional[str] = None,
@@ -952,7 +972,9 @@ def speech_to_text(
     request_options: typing.Optional[RequestOptions] = None,
     file_id: typing.Optional[str] = None,
 ) -> STTTranscribeResponse:
-    source = _resolve_audio_input(file_path, file_id)
+    source = _resolve_audio_input(
+        file_path, file_id, request_options=request_options if mode == "batch" else None
+    )
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
         _ = request_options
