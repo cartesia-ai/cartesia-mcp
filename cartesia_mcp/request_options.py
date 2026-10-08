@@ -2,6 +2,9 @@
 Map MCP tool request_options onto cartesia-python v3 method kwargs.
 
 MCP tools still accept Fern v2-style RequestOptions dicts for backward compatibility.
+
+``max_retries`` is intentionally omitted here: it is a client option applied via
+``Cartesia.with_options`` in the tool handlers, not a per-call resource kwarg.
 """
 
 from __future__ import annotations

@@ -334,7 +334,7 @@ def _deliver_cloud_file(
             or write another local copy.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields).
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
 
           """)
 def text_to_speech(
@@ -427,7 +427,7 @@ def text_to_speech(
             Dialect allowlist for English, Spanish, Portuguese, and French.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def localize_voice(
     voice_id: str,
@@ -460,7 +460,7 @@ def localize_voice(
             The ID of the voice to delete.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def delete_voice(
     voice_id: str,
@@ -480,7 +480,7 @@ def delete_voice(
             The ID of the voice to get.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def get_voice(
         voice_id: str,
@@ -506,7 +506,7 @@ def get_voice(
             The description of the voice.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def update_voice(
         voice_id: str,
@@ -536,7 +536,7 @@ def update_voice(
         Parameters
         ----------
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def list_accents(
     request_options: typing.Optional[RequestOptions] = None,
@@ -563,7 +563,7 @@ def list_accents(
             Display names are rejected on this API version.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def add_voice_accents(
     voice_id: str,
@@ -593,7 +593,7 @@ def add_voice_accents(
             Display names are rejected on this API version.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def delete_voice_accent(
     voice_id: str,
@@ -646,7 +646,7 @@ def delete_voice_accent(
             Display names are rejected on this API version. Omit to leave unset.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def clone_voice(
     name: str,
@@ -712,7 +712,7 @@ def clone_voice(
             Additional fields to include in the response, such as `preview_file_url`.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def list_voices(
     limit: typing.Optional[int] = 10,
@@ -959,7 +959,7 @@ def _speech_to_text_stream(
             Cartesia cloud file id. The server downloads it. Use this from hosted clients.
 
         request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (batch mode only).
+            Request-specific configuration for batch mode (timeout, headers, query params, extra body fields, max_retries). Ignored in stream mode.
         """)
 def speech_to_text(
     file_path: typing.Optional[str] = None,
