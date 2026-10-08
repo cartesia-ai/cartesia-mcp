@@ -392,3 +392,51 @@ def test_report_tool_call_emits_dogstatsd_count(monkeypatch):
     assert b"env:test" in sent[0]
     assert b"tool:other" in sent[1]
     assert b"outcome:unknown" in sent[1]
+
+
+def test_same_bucket_replace_does_not_count_as_evicted_metric(monkeypatch):
+    evicted_values: list[int] = []
+
+    def _capture(_active: int, *, evicted: int = 0) -> None:
+        evicted_values.append(evicted)
+
+    monkeypatch.setattr(
+        "cartesia_mcp.mcp_session_guard.report_session_metrics",
+        _capture,
+    )
+    caller = "caller-token"
+    manager = _session_manager(
+        active=1,
+        buckets={"s0": _token_bucket(caller)},
+    )
+    response = _client(manager).post(
+        "/mcp",
+        headers={"authorization": f"Bearer {caller}"},
+        json={"jsonrpc": "2.0", "method": "initialize"},
+    )
+    assert response.status_code == 200
+    assert evicted_values[-1] == 0
+
+
+def test_idle_eviction_counts_as_evicted_metric(monkeypatch):
+    evicted_values: list[int] = []
+
+    def _capture(_active: int, *, evicted: int = 0) -> None:
+        evicted_values.append(evicted)
+
+    monkeypatch.setattr(
+        "cartesia_mcp.mcp_session_guard.report_session_metrics",
+        _capture,
+    )
+    now = time.monotonic()
+    last_seen = {f"s{i}": now for i in range(MCP_MAX_CONCURRENT_SESSIONS)}
+    last_seen["s1"] = now - MCP_SESSION_IDLE_TIMEOUT_SECONDS - 1
+    manager = _session_manager(
+        active=MCP_MAX_CONCURRENT_SESSIONS,
+        last_seen=last_seen,
+    )
+    response = _client(manager).post(
+        "/mcp", json={"jsonrpc": "2.0", "method": "initialize"}
+    )
+    assert response.status_code == 200
+    assert evicted_values[-1] == 1
