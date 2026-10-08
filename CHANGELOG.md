@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.26.0...cartesia-mcp-v0.26.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* count MCP session evictions only at idle cap ([#122](https://github.com/cartesia-ai/cartesia-mcp/issues/122)) ([fb7cdd0](https://github.com/cartesia-ai/cartesia-mcp/commit/fb7cdd0397d7ea7ee31e963a815120a42d84f405))
+* honor per-request retry limits in HTTP tools ([#121](https://github.com/cartesia-ai/cartesia-mcp/issues/121)) ([31e1630](https://github.com/cartesia-ai/cartesia-mcp/commit/31e163052f92c7b1efe9de775fb2d5a7297f3145))
+
 ## [0.26.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.25.0...cartesia-mcp-v0.26.0) (2026-09-30)
 
 
