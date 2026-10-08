@@ -249,9 +249,11 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
                     separators=(",", ":"),
                 )
             )
+            # Same-client replace is expected below cap. The reconnect-storm
+            # monitor pages on mcp.sessions.evicted; only idle-at-cap is that signal.
             report_session_metrics(
                 active_session_count(self._session_manager),
-                evicted=1,
+                evicted=1 if reason == "idle" else 0,
             )
 
         response = await call_next(request)
