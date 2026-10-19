@@ -101,6 +101,25 @@ def download_file_bytes(
     )
 
 
+ModelCapability = typing.Literal["tts", "stt"]
+
+
+def list_models(
+    client: Cartesia,
+    *,
+    capability: typing.Optional[ModelCapability] = None,
+) -> dict[str, typing.Any]:
+    """GET /models — public Sonic (TTS) and Ink (STT) catalog."""
+    params: dict[str, str] = {}
+    if capability is not None:
+        params["capability"] = capability
+    return client.get(
+        "/models",
+        cast_to=dict[str, typing.Any],
+        options={"params": params},
+    )
+
+
 def create_file_download_link(
     client: Cartesia,
     file_id: str,

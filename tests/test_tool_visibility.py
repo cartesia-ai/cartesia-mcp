@@ -42,9 +42,10 @@ def test_list_tools_hides_admin_tools_without_credential(monkeypatch):
     )
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
-    assert len(names) == 17
+    assert len(names) == 18
     assert "get_credit_usage" not in names
     assert "list_accents" in names
+    assert "list_models" in names
     assert "add_voice_accents" in names
     assert "delete_voice_accent" in names
 
@@ -56,5 +57,5 @@ def test_list_tools_shows_admin_tools_with_credential(monkeypatch):
     )
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
-    assert len(names) == 18
+    assert len(names) == 19
     assert "get_credit_usage" in names

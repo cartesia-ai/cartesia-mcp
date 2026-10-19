@@ -141,6 +141,22 @@ def main() -> int:
         else:
             ok("list_accents", f"{len(ids)} accents")
 
+    models_result = run("list_models", lambda: s.list_models())
+    if models_result is not None:
+        rows = (
+            models_result.get("data")
+            if isinstance(models_result, dict)
+            else getattr(models_result, "data", None)
+        )
+        ids = [
+            row["id"] if isinstance(row, dict) else row.id for row in (rows or [])
+        ]
+        if "sonic-3.6" not in ids or "ink-2" not in ids:
+            failures.append("list_models(catalog)")
+            print("  FAIL list_models: missing sonic-3.6 or ink-2")
+        else:
+            ok("list_models", f"{len(ids)} models")
+
     run(
         "get_voice",
         lambda: s.get_voice(voice_id=SAMPLE_VOICE_ID),
