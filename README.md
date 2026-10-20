@@ -81,6 +81,7 @@ Ask your agent things like:
 | `delete_voice` | Delete a cloned voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `list_accents` | List catalog accent IDs and metadata (`british`, `standard-japanese`, …) |
+| `list_models` | List callable Sonic (TTS) and Ink (STT) model ids (`capability=tts|stt`) |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |

@@ -46,7 +46,12 @@ from cartesia_mcp.branding import (
     server_icons,
 )
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
-from cartesia_mcp.extra_api import DownloadFormat, UsageCreditsGroupBy, UsageInterval
+from cartesia_mcp.extra_api import (
+    DownloadFormat,
+    ModelCapability,
+    UsageCreditsGroupBy,
+    UsageInterval,
+)
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
 from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
@@ -308,7 +313,8 @@ def _deliver_cloud_file(
         output_format : OutputFormatParams
 
         model_id : str
-            The ID of the model to use for the generation. See [Models](/build-with-cartesia/models) for available models.
+            The ID of the model to use for the generation. Call `list_models`
+            with `capability="tts"` for valid ids.
 
         language : typing.Optional[SupportedLanguage]
 
@@ -543,6 +549,35 @@ def list_accents(
 ) -> ListAccentsResponse:
     return _client_for_request_options(request_options).voices.list_accents(
         **sdk_kwargs_from_request_options(request_options),
+    )
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List models"),
+    description="""
+        List callable Sonic (TTS) and Ink (STT) model ids from GET /models.
+
+        Each row has `id` and `capability` (`tts` or `stt`). STT rows also include
+        `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
+        `model_id` or to `speech_to_text` as `model`. Omit model on those tools
+        when you want the API default. Preview ids (`sonic-preview`, `ink-preview`)
+        are included when callable.
+
+        Parameters
+        ----------
+        capability : typing.Optional[Literal["tts", "stt"]]
+            Filter to TTS or STT. Omit to return both.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        """)
+def list_models(
+    capability: typing.Optional[ModelCapability] = None,
+    request_options: typing.Optional[RequestOptions] = None,
+) -> dict[str, typing.Any]:
+    return extra_api.list_models(
+        _client_for_request_options(request_options),
+        capability=capability,
     )
 
 
@@ -941,7 +976,8 @@ def _speech_to_text_stream(
             `batch` (default) or `stream`.
 
         model : typing.Optional[str]
-            STT model ID. Defaults to `ink-whisper` for batch and `ink-2` for stream.
+            STT model ID. Defaults to `ink-whisper` for batch and `ink-2` for
+            stream. Call `list_models` with `capability="stt"` for valid ids.
 
         language : typing.Optional[str]
             ISO-639-1 language code (defaults to `en` for stream; batch uses API default).
