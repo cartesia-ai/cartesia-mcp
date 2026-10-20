@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.26.1...cartesia-mcp-v0.27.0) (2026-10-20)
+
+
+### Features
+
+* add list_models MCP tool for GET /models ([#124](https://github.com/cartesia-ai/cartesia-mcp/issues/124)) ([58cb285](https://github.com/cartesia-ai/cartesia-mcp/commit/58cb2850782f6e8fbc33ad19bbdf56cedf1bb5c8))
+
 ## [0.26.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.26.0...cartesia-mcp-v0.26.1) (2026-10-08)
 
 
