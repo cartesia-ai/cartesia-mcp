@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.27.0...cartesia-mcp-v0.27.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** bump certifi to 2026.10.19 and pin uv 0.13.4 (eMudhra CA compromise) ([#126](https://github.com/cartesia-ai/cartesia-mcp/issues/126)) ([48ceb17](https://github.com/cartesia-ai/cartesia-mcp/commit/48ceb17c03ec6f2cc08d35271de4a2491d893262))
+
 ## [0.27.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.26.1...cartesia-mcp-v0.27.0) (2026-10-20)
 
 
