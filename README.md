@@ -70,6 +70,8 @@ Ask your agent things like:
 
 ## Tools
 
+This table is the public source of truth for tool names (linked from [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)). Keep it in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` — `tests/test_readme_tools.py` enforces that.
+
 | Tool | Description |
 |------|-------------|
 | `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
