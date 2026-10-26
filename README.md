@@ -70,6 +70,8 @@ Ask your agent things like:
 
 ## Tools
 
+Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
+
 | Tool | Description |
 |------|-------------|
 | `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
