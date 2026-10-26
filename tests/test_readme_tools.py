@@ -1,7 +1,7 @@
 """README Tools table stays aligned with registered MCP tools.
 
-Docs and marketing should link here instead of re-listing tools, so this
-table is the public source of truth for tool names.
+When tools change, update this README table and mirror the names on
+docs.cartesia.ai/tools/ai/mcp.
 """
 
 from __future__ import annotations

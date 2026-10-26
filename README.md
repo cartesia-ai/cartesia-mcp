@@ -70,7 +70,7 @@ Ask your agent things like:
 
 ## Tools
 
-This table is the public source of truth for tool names (linked from [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp)). Keep it in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` — `tests/test_readme_tools.py` enforces that.
+Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
 
 | Tool | Description |
 |------|-------------|
