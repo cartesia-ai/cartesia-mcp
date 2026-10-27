@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import cartesia_mcp.server as server
@@ -40,12 +41,17 @@ def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -
 
 
 @patch("cartesia_mcp.server.client")
-def test_clone_voice_passes_mode_via_extra_body(mock_client: MagicMock) -> None:
+def test_clone_voice_passes_mode_via_extra_body(
+    mock_client: MagicMock,
+    tmp_path: Path,
+) -> None:
     mock_client.voices.clone.return_value = MagicMock()
+    clip = tmp_path / "clip.wav"
+    clip.write_bytes(b"clip")
 
     with patch("builtins.open", mock_open(read_data=b"clip")):
         server.clone_voice(
-            file_path="/tmp/clip.wav",
+            file_path=str(clip),
             name="Test Voice",
             language="en",
             mode="stability",
@@ -58,12 +64,14 @@ def test_clone_voice_passes_mode_via_extra_body(mock_client: MagicMock) -> None:
 
 
 @patch("cartesia_mcp.server.client")
-def test_clone_voice_passes_accent(mock_client: MagicMock) -> None:
+def test_clone_voice_passes_accent(mock_client: MagicMock, tmp_path: Path) -> None:
     mock_client.voices.clone.return_value = MagicMock()
+    clip = tmp_path / "clip.wav"
+    clip.write_bytes(b"clip")
 
     with patch("builtins.open", mock_open(read_data=b"clip")):
         server.clone_voice(
-            file_path="/tmp/clip.wav",
+            file_path=str(clip),
             name="Test Voice",
             language="en",
             mode="similarity",
@@ -78,6 +86,7 @@ def test_clone_voice_passes_accent(mock_client: MagicMock) -> None:
 def test_speech_to_text_stream_non_english_uses_manual_finalize(
     mock_iter_chunks: MagicMock,
     mock_client: MagicMock,
+    tmp_path: Path,
 ) -> None:
     mock_iter_chunks.return_value = ("pcm_s16le", 44100, iter([b"chunk"]))
     mock_connection = MagicMock()
@@ -90,8 +99,10 @@ def test_speech_to_text_stream_non_english_uses_manual_finalize(
     mock_ws_manager.__enter__.return_value = mock_connection
     mock_ws_manager.__exit__.return_value = False
     mock_client.stt.manual_finalize.websocket.return_value = mock_ws_manager
+    sample = tmp_path / "sample.wav"
+    sample.write_bytes(b"audio")
 
-    result = server.speech_to_text("/tmp/sample.wav", mode="stream", language="es")
+    result = server.speech_to_text(str(sample), mode="stream", language="es")
 
     assert result.text == "hola"
     mock_client.stt.manual_finalize.websocket.assert_called_once()
@@ -105,6 +116,7 @@ def test_speech_to_text_stream_non_english_uses_manual_finalize(
 def test_speech_to_text_stream_word_timestamps_use_manual_finalize(
     mock_iter_chunks: MagicMock,
     mock_client: MagicMock,
+    tmp_path: Path,
 ) -> None:
     mock_iter_chunks.return_value = ("pcm_s16le", 44100, iter([b"chunk"]))
     mock_connection = MagicMock()
@@ -128,9 +140,11 @@ def test_speech_to_text_stream_word_timestamps_use_manual_finalize(
     mock_ws_manager.__enter__.return_value = mock_connection
     mock_ws_manager.__exit__.return_value = False
     mock_client.stt.manual_finalize.websocket.return_value = mock_ws_manager
+    sample = tmp_path / "sample.wav"
+    sample.write_bytes(b"audio")
 
     result = server.speech_to_text(
-        "/tmp/sample.wav",
+        str(sample),
         mode="stream",
         timestamp_granularities=["word"],
     )

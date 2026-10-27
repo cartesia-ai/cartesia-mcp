@@ -173,7 +173,7 @@ By default, generated audio is written to the server's working directory. To cho
 `speech_to_text` and `clone_voice` take one of:
 
 - **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
-- **`file_path`** — an absolute path on the machine running MCP. Use this with local `uvx`, or pass the `file_path` returned by an earlier tool in the same hosted session.
+- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass the `file_path` returned by an earlier tool in the same hosted session. On hosted MCP, a missing or client-local path returns a clear validation error (use `file_id` instead of `/Users/...` or similar).
 
 `download_url` is a 24-hour browser link. It is not an input to those tools.
 
