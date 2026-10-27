@@ -269,7 +269,21 @@ def _resolve_audio_input(
         output_path, _filename = _cloud_file_on_disk(cloud_id, request_options=request_options)
         return str(output_path)
     if path:
-        return path
+        resolved = Path(path).expanduser()
+        if not resolved.exists():
+            if _is_hosted:
+                raise ValueError(
+                    f"Path '{path}' was not found on the MCP server. When using the "
+                    "hosted Cartesia MCP server (mcp.cartesia.ai), pass file_id from "
+                    "text_to_speech or download_file — a path on your computer is not "
+                    "visible to this server."
+                )
+            raise ValueError(
+                f"Local file '{path}' does not exist on this MCP server."
+            )
+        if not resolved.is_file():
+            raise ValueError(f"'{path}' is not a file.")
+        return str(resolved.resolve())
     raise ValueError(
         "Pass file_id (a Cartesia cloud file) or file_path "
         "(an absolute path on this MCP server)."
@@ -654,7 +668,9 @@ def delete_voice_accent(
 
         Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
         from `text_to_speech` or `download_file`. `file_path` is an absolute path on
-        this MCP server (local `uvx`, or a path returned in this same session).
+        this MCP server (local `uvx`, or a path returned in this same session). A path
+        on the agent machine is not visible to hosted MCP and returns a validation
+        error — use `file_id` instead.
 
         Parameters
         ----------
@@ -668,7 +684,7 @@ def delete_voice_accent(
             Tradeoff between similarity and stability. Similarity clones sound more like the source clip, but may reproduce background noise. Stability clones always sound like a studio recording, but may not sound as similar to the source clip.
 
         file_path : typing.Optional[str]
-            Absolute path on this MCP server.
+            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
 
         file_id : typing.Optional[str]
             Cartesia cloud file id. The server downloads it.
@@ -965,12 +981,14 @@ def _speech_to_text_stream(
 
         Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
         from `text_to_speech` or `download_file`. Do not pass a path from the agent
-        machine — `file_path` is an absolute path on this MCP server.
+        machine — `file_path` is an absolute path on this MCP server and must exist.
+        A missing path on hosted MCP returns a validation error telling you to use
+        `file_id`.
 
         Parameters
         ----------
         file_path : typing.Optional[str]
-            Absolute path on this MCP server.
+            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
 
         mode : str
             `batch` (default) or `stream`.

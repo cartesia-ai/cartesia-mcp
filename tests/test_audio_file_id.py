@@ -25,8 +25,26 @@ def test_resolve_audio_input_downloads_file_id(mock_download: MagicMock) -> None
     mock_download.assert_called_once_with("file_abc", request_options=None)
 
 
-def test_resolve_audio_input_keeps_server_path() -> None:
-    assert server._resolve_audio_input("/tmp/clip.mp3", None) == "/tmp/clip.mp3"
+def test_resolve_audio_input_keeps_server_path(tmp_path: Path) -> None:
+    clip = tmp_path / "clip.mp3"
+    clip.write_bytes(b"audio")
+    assert server._resolve_audio_input(str(clip), None) == str(clip.resolve())
+
+
+def test_resolve_audio_input_missing_local_path() -> None:
+    with pytest.raises(ValueError, match="does not exist"):
+        server._resolve_audio_input("/no/such/clip.mp3", None)
+
+
+def test_resolve_audio_input_missing_path_on_hosted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input("/Users/dev/Desktop/clip.mp3", None)
+
+
+def test_resolve_audio_input_rejects_directory(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="not a file"):
+        server._resolve_audio_input(str(tmp_path), None)
 
 
 @patch("cartesia_mcp.server.save_downloaded_file", return_value=Path("/tmp/download_out.wav"))
