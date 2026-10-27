@@ -74,7 +74,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 
 | Tool | Description |
 |------|-------------|
-| `text_to_speech` | Convert text to audio; optional speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
+| `text_to_speech` | Convert text to audio; optional `output_path` (local server), speed, volume, emotion, and pronunciation dict. Default `save=true` returns `file_id` and a 24h `download_url`. |
 | `speech_to_text` | Transcribe audio from `file_id` or a server `file_path` (`mode=batch` default, or `mode=stream`) |
 | `list_voices` | List available voices (filter by language, search, gender, etc.) |
 | `get_voice` | Fetch metadata for a voice by ID |
@@ -167,6 +167,8 @@ By default, generated audio is written to the server's working directory. To cho
   "OUTPUT_DIRECTORY": "~/cartesia-output"
 }
 ```
+
+With the **local** server (`uvx` / stdio), `text_to_speech` also accepts `output_path` to write a specific file (for example `src/assets/audio/click.wav`). Relative paths resolve against the MCP process working directory. Hosted MCP (`mcp.cartesia.ai`) rejects `output_path` — use `file_id` / `download_url` there.
 
 ### Audio inputs (`file_id` or `file_path`)
 
