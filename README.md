@@ -168,7 +168,7 @@ By default, generated audio is written to the server's working directory. To cho
 }
 ```
 
-With the **local** server (`uvx` / stdio), `text_to_speech` also accepts `output_path` to write a specific file (for example `src/assets/audio/click.wav`). Relative paths resolve against the MCP process working directory. Hosted MCP (`mcp.cartesia.ai`) rejects `output_path` — use `file_id` / `download_url` there.
+With the **local** server (`uvx` / stdio), `text_to_speech` also accepts `output_path` to write a specific file (for example an absolute path under your project). Relative paths resolve against the MCP process working directory (often not your project root), so prefer absolute paths. Hosted MCP (`mcp.cartesia.ai`) rejects `output_path` — use `file_id` / `download_url` there.
 
 ### Audio inputs (`file_id` or `file_path`)
 

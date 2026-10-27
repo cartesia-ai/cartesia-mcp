@@ -66,9 +66,6 @@ def test_text_to_speech_output_path_rejected_on_hosted(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    mock_response = MagicMock(read=lambda: b"audio-bytes")
-    mock_response.headers = {}
-    mock_client.tts.generate.return_value = mock_response
     monkeypatch.setattr(server, "_is_hosted", True)
 
     with pytest.raises(ValueError, match="local Cartesia MCP"):
@@ -80,16 +77,14 @@ def test_text_to_speech_output_path_rejected_on_hosted(
             save=False,
         )
 
+    mock_client.tts.generate.assert_not_called()
+
 
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_output_path_rejects_directory(
     mock_client: MagicMock,
     tmp_path: Path,
 ) -> None:
-    mock_response = MagicMock(read=lambda: b"audio-bytes")
-    mock_response.headers = {}
-    mock_client.tts.generate.return_value = mock_response
-
     with pytest.raises(ValueError, match="directory"):
         server.text_to_speech(
             transcript="Hello",
@@ -98,3 +93,5 @@ def test_text_to_speech_output_path_rejects_directory(
             output_path=str(tmp_path),
             save=False,
         )
+
+    mock_client.tts.generate.assert_not_called()
