@@ -199,11 +199,47 @@ def _stream_stt_uses_manual_finalize(
     return language is not None and language != "en"
 
 
+def _resolve_tts_output_dest(
+    output_path: typing.Optional[str],
+    extension: OutputFormatContainer,
+) -> typing.Optional[Path]:
+    """Validate optional ``output_path`` before TTS. None means use ``OUTPUT_DIRECTORY``."""
+    path = output_path.strip() if isinstance(output_path, str) else ""
+    if not path:
+        return None
+    if _is_hosted:
+        raise ValueError(
+            "output_path is only supported with the local Cartesia MCP server "
+            "(stdio / uvx). On hosted MCP (mcp.cartesia.ai), omit output_path and "
+            "use file_id / download_url, or run the local server to write into "
+            "your project."
+        )
+    dest = Path(path).expanduser()
+    if not dest.is_absolute():
+        dest = Path.cwd() / dest
+    dest = dest.resolve()
+    if dest.exists() and dest.is_dir():
+        raise ValueError(
+            f"output_path '{path}' is a directory; pass a file path "
+            f"(for example '{dest / f'audio.{extension}'}')."
+        )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if not os.access(dest.parent, os.W_OK):
+        raise ValueError(f"Cannot write to directory {dest.parent}")
+    return dest
+
+
 def _write_audio_output(
     audio_bytes: bytes,
     tool_type: typing.Literal["text_to_speech"],
     extension: OutputFormatContainer,
+    *,
+    dest: typing.Optional[Path] = None,
 ) -> str:
+    if dest is not None:
+        dest.write_bytes(audio_bytes)
+        return str(dest)
+
     output_file = create_output_file(OUTPUT_DIRECTORY, tool_type, extension)
     with output_file.open("wb") as f:
         f.write(audio_bytes)
@@ -348,6 +384,11 @@ def _deliver_cloud_file(
         pronunciation_dict_id : typing.Optional[str]
             Pronunciation dictionary ID to apply for this generation only.
 
+        output_path : typing.Optional[str]
+            Local file path to write the audio (for example `src/assets/audio/click.wav`).
+            Relative paths resolve against the MCP server working directory. Only supported
+            with the local server (stdio / uvx); rejected on hosted MCP.
+
         save : bool
             When true (default), persist the generation to cloud storage and return `file_id`
             plus `download_url`. Pass `download_file` with that `file_id` to refresh the link
@@ -368,9 +409,11 @@ def text_to_speech(
     volume: typing.Optional[float] = None,
     emotion: typing.Optional[str] = None,
     pronunciation_dict_id: typing.Optional[str] = None,
+    output_path: typing.Optional[str] = None,
     save: bool = True,
     request_options: typing.Optional[RequestOptions] = None,
 ) -> GeneratedAudioResult:
+    dest = _resolve_tts_output_dest(output_path, output_format["container"])
     generation_config = _build_generation_config(
         speed=speed,
         volume=volume,
@@ -397,6 +440,7 @@ def text_to_speech(
         audio_bytes,
         "text_to_speech",
         output_format["container"],
+        dest=dest,
     )
 
     if not save:
