@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.27.1...cartesia-mcp-v0.28.0) (2026-10-27)
+
+
+### Features
+
+* write text_to_speech audio to a local output_path ([#130](https://github.com/cartesia-ai/cartesia-mcp/issues/130)) ([437ec96](https://github.com/cartesia-ai/cartesia-mcp/commit/437ec962f3d3f5fbf02dd92f12063efcf247efe3))
+
+
+### Bug Fixes
+
+* return actionable errors for missing hosted file_path ([#129](https://github.com/cartesia-ai/cartesia-mcp/issues/129)) ([8b93fe0](https://github.com/cartesia-ai/cartesia-mcp/commit/8b93fe0ebf5b82a051263b0b280880b6356011a1))
+
 ## [0.27.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.27.0...cartesia-mcp-v0.27.1) (2026-10-23)
 
 
