@@ -394,6 +394,35 @@ def test_report_tool_call_emits_dogstatsd_count(monkeypatch):
     assert b"outcome:unknown" in sent[1]
 
 
+def test_report_output_directory_metrics_emits_dogstatsd(monkeypatch):
+    from cartesia_mcp.mcp_session_guard import report_output_directory_metrics
+
+    sent: list[bytes] = []
+
+    class _Sock:
+        def setblocking(self, _flag: bool) -> None:
+            return None
+
+        def sendto(self, payload: bytes, _addr: tuple[str, int]) -> None:
+            sent.append(payload)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setenv("DD_DOGSTATSD_URL", "udp://127.0.0.1:8125")
+    monkeypatch.setenv("DD_ENV", "test")
+    monkeypatch.setattr(
+        "cartesia_mcp.mcp_session_guard.socket.socket",
+        lambda *_args, **_kwargs: _Sock(),
+    )
+    report_output_directory_metrics(files=3, total_bytes=4096, purged=2)
+    assert len(sent) == 3
+    assert b"mcp.output.files:3|g|" in sent[0]
+    assert b"mcp.output.bytes:4096|g|" in sent[1]
+    assert b"mcp.output.purged:2|c|" in sent[2]
+    assert b"service:cartesia-mcp" in sent[0]
+
+
 def test_same_bucket_replace_does_not_count_as_evicted_metric(monkeypatch):
     evicted_values: list[int] = []
 
