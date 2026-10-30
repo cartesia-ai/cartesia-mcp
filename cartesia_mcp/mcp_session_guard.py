@@ -121,6 +121,19 @@ def report_session_metrics(active: int, *, evicted: int = 0) -> None:
         _dogstatsd_send("mcp.sessions.evicted", evicted, "c")
 
 
+def report_output_directory_metrics(
+    *,
+    files: int,
+    total_bytes: int,
+    purged: int = 0,
+) -> None:
+    """Gauges for hosted OUTPUT_DIRECTORY size; counter when TTL purge deletes files."""
+    _dogstatsd_send("mcp.output.files", files, "g")
+    _dogstatsd_send("mcp.output.bytes", total_bytes, "g")
+    if purged:
+        _dogstatsd_send("mcp.output.purged", purged, "c")
+
+
 def _ensure_dict(session_manager: StreamableHTTPSessionManager, attr: str) -> dict:
     value = getattr(session_manager, attr, None)
     if not isinstance(value, dict):

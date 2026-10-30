@@ -68,9 +68,11 @@ from cartesia_mcp.utils import (
     create_output_file,
     cursor_page_to_result,
     coerce_null_voice_locales,
+    default_output_directory,
     iter_stt_audio_chunks,
     resolve_local_download_filename,
     save_downloaded_file,
+    start_output_directory_cleanup,
     voice_list_page_to_result,
 )
 
@@ -85,12 +87,13 @@ CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
     require_api_key=not _is_hosted,
 )
 
-OUTPUT_DIRECTORY = os.getenv("OUTPUT_DIRECTORY", ".")
+OUTPUT_DIRECTORY = default_output_directory(hosted=_is_hosted)
 
 if _is_hosted:
     configure_hosted_mode()
     if hosted_enabled():
         configure_hosted_oauth_store()
+    start_output_directory_cleanup(OUTPUT_DIRECTORY)
 elif CARTESIA_API_KEY:
     configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
 
@@ -350,8 +353,9 @@ def _deliver_cloud_file(
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
         (24-hour public link). Pass that `file_id` to `speech_to_text` or `clone_voice`
         — including from a hosted client whose disk is not this server.
-        `download_url` is a browser link. `file_path` is a copy on the MCP server host
-        (local `uvx`, or the same hosted session).
+        `download_url` is a browser link. On the local server, `file_path` is a copy under
+        `OUTPUT_DIRECTORY` (or `output_path`). On hosted MCP with `save=true` (the default),
+        `file_path` is omitted — use `file_id` / `download_url` instead.
 
         Parameters
         ----------
@@ -436,11 +440,18 @@ def text_to_speech(
     result = _client_for_request_options(request_options).tts.generate(**tts_kwargs)
 
     audio_bytes = result.read()
-    file_path = _write_audio_output(
-        audio_bytes,
-        "text_to_speech",
-        output_format["container"],
-        dest=dest,
+    # Hosted + cloud save: skip the local copy. Clients use file_id / download_url;
+    # writing every generation under OUTPUT_DIRECTORY filled Render ephemeral disk.
+    write_local = dest is not None or not save or not _is_hosted
+    file_path = (
+        _write_audio_output(
+            audio_bytes,
+            "text_to_speech",
+            output_format["container"],
+            dest=dest,
+        )
+        if write_local
+        else None
     )
 
     if not save:
@@ -454,8 +465,9 @@ def text_to_speech(
 
     saved: GeneratedAudioResult = {
         "file_id": file_id,
-        "file_path": file_path,
     }
+    if file_path is not None:
+        saved["file_path"] = file_path
     download_url = _try_create_download_link(file_id, request_options=request_options)
     if download_url is not None:
         saved["download_url"] = download_url
@@ -1101,6 +1113,7 @@ def speech_to_text(
         Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
         hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
         server host (for local `uvx` or server-side `speech_to_text` in the same session).
+        On hosted MCP those local copies are under a temp directory and purged after a TTL.
 
         Use the `file_id` from a prior `text_to_speech` call (`save=true`, the default)
         or from playground TTS history.

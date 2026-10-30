@@ -159,7 +159,7 @@ The script creates temporary cloned/localized voices and pronunciation dictionar
 
 ### Output directory
 
-By default, generated audio is written to the server's working directory. To choose a fixed folder, add `OUTPUT_DIRECTORY` to `env`:
+On the **local** server, generated audio is written to the working directory by default. To choose a fixed folder, add `OUTPUT_DIRECTORY` to `env`:
 
 ```json
 "env": {
@@ -168,14 +168,14 @@ By default, generated audio is written to the server's working directory. To cho
 }
 ```
 
-With the **local** server (`uvx` / stdio), `text_to_speech` also accepts `output_path` to write a specific file (for example an absolute path under your project). Relative paths resolve against the MCP process working directory (often not your project root), so prefer absolute paths. Hosted MCP (`mcp.cartesia.ai`) rejects `output_path` — use `file_id` / `download_url` there.
+With the local server (`uvx` / stdio), `text_to_speech` also accepts `output_path` to write a specific file (for example an absolute path under your project). Relative paths resolve against the MCP process working directory (often not your project root), so prefer absolute paths. Hosted MCP (`mcp.cartesia.ai`) rejects `output_path` — use `file_id` / `download_url` there. Hosted `text_to_speech` with `save=true` (the default) does not keep a local `file_path`; temporary copies used for `download_file` / same-session inputs live under the system temp directory and are deleted after about an hour (`OUTPUT_FILE_TTL_SECONDS`). Hosted cleanup emits JSON logs (`mcp_output_cleanup` / `mcp_output_disk_warn`) and DogStatsD gauges (`mcp.output.bytes`, `mcp.output.files`); warn when the dir exceeds `OUTPUT_DIRECTORY_WARN_BYTES` (default 2GiB).
 
 ### Audio inputs (`file_id` or `file_path`)
 
 `speech_to_text` and `clone_voice` take one of:
 
 - **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
-- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass the `file_path` returned by an earlier tool in the same hosted session. On hosted MCP, a missing or client-local path returns a clear validation error (use `file_id` instead of `/Users/...` or similar).
+- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass a `file_path` from `download_file` / `save=false` TTS in the same hosted session. On hosted MCP, a missing or client-local path returns a clear validation error (prefer `file_id` instead of `/Users/...` or similar).
 
 `download_url` is a 24-hour browser link. It is not an input to those tools.
 
