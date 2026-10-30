@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.28.0...cartesia-mcp-v0.28.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* stop hosted MCP from filling ephemeral disk with audio files ([#132](https://github.com/cartesia-ai/cartesia-mcp/issues/132)) ([ccc12b0](https://github.com/cartesia-ai/cartesia-mcp/commit/ccc12b0bb1374ae541d4ff7f7242127a695828a7))
+
 ## [0.28.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.27.1...cartesia-mcp-v0.28.0) (2026-10-27)
 
 
