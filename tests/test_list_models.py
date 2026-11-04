@@ -1,5 +1,8 @@
 from unittest.mock import MagicMock, patch
 
+import httpx
+from cartesia import Cartesia
+
 import cartesia_mcp.extra_api as extra_api
 import cartesia_mcp.server as server
 
@@ -35,3 +38,27 @@ def test_list_models_tool(mock_client: MagicMock, mock_list_models: MagicMock) -
     assert mock_list_models.call_args.args[0] is mock_client
     assert mock_list_models.call_args.kwargs["capability"] == "tts"
     assert result["data"][0]["id"] == "sonic-3.6"
+
+
+def test_list_models_preserves_supported_languages() -> None:
+    payload = {
+        "data": [
+            {
+                "id": "sonic-3.6",
+                "capability": "tts",
+                "supported_languages": ["en", "or", "ur"],
+            },
+            {"id": "ink-2", "capability": "stt", "modes": ["stream"]},
+        ]
+    }
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/models"
+        return httpx.Response(200, json=payload)
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as http_client:
+        sdk = Cartesia(api_key="test-key", http_client=http_client)
+        with patch.object(server, "client", sdk):
+            result = server.list_models()
+
+    assert result == payload

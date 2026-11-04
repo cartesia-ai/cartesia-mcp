@@ -627,8 +627,9 @@ def list_accents(
     description="""
         List callable Sonic (TTS) and Ink (STT) model ids from GET /models.
 
-        Each row has `id` and `capability` (`tts` or `stt`). STT rows also include
-        `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
+        Each row has `id` and `capability` (`tts` or `stt`). TTS rows include
+        `supported_languages`, the sorted synthesis language codes that model accepts.
+        STT rows include `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
         `model_id` or to `speech_to_text` as `model`. Omit model on those tools
         when you want the API default. Preview ids (`sonic-preview`, `ink-preview`)
         are included when callable.
