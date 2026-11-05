@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.28.1...cartesia-mcp-v0.29.0) (2026-11-05)
+
+
+### Features
+
+* **models:** describe supported synthesis languages ([#134](https://github.com/cartesia-ai/cartesia-mcp/issues/134)) ([b3afcd1](https://github.com/cartesia-ai/cartesia-mcp/commit/b3afcd18ac9588495e004bd0de0c15e675de53e4))
+* reuse a stored API key when the same MCP client reconnects ([#136](https://github.com/cartesia-ai/cartesia-mcp/issues/136)) ([8cdb800](https://github.com/cartesia-ai/cartesia-mcp/commit/8cdb8002090337dd641c34f4e44df8aebc009929))
+
 ## [0.28.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.28.0...cartesia-mcp-v0.28.1) (2026-10-30)
 
 
