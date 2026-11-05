@@ -144,16 +144,25 @@ async def oauth_internal_complete(request: Request) -> Response:
     session_id = body.get("session_id")
     connect_token = body.get("connect_token")
     cartesia_credential = body.get("cartesia_credential")
+    reuse_credential = body.get("reuse_credential") is True
     completing_owner_id = body.get("completing_owner_id")
     completing_user_id = body.get("completing_user_id")
     cartesia_admin_credential = body.get("cartesia_admin_credential")
-    if (
-        not session_id
+    has_new_credential = (
+        isinstance(cartesia_credential, str) and bool(cartesia_credential)
+    )
+    missing_ids = (
+        not isinstance(session_id, str)
+        or not session_id
+        or not isinstance(connect_token, str)
         or not connect_token
-        or not cartesia_credential
+        or not isinstance(completing_owner_id, str)
         or not completing_owner_id
+        or not isinstance(completing_user_id, str)
         or not completing_user_id
-    ):
+    )
+    # Exactly one of a new bearer or reuse. Sending both, or neither, is rejected.
+    if missing_ids or reuse_credential == has_new_credential:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
     from cartesia_mcp.oauth_store import oauth_store
@@ -170,11 +179,32 @@ async def oauth_internal_complete(request: Request) -> Response:
         completing_user_id,
     )
     if completed is not None:
+        if completed.cartesia_credential:
+            oauth_store.remember_client_credential(
+                completing_owner_id,
+                completed.client_id,
+                completed.cartesia_credential,
+            )
         try:
             redirect_url = provider.build_resume_redirect(session_id, completed)
         except ValueError as exc:
             return JSONResponse({"error": str(exc)}, status_code=400)
         return JSONResponse({"redirect_url": redirect_url})
+
+    if reuse_credential:
+        try:
+            pending_for_client = oauth_store.get_pending_session(
+                session_id,
+                connect_token,
+            )
+        except KeyError:
+            return JSONResponse({"error": "unknown_session"}, status_code=404)
+        cartesia_credential = oauth_store.get_client_credential(
+            completing_owner_id,
+            pending_for_client.client_id,
+        )
+        if not cartesia_credential:
+            return JSONResponse({"error": "credential_not_found"}, status_code=404)
 
     try:
         pending = oauth_store.attach_credential(
@@ -191,6 +221,12 @@ async def oauth_internal_complete(request: Request) -> Response:
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
+    if pending.cartesia_credential:
+        oauth_store.remember_client_credential(
+            completing_owner_id,
+            pending.client_id,
+            pending.cartesia_credential,
+        )
     oauth_store.remember_completed_session(
         session_id,
         connect_token,
@@ -213,6 +249,7 @@ async def oauth_internal_session(request: Request) -> Response:
     body = await request.json()
     session_id = body.get("session_id")
     connect_token = body.get("connect_token")
+    owner_id = body.get("owner_id")
     if not session_id or not connect_token:
         return JSONResponse({"error": "invalid_request"}, status_code=400)
 
@@ -224,13 +261,17 @@ async def oauth_internal_session(request: Request) -> Response:
         return JSONResponse({"error": "unknown_session"}, status_code=404)
 
     client = oauth_store.get_client(pending.client_id)
-    return JSONResponse(
-        {
-            "client_id": pending.client_id,
-            "client_name": client.client_name if client is not None else None,
-            "redirect_uri": str(pending.params.redirect_uri),
-        }
-    )
+    payload: dict[str, Any] = {
+        "client_id": pending.client_id,
+        "client_name": client.client_name if client is not None else None,
+        "redirect_uri": str(pending.params.redirect_uri),
+    }
+    if isinstance(owner_id, str) and owner_id:
+        payload["has_stored_credential"] = oauth_store.has_client_credential(
+            owner_id,
+            pending.client_id,
+        )
+    return JSONResponse(payload)
 
 
 def attach_hosted_routes(mcp: MCPServer) -> None:

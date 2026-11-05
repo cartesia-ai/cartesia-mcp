@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import secrets
 import time
@@ -19,6 +20,8 @@ ACCESS_TOKEN_TTL_SECONDS = 24 * 60 * 60
 REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60
 # Idle DCR clients expire; authorize/token refresh extends the TTL.
 CLIENT_TTL_SECONDS = 90 * 24 * 60 * 60
+# Reconnects reuse this copy. Each successful connect refreshes the TTL.
+CLIENT_CREDENTIAL_TTL_SECONDS = CLIENT_TTL_SECONDS
 
 _KEY_CLIENT = "mcp:oauth:client:"
 _KEY_PENDING = "mcp:oauth:pending:"
@@ -29,6 +32,7 @@ _KEY_ACCESS = "mcp:oauth:access:"
 _KEY_REFRESH = "mcp:oauth:refresh:"
 _KEY_REGISTER_RL = "mcp:oauth:register-rl:"
 _KEY_MCP_RL = "mcp:http:rl:"
+_KEY_CLIENT_CREDENTIAL = "mcp:oauth:client-cred:"
 
 
 @dataclass
@@ -459,6 +463,42 @@ class OAuthStore:
         pending.cartesia_admin_credential = cartesia_admin_credential
         self._save_pending(session_id, pending)
         return pending
+
+    def _client_credential_key(self, owner_id: str, client_id: str) -> str:
+        digest = hashlib.sha256(f"{owner_id}\0{client_id}".encode()).hexdigest()
+        return f"{_KEY_CLIENT_CREDENTIAL}{digest}"
+
+    def remember_client_credential(
+        self,
+        owner_id: str,
+        client_id: str,
+        cartesia_credential: str,
+    ) -> None:
+        if not owner_id or not client_id or not cartesia_credential:
+            return
+        self._backend.set_json(
+            self._client_credential_key(owner_id, client_id),
+            {
+                "owner_id": owner_id,
+                "client_id": client_id,
+                "cartesia_credential": cartesia_credential,
+            },
+            ttl_seconds=CLIENT_CREDENTIAL_TTL_SECONDS,
+        )
+
+    def get_client_credential(self, owner_id: str, client_id: str) -> str | None:
+        data = self._backend.get_json(self._client_credential_key(owner_id, client_id))
+        if not isinstance(data, dict):
+            return None
+        if data.get("owner_id") != owner_id or data.get("client_id") != client_id:
+            return None
+        credential = data.get("cartesia_credential")
+        if not isinstance(credential, str) or not credential:
+            return None
+        return credential
+
+    def has_client_credential(self, owner_id: str, client_id: str) -> bool:
+        return self.get_client_credential(owner_id, client_id) is not None
 
     def remember_completed_session(
         self,
