@@ -653,6 +653,29 @@ def list_models(
 
 
 @mcp.tool(
+    annotations=_read_only_tool("List agent models"),
+    description="""
+        List LLMs available for Managed Agents from GET /v1/agents/models.
+
+        Use these `id` values for an agent's `model.id` (and explicit fallback
+        model ids). Do not invent model ids. Each row includes provider,
+        display name, latency, and token pricing. Returns the full catalog
+        (pagination is followed server-side).
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        """)
+def list_agent_models(
+    request_options: typing.Optional[RequestOptions] = None,
+) -> dict[str, typing.Any]:
+    return extra_api.list_agent_models(
+        _client_for_request_options(request_options),
+    )
+
+
+@mcp.tool(
     annotations=_additive_tool("Add voice accents"),
     description="""
         Add accents to an instant voice clone you own so a single voice_id can speak

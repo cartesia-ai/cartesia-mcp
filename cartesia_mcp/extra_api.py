@@ -120,6 +120,36 @@ def list_models(
     )
 
 
+def list_agent_models(client: Cartesia) -> dict[str, typing.Any]:
+    """GET /v1/agents/models — Managed Agents LLM catalog.
+
+    The catalog is small, but a page boundary must not silently truncate IDs
+    coding agents use when creating or updating agents: follow next_page until
+    the server reports the end.
+    """
+    models: list[dict[str, typing.Any]] = []
+    cursor: typing.Optional[str] = None
+    while True:
+        params: dict[str, str] = {"limit": "100"}
+        if cursor is not None:
+            params["starting_after"] = cursor
+        page = client.get(
+            "/v1/agents/models",
+            cast_to=dict[str, typing.Any],
+            options={"params": params},
+        )
+        page_data = page.get("data")
+        if isinstance(page_data, list):
+            models.extend(item for item in page_data if isinstance(item, dict))
+        if not page.get("has_more"):
+            break
+        next_page = page.get("next_page")
+        if not isinstance(next_page, str) or not next_page:
+            break
+        cursor = next_page
+    return {"data": models}
+
+
 def create_file_download_link(
     client: Cartesia,
     file_id: str,
