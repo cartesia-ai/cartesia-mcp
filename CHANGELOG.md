@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.29.0...cartesia-mcp-v0.30.0) (2026-11-07)
+
+
+### Features
+
+* add list_agent_models MCP tool for Managed Agents LLMs ([#137](https://github.com/cartesia-ai/cartesia-mcp/issues/137)) ([8cc0d0d](https://github.com/cartesia-ai/cartesia-mcp/commit/8cc0d0d8f34e94116bc8085b01142744147bf46c))
+
 ## [0.29.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.28.1...cartesia-mcp-v0.29.0) (2026-11-05)
 
 
