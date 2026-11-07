@@ -84,6 +84,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `list_accents` | List catalog accent IDs and metadata (`british`, `standard-japanese`, …) |
 | `list_models` | List callable Sonic (TTS) and Ink (STT) model ids (`capability=tts|stt`) |
+| `list_agent_models` | List Managed Agents LLM ids from `GET /v1/agents/models` (full catalog) |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |

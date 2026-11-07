@@ -157,6 +157,22 @@ def main() -> int:
         else:
             ok("list_models", f"{len(ids)} models")
 
+    agent_models_result = run("list_agent_models", lambda: s.list_agent_models())
+    if agent_models_result is not None:
+        rows = (
+            agent_models_result.get("data")
+            if isinstance(agent_models_result, dict)
+            else getattr(agent_models_result, "data", None)
+        )
+        ids = [
+            row["id"] if isinstance(row, dict) else row.id for row in (rows or [])
+        ]
+        if not ids:
+            failures.append("list_agent_models(catalog)")
+            print("  FAIL list_agent_models: empty catalog")
+        else:
+            ok("list_agent_models", f"{len(ids)} models")
+
     run(
         "get_voice",
         lambda: s.get_voice(voice_id=SAMPLE_VOICE_ID),
