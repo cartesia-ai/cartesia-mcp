@@ -216,7 +216,7 @@ Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restri
 
 - **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`
 - **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path)
-- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, and VS Code Web
+- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, VS Code Web, and Devin
 
 To temporarily allow another exact HTTPS callback without a code change, set:
 

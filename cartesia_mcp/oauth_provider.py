@@ -53,6 +53,8 @@ _HTTPS_REDIRECT_EXACT = frozenset(
         ("cursor.com", "/agents/mcp/oauth/callback"),
         ("vscode.dev", "/redirect"),
         ("insiders.vscode.dev", "/redirect"),
+        # Devin / Devin Enterprise (all tenants share this callback host).
+        ("api.devin.ai", "/mcp/oauth/callback"),
     }
 )
 _HTTPS_REDIRECT_PREFIXES = (
