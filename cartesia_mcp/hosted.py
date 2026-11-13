@@ -9,10 +9,15 @@ from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.mcpserver import MCPServer
 from pydantic import AnyHttpUrl
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.routing import Route
 
-from cartesia_mcp.branding import ICON_PNG_PATH
+from cartesia_mcp.branding import (
+    DOCS_URL,
+    ICON_PNG_PATH,
+    ICON_SVG_FILE,
+    SERVER_DESCRIPTION,
+)
 from cartesia_mcp.config import env_or_none
 from cartesia_mcp.mcp_session_guard import (
     MCP_MAX_CONCURRENT_SESSIONS,
@@ -23,6 +28,29 @@ from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import configure_oauth_store_from_env
 
 _ICON_CACHE_HEADERS = {"Cache-Control": "public, max-age=86400"}
+
+# Favicon scrapers (e.g. Google s2, client connector lists) read <link rel="icon"> from "/".
+_INDEX_HTML = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartesia MCP</title>
+<meta name="description" content="{SERVER_DESCRIPTION}">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:title" content="Cartesia MCP">
+<meta property="og:description" content="{SERVER_DESCRIPTION}">
+<meta property="og:image" content="/icon.png">
+</head>
+<body>
+<h1>Cartesia MCP</h1>
+<p>{SERVER_DESCRIPTION}. Connect your MCP client to <code>/mcp</code>.</p>
+<p><a href="{DOCS_URL}">Documentation</a></p>
+</body>
+</html>
+"""
 
 
 def hosted_enabled() -> bool:
@@ -134,6 +162,18 @@ async def icon_png(_: Request) -> Response:
         media_type="image/png",
         headers=_ICON_CACHE_HEADERS,
     )
+
+
+async def icon_svg(_: Request) -> Response:
+    return FileResponse(
+        ICON_SVG_FILE,
+        media_type="image/svg+xml",
+        headers=_ICON_CACHE_HEADERS,
+    )
+
+
+async def index(_: Request) -> Response:
+    return HTMLResponse(_INDEX_HTML, headers=_ICON_CACHE_HEADERS)
 
 
 async def oauth_internal_complete(request: Request) -> Response:
@@ -280,6 +320,9 @@ def attach_hosted_routes(mcp: MCPServer) -> None:
             Route("/health", endpoint=health, methods=["GET"]),
             Route("/icon.png", endpoint=icon_png, methods=["GET"]),
             Route("/favicon.ico", endpoint=icon_png, methods=["GET"]),
+            Route("/icon.svg", endpoint=icon_svg, methods=["GET"]),
+            Route("/apple-touch-icon.png", endpoint=icon_png, methods=["GET"]),
+            Route("/", endpoint=index, methods=["GET"]),
             Route(
                 "/internal/oauth/complete",
                 endpoint=oauth_internal_complete,

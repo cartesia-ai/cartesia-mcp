@@ -11,6 +11,7 @@ from starlette.testclient import TestClient
 from cartesia_mcp import __version__
 from cartesia_mcp.branding import (
     ICON_PNG_PATH,
+    ICON_SVG_FILE,
     PRODUCTION_MCP_ORIGIN,
     SERVER_DESCRIPTION,
     SERVER_NAME,
@@ -18,7 +19,7 @@ from cartesia_mcp.branding import (
     icon_url,
     server_icons,
 )
-from cartesia_mcp.hosted import icon_png
+from cartesia_mcp.hosted import icon_png, icon_svg, index
 from cartesia_mcp.mcpserver import CartesiaMCP
 from cartesia_mcp.server import mcp
 
@@ -42,12 +43,13 @@ def test_icon_url_uses_hosted_origin(monkeypatch) -> None:
 
 
 def test_server_icons_shape() -> None:
-    icons = server_icons()
-    assert len(icons) == 1
-    icon = icons[0]
-    assert icon.src == f"{PRODUCTION_MCP_ORIGIN}/icon.png"
-    assert icon.mime_type == "image/png"
-    assert icon.sizes == ["512x512"]
+    png, svg = server_icons()
+    assert png.src == f"{PRODUCTION_MCP_ORIGIN}/icon.png"
+    assert png.mime_type == "image/png"
+    assert png.sizes == ["512x512"]
+    assert svg.src == f"{PRODUCTION_MCP_ORIGIN}/icon.svg"
+    assert svg.mime_type == "image/svg+xml"
+    assert svg.sizes == ["any"]
 
 
 def test_stdio_server_advertises_brand() -> None:
@@ -76,6 +78,8 @@ def _icon_client() -> TestClient:
             routes=[
                 Route("/icon.png", endpoint=icon_png, methods=["GET"]),
                 Route("/favicon.ico", endpoint=icon_png, methods=["GET"]),
+                Route("/icon.svg", endpoint=icon_svg, methods=["GET"]),
+                Route("/", endpoint=index, methods=["GET"]),
             ]
         )
     )
@@ -93,3 +97,19 @@ def test_favicon_route_serves_same_png() -> None:
     response = _icon_client().get("/favicon.ico")
     assert response.status_code == 200
     assert response.content == ICON_PNG_PATH.read_bytes()
+
+
+def test_icon_svg_route_serves_svg() -> None:
+    response = _icon_client().get("/icon.svg")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert response.content == ICON_SVG_FILE.read_bytes()
+
+
+def test_index_links_icons_for_favicon_scrapers() -> None:
+    response = _icon_client().get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert '<link rel="icon" href="/icon.svg" type="image/svg+xml">' in response.text
+    assert '<link rel="icon" href="/icon.png"' in response.text
+    assert '<link rel="apple-touch-icon" href="/apple-touch-icon.png">' in response.text
