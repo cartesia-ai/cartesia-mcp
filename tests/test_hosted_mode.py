@@ -53,3 +53,6 @@ def test_attach_hosted_routes_includes_icon():
     assert "/health" in paths
     assert "/icon.png" in paths
     assert "/favicon.ico" in paths
+    assert "/icon.svg" in paths
+    assert "/apple-touch-icon.png" in paths
+    assert "/" in paths
