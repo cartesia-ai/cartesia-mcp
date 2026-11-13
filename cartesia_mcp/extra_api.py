@@ -24,6 +24,7 @@ DownloadFormat = typing.Literal["playback"]
 DEFAULT_FILES_BASE_URL = "https://files.cartesia.ai"
 DEFAULT_DOWNLOAD_LINK_LIFETIME_HOURS = 24
 CARTESIA_FILE_ID_HEADER = "cartesia-file-id"
+CARTESIA_NOTICE_HEADER = "cartesia-notice"
 
 
 def files_base_url() -> str:
@@ -37,6 +38,15 @@ def _files_url(path: str) -> str:
 def file_id_from_response_headers(headers: typing.Mapping[str, str]) -> typing.Optional[str]:
     for key, value in headers.items():
         if key.lower() == CARTESIA_FILE_ID_HEADER:
+            stripped = value.strip()
+            return stripped or None
+    return None
+
+
+def notice_from_response_headers(headers: typing.Mapping[str, str]) -> typing.Optional[str]:
+    """A message from Cartesia about the account, e.g. free credits running low."""
+    for key, value in headers.items():
+        if key.lower() == CARTESIA_NOTICE_HEADER:
             stripped = value.strip()
             return stripped or None
     return None

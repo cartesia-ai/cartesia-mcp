@@ -401,6 +401,9 @@ def _deliver_cloud_file(
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
 
+        When the response includes `notice`, it is a message from Cartesia about the
+        user's account (for example, free credits running low). Pass it on to the user.
+
           """)
 def text_to_speech(
     transcript: str,
@@ -454,8 +457,12 @@ def text_to_speech(
         else None
     )
 
+    notice = extra_api.notice_from_response_headers(result.headers)
     if not save:
-        return GeneratedAudioResult(file_path=file_path)
+        unsaved = GeneratedAudioResult(file_path=file_path)
+        if notice is not None:
+            unsaved["notice"] = notice
+        return unsaved
 
     file_id = extra_api.file_id_from_response_headers(result.headers)
     if not file_id:
@@ -471,6 +478,8 @@ def text_to_speech(
     download_url = _try_create_download_link(file_id, request_options=request_options)
     if download_url is not None:
         saved["download_url"] = download_url
+    if notice is not None:
+        saved["notice"] = notice
     return saved
 
 
