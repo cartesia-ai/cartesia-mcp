@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.30.0...cartesia-mcp-v0.31.0) (2026-11-13)
+
+
+### Features
+
+* allowlist Devin HTTPS OAuth callback for hosted MCP ([#139](https://github.com/cartesia-ai/cartesia-mcp/issues/139)) ([d74c4a4](https://github.com/cartesia-ai/cartesia-mcp/commit/d74c4a429080a003cd069cbe1f63aea972d89179))
+* make Cartesia icon discoverable by favicon scrapers ([#140](https://github.com/cartesia-ai/cartesia-mcp/issues/140)) ([4bd5246](https://github.com/cartesia-ai/cartesia-mcp/commit/4bd5246dc61bfc209331bce7f51a438b599284b0))
+
 ## [0.30.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.29.0...cartesia-mcp-v0.30.0) (2026-11-07)
 
 
