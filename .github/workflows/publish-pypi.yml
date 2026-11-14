@@ -1,5 +1,5 @@
-# Publishes to PyPI with Trusted Publishing (OIDC). Configure a trusted publisher
-# for this workflow on PyPI (cartesia-ai/cartesia-mcp, publish-pypi.yml).
+# Publishes to PyPI using a project-scoped API token stored as a GitHub secret.
+# Add PYPI_API_TOKEN under Settings → Secrets and variables → Actions.
 #
 # Normally publish runs as a job in release-please.yml after a release is created.
 # workflow_dispatch is kept for manual re-publishes if a prior run failed.
@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   publish:
@@ -27,6 +26,7 @@ jobs:
       - name: Build package
         run: uv build
 
-      # PyPI Trusted Publishing (OIDC); no long-lived API token.
       - name: Publish to PyPI
-        run: uv publish --trusted-publishing always
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
