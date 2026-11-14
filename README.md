@@ -176,7 +176,7 @@ With the local server (`uvx` / stdio), `text_to_speech` also accepts `output_pat
 `speech_to_text` and `clone_voice` take one of:
 
 - **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
-- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass a `file_path` from `download_file` / `save=false` TTS in the same hosted session. On hosted MCP, a missing or client-local path returns a clear validation error (prefer `file_id` instead of `/Users/...` or similar).
+- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass a `file_path` from `download_file` / `save=false` TTS in the same hosted session. On hosted MCP, only files the server wrote under its output directory are accepted; any other path (missing, client-local like `/Users/...`, or elsewhere on the server) returns a validation error telling you to use `file_id`.
 
 `download_url` is a 24-hour browser link. It is not an input to those tools.
 

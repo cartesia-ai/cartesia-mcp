@@ -89,3 +89,48 @@ def test_clone_voice_accepts_file_id(mock_download: MagicMock, mock_client: Magi
 
     mock_download.assert_called_once_with("file_abc")
     assert mock_client.voices.clone.call_args.kwargs["name"] == "Test"
+
+
+def test_resolve_audio_input_hosted_accepts_output_directory_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    clip = tmp_path / "text_to_speech_clip.wav"
+    clip.write_bytes(b"audio")
+    assert server._resolve_audio_input(str(clip), None) == str(clip.resolve())
+
+
+@pytest.mark.parametrize("path", ["/etc/hostname", "/proc/self/environ"])
+def test_resolve_audio_input_hosted_rejects_paths_outside_output_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, path: str
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(path, None)
+
+
+def test_resolve_audio_input_hosted_rejects_traversal_and_symlink(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    out = tmp_path / "out"
+    out.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret")
+    (out / "link.wav").symlink_to(secret)
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(out))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(out / ".." / "secret.txt"), None)
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(out / "link.wav"), None)
+
+
+def test_resolve_audio_input_hosted_rejects_output_directory_itself(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(tmp_path), None)
