@@ -51,10 +51,11 @@ jobs:
         run: uv publish
 
   # Requires the PyPI release above: the registry verifies the mcp-name marker in
-  # the published package README.
+  # the published package README. Non-blocking so a registry outage never fails a release.
   publish-mcp-registry:
     needs: [release-please, publish]
     runs-on: ubuntu-latest
+    continue-on-error: true
     permissions:
       contents: read
       id-token: write
