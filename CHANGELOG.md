@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.32.0...cartesia-mcp-v0.33.0) (2026-11-14)
+
+
+### Features
+
+* trim output schemas, smoke-test the built wheel, pre-1.0 breaking bumps ([#153](https://github.com/cartesia-ai/cartesia-mcp/issues/153)) ([1adf2c9](https://github.com/cartesia-ai/cartesia-mcp/commit/1adf2c9d555e26b8b2cd46ffbcef1d39481bb4b1))
+
 ## [0.32.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.31.0...cartesia-mcp-v0.32.0) (2026-11-14)
 
 
