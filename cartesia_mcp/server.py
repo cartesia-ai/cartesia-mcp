@@ -293,6 +293,17 @@ def _cloud_file_on_disk(
     return output_path, local_filename
 
 
+def _is_hosted_output_file(path: Path) -> bool:
+    """Hosted ``file_path`` inputs must be files this server wrote under ``OUTPUT_DIRECTORY``."""
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return False
+    return resolved.is_file() and resolved.is_relative_to(
+        Path(OUTPUT_DIRECTORY).resolve()
+    )
+
+
 def _resolve_audio_input(
     file_path: typing.Optional[str],
     file_id: typing.Optional[str],
@@ -309,14 +320,14 @@ def _resolve_audio_input(
         return str(output_path)
     if path:
         resolved = Path(path).expanduser()
+        if _is_hosted and not _is_hosted_output_file(resolved):
+            raise ValueError(
+                f"Path '{path}' was not found on the MCP server. When using the "
+                "hosted Cartesia MCP server (mcp.cartesia.ai), pass file_id from "
+                "text_to_speech or download_file — a path on your computer is not "
+                "visible to this server."
+            )
         if not resolved.exists():
-            if _is_hosted:
-                raise ValueError(
-                    f"Path '{path}' was not found on the MCP server. When using the "
-                    "hosted Cartesia MCP server (mcp.cartesia.ai), pass file_id from "
-                    "text_to_speech or download_file — a path on your computer is not "
-                    "visible to this server."
-                )
             raise ValueError(
                 f"Local file '{path}' does not exist on this MCP server."
             )
@@ -764,7 +775,7 @@ def delete_voice_accent(
             Tradeoff between similarity and stability. Similarity clones sound more like the source clip, but may reproduce background noise. Stability clones always sound like a studio recording, but may not sound as similar to the source clip.
 
         file_path : typing.Optional[str]
-            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
+            Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS).
 
         file_id : typing.Optional[str]
             Cartesia cloud file id. The server downloads it.
@@ -1068,7 +1079,7 @@ def _speech_to_text_stream(
         Parameters
         ----------
         file_path : typing.Optional[str]
-            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
+            Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS).
 
         mode : str
             `batch` (default) or `stream`.
