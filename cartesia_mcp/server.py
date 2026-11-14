@@ -95,7 +95,6 @@ if _is_hosted:
     configure_hosted_mode()
     if hosted_enabled():
         configure_hosted_oauth_store()
-    start_output_directory_cleanup(OUTPUT_DIRECTORY)
 elif CARTESIA_API_KEY:
     configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
 
@@ -1221,6 +1220,38 @@ def delete_pronunciation_dict(
     return DeletePronunciationDictResult(success=True)
 
 
+@mcp.prompt(
+    title="Generate and transcribe",
+    description="Synthesize text with a Cartesia voice, then transcribe it back to check the output.",
+)
+def generate_and_transcribe(text: str, voice: str = "") -> str:
+    voice_step = (
+        f"Use `list_voices` with q={voice!r} to pick a voice."
+        if voice
+        else "Use `list_voices` to pick a suitable voice."
+    )
+    return (
+        f"{voice_step}\n"
+        f"Call `text_to_speech` with that voice_id, transcript={text!r}, and a wav output_format.\n"
+        "Pass the returned `file_id` to `speech_to_text`, then compare the transcript to the "
+        "input text and report any differences."
+    )
+
+
+@mcp.prompt(
+    title="Clone and localize a voice",
+    description="Clone a voice from an audio clip, then localize it to another language.",
+)
+def clone_and_localize(file_id: str, name: str, target_language: str) -> str:
+    return (
+        f"Call `clone_voice` with file_id={file_id!r}, name={name!r}, and the clip's language.\n"
+        "Call `list_accents` and choose an accent `id` for "
+        f"{target_language!r}.\n"
+        f"Call `localize_voice` on the new voice with language={target_language!r} and that "
+        "accent, then generate a short sample with `text_to_speech` in the target language."
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description="Cartesia MCP server")
     parser.add_argument(
@@ -1231,6 +1262,7 @@ def main():
     args = parser.parse_args()
 
     if args.transport == "streamable-http":
+        start_output_directory_cleanup(OUTPUT_DIRECTORY)
         run_hosted(mcp)
         return
 

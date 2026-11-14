@@ -99,6 +99,13 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
+## Prompts
+
+| Prompt | Description |
+| --- | --- |
+| `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
+| `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
+
 ## Releases
 
 Versions and PyPI publishes are driven by [Conventional Commits](https://www.conventionalcommits.org/) on `main` via release-please. Use PR titles like `feat: …` or `fix: …` (especially when squash merging). See [CONTRIBUTING.md](./CONTRIBUTING.md).
