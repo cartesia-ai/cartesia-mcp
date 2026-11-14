@@ -1,5 +1,7 @@
 # Cartesia MCP Server
 
+<!-- mcp-name: io.github.cartesia-ai/cartesia-mcp -->
+
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
 The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
