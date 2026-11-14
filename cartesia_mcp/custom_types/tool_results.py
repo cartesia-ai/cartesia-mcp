@@ -15,7 +15,6 @@ class GeneratedAudioResult(typing.TypedDict, total=False):
     file_id: str | None
     download_url: str | None
     file_path: str | None
-    notice: str | None
 
 
 class DownloadedFileResult(typing.TypedDict):
