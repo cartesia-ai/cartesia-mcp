@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.32.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.31.0...cartesia-mcp-v0.32.0) (2026-11-14)
+
+
+### Features
+
+* describe tool parameters in JSON schema and drop request_options ([#144](https://github.com/cartesia-ai/cartesia-mcp/issues/144)) ([36c026f](https://github.com/cartesia-ai/cartesia-mcp/commit/36c026f06731433bda34f81201533aebc06d8b2f))
+* pool SDK HTTP connections and add workflow prompts ([#147](https://github.com/cartesia-ai/cartesia-mcp/issues/147)) ([5fa2c4f](https://github.com/cartesia-ai/cartesia-mcp/commit/5fa2c4f39473c5c7995dde7228948527dcaac074))
+* publish to the official MCP Registry ([#146](https://github.com/cartesia-ai/cartesia-mcp/issues/146)) ([a846633](https://github.com/cartesia-ai/cartesia-mcp/commit/a846633be1dc7f10c24021f9b3bb899c1e38da7f))
+
+
+### Bug Fixes
+
+* restrict hosted file_path inputs to the output directory ([#143](https://github.com/cartesia-ai/cartesia-mcp/issues/143)) ([0444ee8](https://github.com/cartesia-ai/cartesia-mcp/commit/0444ee8f5886c2cc3a31ce00d2b058ddc36f9891))
+
 ## [0.31.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.30.0...cartesia-mcp-v0.31.0) (2026-11-13)
 
 
