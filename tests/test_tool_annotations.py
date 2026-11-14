@@ -92,3 +92,22 @@ def test_text_to_speech_voice_id_has_string_type():
     tts = next(tool for tool in tools if tool.name == "text_to_speech")
     voice_id = tts.input_schema["properties"]["voice_id"]
     assert voice_id["type"] == "string"
+
+
+def test_all_tools_set_idempotent_and_open_world_hints():
+    for tool in server.mcp._tool_manager.list_tools():
+        annotations = tool.annotations
+        assert annotations is not None
+        assert annotations.open_world_hint is False, tool.name
+        if annotations.read_only_hint or annotations.destructive_hint:
+            assert annotations.idempotent_hint is True, tool.name
+
+
+def test_all_tool_parameters_have_descriptions():
+    tools = asyncio.run(server.mcp.list_tools())
+    for tool in tools:
+        properties = tool.input_schema.get("properties", {})
+        assert "request_options" not in properties, tool.name
+        for name, prop in properties.items():
+            assert prop.get("description"), f"{tool.name}.{name} has no description"
+        assert "Parameters\n" not in (tool.description or ""), tool.name

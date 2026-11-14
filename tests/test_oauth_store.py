@@ -1,7 +1,9 @@
 """Tests for OAuth store authorization code exchange and refresh."""
 
-from pydantic import AnyUrl
 import pytest
+from mcp.server.auth.provider import AuthorizationParams
+from mcp.shared.auth import OAuthClientInformationFull
+from pydantic import AnyUrl
 
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import (
@@ -11,8 +13,6 @@ from cartesia_mcp.oauth_store import (
     configure_oauth_store_from_env,
     oauth_store,
 )
-from mcp.server.auth.provider import AuthorizationParams
-from mcp.shared.auth import OAuthClientInformationFull
 
 
 def _reset_store() -> None:
@@ -387,7 +387,7 @@ def test_register_client_sets_ttl_and_get_refreshes():
 
 def test_redis_backend_json_roundtrip(monkeypatch):
     """RedisBackend must survive JSON encode/decode of OAuth payloads."""
-    from cartesia_mcp.oauth_store import RedisBackend, OAuthStore
+    from cartesia_mcp.oauth_store import OAuthStore, RedisBackend
 
     class _FakeRedis:
         def __init__(self) -> None:

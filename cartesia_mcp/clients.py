@@ -5,7 +5,10 @@ from __future__ import annotations
 from cartesia import Cartesia
 
 from cartesia_mcp.config import ADMIN_HTTP_REQUIRED_MESSAGE, ensure_admin_client
-from cartesia_mcp.credentials import resolve_admin_api_credential, resolve_api_credential
+from cartesia_mcp.credentials import (
+    resolve_admin_api_credential,
+    resolve_api_credential,
+)
 from cartesia_mcp.sdk_setup import create_cartesia_client
 
 
