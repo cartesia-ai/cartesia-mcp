@@ -4,6 +4,7 @@
     ".": {
       "release-type": "python",
       "package-name": "cartesia-mcp",
+      "bump-minor-pre-major": true,
       "extra-files": [
         "cartesia_mcp/__init__.py",
         {

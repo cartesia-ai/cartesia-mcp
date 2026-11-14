@@ -47,6 +47,29 @@ jobs:
       - name: Run pytest
         run: uv run pytest
 
+  stdio-smoke:
+    name: stdio smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Build wheel
+        run: uv build --wheel
+
+      - name: Run built wheel over stdio
+        working-directory: ${{ runner.temp }}
+        run: |
+          uv run --project "$GITHUB_WORKSPACE" python "$GITHUB_WORKSPACE/scripts/stdio_smoke.py" \
+            uvx --isolated --from "$(ls "$GITHUB_WORKSPACE"/dist/*.whl)" cartesia-mcp
+
   docker-build:
     name: docker build
     runs-on: ubuntu-latest
