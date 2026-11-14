@@ -7,10 +7,10 @@ import os
 import sys
 import typing
 from pathlib import Path
-from dotenv import load_dotenv
-from mcp.types import ToolAnnotations
-from cartesia import Cartesia, RequestOptions, omit
+
+from cartesia import Cartesia, omit
 from cartesia.types import (
+    AttachVoiceAccent,
     Gender,
     GenderPresentation,
     GenerationConfigParam,
@@ -28,7 +28,21 @@ from cartesia.types import (
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
+from dotenv import load_dotenv
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
+from cartesia_mcp import __version__, extra_api
+from cartesia_mcp.branding import (
+    SERVER_DESCRIPTION,
+    SERVER_NAME,
+    WEBSITE_URL,
+    server_icons,
+)
+from cartesia_mcp.clients import client, require_admin_client
+from cartesia_mcp.config import env_or_none, validate_api_keys
+from cartesia_mcp.constants import DEFAULT_MODEL_ID
+from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
@@ -38,23 +52,12 @@ from cartesia_mcp.custom_types import (
     ListVoicesResult,
     PronunciationDictItemParams,
 )
-from cartesia_mcp import __version__, extra_api
-from cartesia_mcp.branding import (
-    SERVER_DESCRIPTION,
-    SERVER_NAME,
-    WEBSITE_URL,
-    server_icons,
-)
-from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp.extra_api import (
     DownloadFormat,
     ModelCapability,
     UsageCreditsGroupBy,
     UsageInterval,
 )
-from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
-from cartesia_mcp.clients import admin_client, client, require_admin_client
-from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
 from cartesia_mcp.hosted import (
     configure_hosted_oauth_store,
     hosted_enabled,
@@ -63,11 +66,10 @@ from cartesia_mcp.hosted import (
     server_public_url,
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
-from cartesia_mcp.request_options import sdk_kwargs_from_request_options
 from cartesia_mcp.utils import (
+    coerce_null_voice_locales,
     create_output_file,
     cursor_page_to_result,
-    coerce_null_voice_locales,
     default_output_directory,
     iter_stt_audio_chunks,
     resolve_local_download_filename,
@@ -105,28 +107,34 @@ mcp = CartesiaMCP(
     **(hosted_server_kwargs() if _is_hosted else {}),
 )
 
+# Tools only touch the caller's Cartesia account, so none are open-world.
 def _read_only_tool(title: str) -> ToolAnnotations:
-    return ToolAnnotations(title=title, read_only_hint=True)
+    return ToolAnnotations(
+        title=title, read_only_hint=True, idempotent_hint=True, open_world_hint=False
+    )
 
 
 def _additive_tool(title: str) -> ToolAnnotations:
-    return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=False)
+    return ToolAnnotations(
+        title=title, read_only_hint=False, destructive_hint=False, open_world_hint=False
+    )
 
 
-def _destructive_tool(title: str) -> ToolAnnotations:
-    return ToolAnnotations(title=title, read_only_hint=False, destructive_hint=True)
+def _destructive_tool(title: str, *, idempotent: bool = True) -> ToolAnnotations:
+    return ToolAnnotations(
+        title=title,
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=idempotent,
+        open_world_hint=False,
+    )
 
 
 def _require_admin_client() -> Cartesia:
     return require_admin_client()
 
 
-def _client_for_request_options(
-    request_options: typing.Optional[RequestOptions],
-) -> Cartesia:
-    if request_options is not None and "max_retries" in request_options:
-        # Retry limits are client options in the SDK, not resource method kwargs.
-        return client.with_options(max_retries=request_options["max_retries"])
+def _api_client() -> Cartesia:
     return typing.cast(Cartesia, client)
 
 
@@ -159,18 +167,6 @@ def _merge_extra_body(
         sdk_kwargs["extra_body"] = {**existing, **extra_fields}
     else:
         sdk_kwargs["extra_body"] = extra_fields
-
-
-def _apply_tts_save_flag(tts_kwargs: dict[str, typing.Any], save: bool) -> None:
-    """Tool `save` wins over `save` in request_options extra_body / extra_json."""
-    extra_body = tts_kwargs.get("extra_body")
-    if isinstance(extra_body, dict) and "save" in extra_body:
-        stripped = {key: value for key, value in extra_body.items() if key != "save"}
-        if stripped:
-            tts_kwargs["extra_body"] = stripped
-        else:
-            tts_kwargs.pop("extra_body", None)
-    tts_kwargs["save"] = save
 
 
 def _stt_words_from_timestamps(
@@ -252,12 +248,11 @@ def _try_create_download_link(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
-    request_options: typing.Optional[RequestOptions] = None,
 ) -> typing.Optional[str]:
     """Mint a time-limited public download link; None if POST /links fails."""
     try:
         link_url = extra_api.create_file_download_link(
-            _client_for_request_options(request_options), file_id
+            _api_client(), file_id
         )
         return extra_api.with_download_format(link_url, format)
     except Exception:
@@ -268,10 +263,9 @@ def _cloud_file_on_disk(
     file_id: str,
     *,
     format: typing.Optional[DownloadFormat] = None,
-    request_options: typing.Optional[RequestOptions] = None,
 ) -> tuple[Path, str]:
     """Download a cloud file onto this MCP server. Returns ``(path, filename)``."""
-    sdk_client = _client_for_request_options(request_options)
+    sdk_client = _api_client()
     metadata = extra_api.get_file_info(sdk_client, file_id)
     filename = metadata.get("filename")
     if not isinstance(filename, str) or not filename.strip():
@@ -292,11 +286,20 @@ def _cloud_file_on_disk(
     return output_path, local_filename
 
 
+def _is_hosted_output_file(path: Path) -> bool:
+    """Hosted ``file_path`` inputs must be files this server wrote under ``OUTPUT_DIRECTORY``."""
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return False
+    return resolved.is_file() and resolved.is_relative_to(
+        Path(OUTPUT_DIRECTORY).resolve()
+    )
+
+
 def _resolve_audio_input(
     file_path: typing.Optional[str],
     file_id: typing.Optional[str],
-    *,
-    request_options: typing.Optional[RequestOptions] = None,
 ) -> str:
     """Resolve ``file_id`` (cloud) or ``file_path`` (this machine) to a local path."""
     path = file_path.strip() if isinstance(file_path, str) else ""
@@ -304,18 +307,18 @@ def _resolve_audio_input(
     if path and cloud_id:
         raise ValueError("Pass file_id or file_path, not both.")
     if cloud_id:
-        output_path, _filename = _cloud_file_on_disk(cloud_id, request_options=request_options)
+        output_path, _filename = _cloud_file_on_disk(cloud_id)
         return str(output_path)
     if path:
         resolved = Path(path).expanduser()
+        if _is_hosted and not _is_hosted_output_file(resolved):
+            raise ValueError(
+                f"Path '{path}' was not found on the MCP server. When using the "
+                "hosted Cartesia MCP server (mcp.cartesia.ai), pass file_id from "
+                "text_to_speech or download_file — a path on your computer is not "
+                "visible to this server."
+            )
         if not resolved.exists():
-            if _is_hosted:
-                raise ValueError(
-                    f"Path '{path}' was not found on the MCP server. When using the "
-                    "hosted Cartesia MCP server (mcp.cartesia.ai), pass file_id from "
-                    "text_to_speech or download_file — a path on your computer is not "
-                    "visible to this server."
-                )
             raise ValueError(
                 f"Local file '{path}' does not exist on this MCP server."
             )
@@ -355,66 +358,56 @@ def _deliver_cloud_file(
         `download_url` is a browser link. On the local server, `file_path` is a copy under
         `OUTPUT_DIRECTORY` (or `output_path`). On hosted MCP with `save=true` (the default),
         `file_path` is omitted — use `file_id` / `download_url` instead.
-
-        Parameters
-        ----------
-        transcript : str
-
-        voice_id : str
-            Cartesia voice ID (e.g. from `list_voices`).
-
-        output_format : OutputFormatParams
-
-        model_id : str
-            The ID of the model to use for the generation. Call `list_models`
-            with `capability="tts"` for valid ids.
-
-        language : typing.Optional[SupportedLanguage]
-
-        duration : typing.Optional[float]
-            The maximum duration of the audio in seconds. You do not usually need to specify this.
-            If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
-
-        speed : typing.Optional[float]
-            Speech speed multiplier (0.6–1.5). Applies to Sonic 3+ via `generation_config`.
-
-        volume : typing.Optional[float]
-            Volume multiplier (0.5–2.0). Applies to Sonic 3+ via `generation_config`.
-
-        emotion : typing.Optional[str]
-            Emotional guidance for the generation (e.g. `neutral`, `excited`, `sad`). Applies to Sonic 3+.
-
-        pronunciation_dict_id : typing.Optional[str]
-            Pronunciation dictionary ID to apply for this generation only.
-
-        output_path : typing.Optional[str]
-            Local file path to write the audio (for example `src/assets/audio/click.wav`).
-            Relative paths resolve against the MCP server working directory. Only supported
-            with the local server (stdio / uvx); rejected on hosted MCP.
-
-        save : bool
-            When true (default), persist the generation to cloud storage and return `file_id`
-            plus `download_url`. Pass `download_file` with that `file_id` to refresh the link
-            or write another local copy.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
-
-          """)
+        """)
 def text_to_speech(
-    transcript: str,
-    voice_id: str,
-    output_format: OutputFormat,
-    model_id: typing.Optional[str] = DEFAULT_MODEL_ID,
-    language: typing.Optional[SupportedLanguage] = None,
-    duration: typing.Optional[float] = None,
-    speed: typing.Optional[float] = None,
-    volume: typing.Optional[float] = None,
-    emotion: typing.Optional[str] = None,
-    pronunciation_dict_id: typing.Optional[str] = None,
-    output_path: typing.Optional[str] = None,
-    save: bool = True,
-    request_options: typing.Optional[RequestOptions] = None,
+    transcript: typing.Annotated[
+        str,
+        Field(description="Text to synthesize."),
+    ],
+    voice_id: typing.Annotated[
+        str,
+        Field(description="Cartesia voice ID (e.g. from `list_voices`)."),
+    ],
+    output_format: typing.Annotated[
+        OutputFormat,
+        Field(description="Audio output format: `container` (`wav`, `mp3`, or `raw`), `encoding`, and `sample_rate`."),
+    ],
+    model_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="The ID of the model to use for the generation. Call `list_models` with `capability=\"tts\"` for valid ids."),
+    ] = DEFAULT_MODEL_ID,
+    language: typing.Annotated[
+        typing.Optional[SupportedLanguage],
+        Field(description="Language of the transcript as an ISO 639-1 code (e.g. `en`, `es`)."),
+    ] = None,
+    duration: typing.Annotated[
+        typing.Optional[float],
+        Field(description="The maximum duration of the audio in seconds. You do not usually need to specify this. If the duration is not appropriate for the length of the transcript, the output audio may be truncated."),
+    ] = None,
+    speed: typing.Annotated[
+        typing.Optional[float],
+        Field(description="Speech speed multiplier (0.6–1.5). Applies to Sonic 3+ via `generation_config`."),
+    ] = None,
+    volume: typing.Annotated[
+        typing.Optional[float],
+        Field(description="Volume multiplier (0.5–2.0). Applies to Sonic 3+ via `generation_config`."),
+    ] = None,
+    emotion: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Emotional guidance for the generation (e.g. `neutral`, `excited`, `sad`). Applies to Sonic 3+."),
+    ] = None,
+    pronunciation_dict_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Pronunciation dictionary ID to apply for this generation only."),
+    ] = None,
+    output_path: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Local file path to write the audio (for example `src/assets/audio/click.wav`). Relative paths resolve against the MCP server working directory. Only supported with the local server (stdio / uvx); rejected on hosted MCP."),
+    ] = None,
+    save: typing.Annotated[
+        bool,
+        Field(description="When true (default), persist the generation to cloud storage and return `file_id` plus `download_url`. Pass `download_file` with that `file_id` to refresh the link or write another local copy."),
+    ] = True,
 ) -> GeneratedAudioResult:
     dest = _resolve_tts_output_dest(output_path, output_format["container"])
     generation_config = _build_generation_config(
@@ -429,14 +422,13 @@ def text_to_speech(
         "model_id": model_id,
         "language": language,
         "pronunciation_dict_id": pronunciation_dict_id,
-        **sdk_kwargs_from_request_options(request_options),
     }
     if generation_config is not None:
         tts_kwargs["generation_config"] = generation_config
     if duration is not None:
         _merge_extra_body(tts_kwargs, {"duration": duration})
-    _apply_tts_save_flag(tts_kwargs, save)
-    result = _client_for_request_options(request_options).tts.generate(**tts_kwargs)
+    tts_kwargs["save"] = save
+    result = _api_client().tts.generate(**tts_kwargs)
 
     audio_bytes = result.read()
     # Hosted + cloud save: skip the local copy. Clients use file_id / download_url;
@@ -467,7 +459,7 @@ def text_to_speech(
     }
     if file_path is not None:
         saved["file_path"] = file_path
-    download_url = _try_create_download_link(file_id, request_options=request_options)
+    download_url = _try_create_download_link(file_id)
     if download_url is not None:
         saved["download_url"] = download_url
     return saved
@@ -477,44 +469,38 @@ def text_to_speech(
     annotations=_additive_tool("Localize voice"),
     description="""
         Create a new voice from an existing voice localized to a new language and dialect.
-
-        Parameters
-        ----------
-        voice_id : str
-            The ID of the voice to localize.
-
-        name : str
-            The name of the new localized voice.
-
-        description : str
-            The description of the new localized voice.
-
-        accent : VoiceAccent
-            Catalog accent id from GET /accents (for example `mexican` or `parisian`).
-            Display names are rejected on this API version.
-
-        language : LocalizeTargetLanguage
-            Target language to localize the voice to. Distinct from TTS SupportedLanguage.
-
-        original_speaker_gender : Gender
-
-        dialect : typing.Optional[LocalizeDialect]
-            Dialect allowlist for English, Spanish, Portuguese, and French.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def localize_voice(
-    voice_id: str,
-    name: str,
-    description: str,
-    accent: VoiceAccent,
-    language: LocalizeTargetLanguage,
-    original_speaker_gender: Gender,
-    dialect: typing.Optional[LocalizeDialect] = None,
-    request_options: typing.Optional[RequestOptions] = None,
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice to localize."),
+    ],
+    name: typing.Annotated[
+        str,
+        Field(description="The name of the new localized voice."),
+    ],
+    description: typing.Annotated[
+        str,
+        Field(description="The description of the new localized voice."),
+    ],
+    accent: typing.Annotated[
+        VoiceAccent,
+        Field(description="Catalog accent id from GET /accents (for example `mexican` or `parisian`). Display names are rejected on this API version."),
+    ],
+    language: typing.Annotated[
+        LocalizeTargetLanguage,
+        Field(description="Target language to localize the voice to. Distinct from TTS SupportedLanguage."),
+    ],
+    original_speaker_gender: typing.Annotated[
+        Gender,
+        Field(description="Gender of the speaker in the source voice."),
+    ],
+    dialect: typing.Annotated[
+        typing.Optional[LocalizeDialect],
+        Field(description="Dialect allowlist for English, Spanish, Portuguese, and French."),
+    ] = None,
 ) -> VoiceMetadata:
-    return _client_for_request_options(request_options).voices.localize(
+    return _api_client().voices.localize(
         voice_id=voice_id,
         name=name,
         description=description,
@@ -522,47 +508,38 @@ def localize_voice(
         language=language,
         original_speaker_gender=original_speaker_gender,
         dialect=dialect,
-        **sdk_kwargs_from_request_options(request_options),
     )
 
 
 @mcp.tool(
     annotations=_destructive_tool("Delete voice"),
     description="""
-        Parameters
-        ----------
-        voice_id : str
-            The ID of the voice to delete.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        Permanently delete a voice you own.
         """)
 def delete_voice(
-    voice_id: str,
-    request_options: typing.Optional[RequestOptions] = None
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice to delete."),
+    ],
 ) -> DeleteVoiceResult:
-    _client_for_request_options(request_options).voices.delete(
-        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    _api_client().voices.delete(
+        id=voice_id
     )
     return DeleteVoiceResult(success=True)
 
 @mcp.tool(
     annotations=_read_only_tool("Get voice"),
     description="""
-        Parameters
-        ----------
-        voice_id : str
-            The ID of the voice to get.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        Get a voice by ID.
         """)
 def get_voice(
-        voice_id: str,
-        request_options: typing.Optional[RequestOptions] = None
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice to get."),
+    ],
 ) -> Voice:
-    voice = _client_for_request_options(request_options).voices.get(
-        id=voice_id, **sdk_kwargs_from_request_options(request_options)
+    voice = _api_client().voices.get(
+        id=voice_id
     )
     return coerce_null_voice_locales(voice)
 
@@ -570,30 +547,26 @@ def get_voice(
 @mcp.tool(
     annotations=_destructive_tool("Update voice"),
     description="""
-        Parameters
-        ----------
-        id : VoiceId
-
-        name : str
-            The name of the voice.
-
-        description : str
-            The description of the voice.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        Update a voice's name and description.
         """)
 def update_voice(
-        voice_id: str,
-        name: str,
-        description: str,
-        request_options: typing.Optional[RequestOptions] = None
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice to update."),
+    ],
+    name: typing.Annotated[
+        str,
+        Field(description="The name of the voice."),
+    ],
+    description: typing.Annotated[
+        str,
+        Field(description="The description of the voice."),
+    ],
 ) -> Voice:
-    voice = _client_for_request_options(request_options).voices.update(
+    voice = _api_client().voices.update(
         id=voice_id,
         name=name,
         description=description,
-        **sdk_kwargs_from_request_options(request_options),
     )
     return coerce_null_voice_locales(voice)
 
@@ -602,22 +575,14 @@ def update_voice(
     annotations=_read_only_tool("List accents"),
     description="""
         List the official accent catalog from GET /accents.
-
+        
         Each entry includes the canonical accent `id` plus display metadata
         (`name`, `language`, `locale`, `is_locale_default`, `is_localizable`).
         Pass `id` to `clone_voice`, `add_voice_accents`, `delete_voice_accent`,
         and `localize_voice`. Display names are rejected on this API version.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
-def list_accents(
-    request_options: typing.Optional[RequestOptions] = None,
-) -> ListAccentsResponse:
-    return _client_for_request_options(request_options).voices.list_accents(
-        **sdk_kwargs_from_request_options(request_options),
+def list_accents() -> ListAccentsResponse:
+    return _api_client().voices.list_accents(
     )
 
 
@@ -625,28 +590,22 @@ def list_accents(
     annotations=_read_only_tool("List models"),
     description="""
         List callable Sonic (TTS) and Ink (STT) model ids from GET /models.
-
+        
         Each row has `id` and `capability` (`tts` or `stt`). TTS rows include
         `supported_languages`, the sorted synthesis language codes that model accepts.
         STT rows include `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
         `model_id` or to `speech_to_text` as `model`. Omit model on those tools
         when you want the API default. Preview ids (`sonic-preview`, `ink-preview`)
         are included when callable.
-
-        Parameters
-        ----------
-        capability : typing.Optional[Literal["tts", "stt"]]
-            Filter to TTS or STT. Omit to return both.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def list_models(
-    capability: typing.Optional[ModelCapability] = None,
-    request_options: typing.Optional[RequestOptions] = None,
+    capability: typing.Annotated[
+        typing.Optional[ModelCapability],
+        Field(description="Filter to TTS or STT. Omit to return both."),
+    ] = None,
 ) -> dict[str, typing.Any]:
     return extra_api.list_models(
-        _client_for_request_options(request_options),
+        _api_client(),
         capability=capability,
     )
 
@@ -655,22 +614,15 @@ def list_models(
     annotations=_read_only_tool("List agent models"),
     description="""
         List LLMs available for Managed Agents from GET /v1/agents/models.
-
+        
         Use these `id` values for an agent's `model.id` (and explicit fallback
         model ids). Do not invent model ids. Each row includes provider,
         display name, latency, and token pricing. Returns the full catalog
         (pagination is followed server-side).
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
-def list_agent_models(
-    request_options: typing.Optional[RequestOptions] = None,
-) -> dict[str, typing.Any]:
+def list_agent_models() -> dict[str, typing.Any]:
     return extra_api.list_agent_models(
-        _client_for_request_options(request_options),
+        _api_client(),
     )
 
 
@@ -680,28 +632,20 @@ def list_agent_models(
         Add accents to an instant voice clone you own so a single voice_id can speak
         multiple accents natively. A voice can support up to 10 accents in total,
         including native.
-
-        Parameters
-        ----------
-        voice_id : str
-            The ID of the voice.
-
-        accents : list[VoiceAccent]
-            Catalog accent ids from GET /accents (for example `british` or `parisian`).
-            Display names are rejected on this API version.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def add_voice_accents(
-    voice_id: str,
-    accents: list[VoiceAccent],
-    request_options: typing.Optional[RequestOptions] = None,
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice."),
+    ],
+    accents: typing.Annotated[
+        list[AttachVoiceAccent],
+        Field(description="Catalog accent ids from GET /accents (for example `british` or `parisian`). Display names are rejected on this API version."),
+    ],
 ) -> Voice:
-    voice = _client_for_request_options(request_options).voices.add_accents(
+    voice = _api_client().voices.add_accents(
         id=voice_id,
         accents=accents,
-        **sdk_kwargs_from_request_options(request_options),
     )
     return coerce_null_voice_locales(voice)
 
@@ -710,28 +654,20 @@ def add_voice_accents(
     annotations=_destructive_tool("Delete voice accent"),
     description="""
         Remove an accent an instant voice clone supports.
-
-        Parameters
-        ----------
-        voice_id : str
-            The ID of the voice.
-
-        accent : VoiceAccent
-            Catalog accent id from GET /accents (for example `british` or `parisian`).
-            Display names are rejected on this API version.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def delete_voice_accent(
-    voice_id: str,
-    accent: VoiceAccent,
-    request_options: typing.Optional[RequestOptions] = None,
+    voice_id: typing.Annotated[
+        str,
+        Field(description="The ID of the voice."),
+    ],
+    accent: typing.Annotated[
+        VoiceAccent,
+        Field(description="Catalog accent id from GET /accents (for example `british` or `parisian`). Display names are rejected on this API version."),
+    ],
 ) -> Voice:
-    voice = _client_for_request_options(request_options).voices.delete_accent(
+    voice = _api_client().voices.delete_accent(
         accent,
         id=voice_id,
-        **sdk_kwargs_from_request_options(request_options),
     )
     return coerce_null_voice_locales(voice)
 
@@ -740,59 +676,52 @@ def delete_voice_accent(
     annotations=_additive_tool("Clone voice"),
     description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
-
+        
         Similarity mode clones are more similar to the source clip, but may reproduce background noise. For these, use an audio clip about 5 seconds long.
-
+        
         Stability mode clones are more stable, but may not sound as similar to the source clip. For these, use an audio clip 10-20 seconds long.
-
+        
         Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
         from `text_to_speech` or `download_file`. `file_path` is an absolute path on
         this MCP server (local `uvx`, or a path returned in this same session). A path
         on the agent machine is not visible to hosted MCP and returns a validation
         error — use `file_id` instead.
-
-        Parameters
-        ----------
-        name : str
-            The name of the voice.
-
-        language : SupportedLanguage
-            The language of the voice.
-
-        mode : CloneMode
-            Tradeoff between similarity and stability. Similarity clones sound more like the source clip, but may reproduce background noise. Stability clones always sound like a studio recording, but may not sound as similar to the source clip.
-
-        file_path : typing.Optional[str]
-            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
-
-        file_id : typing.Optional[str]
-            Cartesia cloud file id. The server downloads it.
-
-        description : typing.Optional[str]
-            A description for the voice.
-
-        accent : typing.Optional[VoiceAccent]
-            Catalog accent id from GET /accents (for example `southern-us` or `parisian`).
-            Display names are rejected on this API version. Omit to leave unset.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
         """)
 def clone_voice(
-    name: str,
-    language: SupportedLanguage,
-    mode: str,
-    file_path: typing.Optional[str] = None,
-    file_id: typing.Optional[str] = None,
-    description: typing.Optional[str] = None,
-    accent: typing.Optional[VoiceAccent] = None,
-    request_options: typing.Optional[RequestOptions] = None,
+    name: typing.Annotated[
+        str,
+        Field(description="The name of the voice."),
+    ],
+    language: typing.Annotated[
+        SupportedLanguage,
+        Field(description="The language of the voice."),
+    ],
+    mode: typing.Annotated[
+        str,
+        Field(description="Tradeoff between similarity and stability. Similarity clones sound more like the source clip, but may reproduce background noise. Stability clones always sound like a studio recording, but may not sound as similar to the source clip."),
+    ],
+    file_path: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+    ] = None,
+    file_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cartesia cloud file id. The server downloads it."),
+    ] = None,
+    description: typing.Annotated[
+        typing.Optional[str],
+        Field(description="A description for the voice."),
+    ] = None,
+    accent: typing.Annotated[
+        typing.Optional[VoiceAccent],
+        Field(description="Catalog accent id from GET /accents (for example `southern-us` or `parisian`). Display names are rejected on this API version. Omit to leave unset."),
+    ] = None,
 ) -> VoiceMetadata:
-    source = _resolve_audio_input(file_path, file_id, request_options=request_options)
-    clone_kwargs = sdk_kwargs_from_request_options(request_options)
+    source = _resolve_audio_input(file_path, file_id)
+    clone_kwargs: dict[str, typing.Any] = {}
     _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(source, "rb") as clip:
-        return _client_for_request_options(request_options).voices.clone(
+        return _api_client().voices.clone(
             clip=clip,
             name=name,
             language=language,
@@ -804,64 +733,52 @@ def clone_voice(
 @mcp.tool(
     annotations=_read_only_tool("List voices"),
     description="""
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-            The number of Voices to return per page, ranging between 1 and 100.
-
-        starting_after : typing.Optional[str]
-            A cursor to use in pagination. `starting_after` is a Voice ID that defines your
-            place in the list. For example, if you make a /voices request and receive 100
-            objects, ending with `voice_abc123`, your subsequent call can include
-            `starting_after=voice_abc123` to fetch the next page of the list.
-
-        ending_before : typing.Optional[str]
-            A cursor to use in pagination. `ending_before` is a Voice ID that defines your
-            place in the list. For example, if you make a /voices request and receive 100
-            objects, starting with `voice_abc123`, your subsequent call can include
-            `ending_before=voice_abc123` to fetch the previous page of the list.
-
-        is_owner : typing.Optional[bool]
-            Whether to only return voices owned by the current user.
-
-        is_starred : typing.Optional[bool]
-            Whether to only return starred voices.
-
-        gender : typing.Optional[GenderPresentation]
-            The gender presentation of the voices to return.
-
-        language : typing.Optional[str]
-            Filter voices by language or locale, such as `en`, `it`, or `en_GB`.
-            A locale returns accents for that region; a language alone returns all accents
-            for that language. Both `-` and `_` separators are accepted.
-
-        q : typing.Optional[str]
-            Search voices by name, description, or voice ID.
-
-        expand : typing.Optional[typing.Sequence[str]]
-            Additional fields to include in the response, such as `preview_file_url`.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration (timeout, headers, query params, extra body fields, max_retries).
+        List voices available to you (your own and Cartesia library voices), with search, filters, and cursor pagination.
         """)
 def list_voices(
-    limit: typing.Optional[int] = 10,
-    starting_after: typing.Optional[str] = None,
-    ending_before: typing.Optional[str] = None,
-    is_owner: typing.Optional[bool] = None,
-    is_starred: typing.Optional[bool] = None,
-    gender: typing.Optional[GenderPresentation] = None,
-    language: typing.Optional[str] = None,
-    q: typing.Optional[str] = None,
-    expand: typing.Optional[typing.Sequence[str]] = None,
-    request_options: typing.Optional[RequestOptions] = None,
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(description="The number of Voices to return per page, ranging between 1 and 100."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="A cursor to use in pagination. `starting_after` is a Voice ID that defines your place in the list. For example, if you make a /voices request and receive 100 objects, ending with `voice_abc123`, your subsequent call can include `starting_after=voice_abc123` to fetch the next page of the list."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="A cursor to use in pagination. `ending_before` is a Voice ID that defines your place in the list. For example, if you make a /voices request and receive 100 objects, starting with `voice_abc123`, your subsequent call can include `ending_before=voice_abc123` to fetch the previous page of the list."),
+    ] = None,
+    is_owner: typing.Annotated[
+        typing.Optional[bool],
+        Field(description="Whether to only return voices owned by the current user."),
+    ] = None,
+    is_starred: typing.Annotated[
+        typing.Optional[bool],
+        Field(description="Whether to only return starred voices."),
+    ] = None,
+    gender: typing.Annotated[
+        typing.Optional[GenderPresentation],
+        Field(description="The gender presentation of the voices to return."),
+    ] = None,
+    language: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Filter voices by language or locale, such as `en`, `it`, or `en_GB`. A locale returns accents for that region; a language alone returns all accents for that language. Both `-` and `_` separators are accepted."),
+    ] = None,
+    q: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Search voices by name, description, or voice ID."),
+    ] = None,
+    expand: typing.Annotated[
+        typing.Optional[typing.Sequence[typing.Literal["preview_file_url"]]],
+        Field(description="Additional fields to include in the response, such as `preview_file_url`."),
+    ] = None,
 ) -> ListVoicesResult:
     extra_query: dict[str, typing.Any] = {}
     if language is not None:
         extra_query["language"] = language
     if is_starred is not None:
         extra_query["is_starred"] = is_starred
-    pager = _client_for_request_options(request_options).voices.list(
+    pager = _api_client().voices.list(
         limit=limit,
         gender=gender,
         is_owner=is_owner,
@@ -869,7 +786,7 @@ def list_voices(
         ending_before=ending_before,
         q=q,
         expand=list(expand) if expand else omit,
-        **sdk_kwargs_from_request_options(request_options, extra_query=extra_query),
+        extra_query=extra_query or None,
     )
     return voice_list_page_to_result(pager)
 
@@ -893,13 +810,11 @@ def _speech_to_text_batch(
     encoding: typing.Optional[STTEncoding],
     sample_rate: typing.Optional[int],
     timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]],
-    request_options: typing.Optional[RequestOptions],
 ) -> STTTranscribeResponse:
     with open(file_path, "rb") as audio_file:
         kwargs: dict[str, typing.Any] = {
             "file": audio_file,
             "model": model,
-            **sdk_kwargs_from_request_options(request_options),
         }
         if language is not None:
             kwargs["language"] = language
@@ -909,7 +824,7 @@ def _speech_to_text_batch(
             kwargs["sample_rate"] = sample_rate
         if timestamp_granularities is not None:
             kwargs["timestamp_granularities"] = list(timestamp_granularities)
-        return _client_for_request_options(request_options).stt.transcribe(**kwargs)
+        return _api_client().stt.transcribe(**kwargs)
 
 
 def _speech_to_text_stream_auto_finalize(
@@ -1047,70 +962,62 @@ def _speech_to_text_stream(
     annotations=_read_only_tool("Transcribe audio"),
     description="""
         Transcribe a pre-recorded audio file to text.
-
+        
         **Default (`mode="batch"`):** upload the file via batch STT (`POST /stt`).
         Best for typical MCP file-on-disk tasks (mp3, flac, wav, and other containers).
         Default model: `ink-whisper`.
-
+        
         **Streaming (`mode="stream"`):** send mono PCM over STT WebSocket (`/stt/websocket`).
         Use for mono PCM WAV (for example TTS output) or raw PCM with `encoding` and
         `sample_rate`. Default model: `ink-2`.
-
+        
         **Pricing:** See [STT pricing](https://docs.cartesia.ai/pricing#speech-to-text).
-
+        
         Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
         from `text_to_speech` or `download_file`. Do not pass a path from the agent
         machine — `file_path` is an absolute path on this MCP server and must exist.
         A missing path on hosted MCP returns a validation error telling you to use
         `file_id`.
-
-        Parameters
-        ----------
-        file_path : typing.Optional[str]
-            Absolute path on this MCP server. Must exist; hosted MCP rejects client laptop paths.
-
-        mode : str
-            `batch` (default) or `stream`.
-
-        model : typing.Optional[str]
-            STT model ID. Defaults to `ink-whisper` for batch and `ink-2` for
-            stream. Call `list_models` with `capability="stt"` for valid ids.
-
-        language : typing.Optional[str]
-            ISO-639-1 language code (defaults to `en` for stream; batch uses API default).
-
-        encoding : typing.Optional[SttEncoding]
-            Required for raw PCM without a container header (both modes).
-
-        sample_rate : typing.Optional[int]
-            Sample rate in Hz when `encoding` is set.
-
-        timestamp_granularities : typing.Optional[typing.Sequence[TimestampGranularity]]
-            Pass `["word"]` for word-level timestamps when supported.
-
-        file_id : typing.Optional[str]
-            Cartesia cloud file id. The server downloads it. Use this from hosted clients.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration for batch mode (timeout, headers, query params, extra body fields, max_retries). Ignored in stream mode.
         """)
 def speech_to_text(
-    file_path: typing.Optional[str] = None,
-    mode: SttMode = "batch",
-    model: typing.Optional[str] = None,
-    language: typing.Optional[str] = None,
-    encoding: typing.Optional[STTEncoding] = None,
-    sample_rate: typing.Optional[int] = None,
-    timestamp_granularities: typing.Optional[typing.Sequence[typing.Literal["word"]]] = None,
-    request_options: typing.Optional[RequestOptions] = None,
-    file_id: typing.Optional[str] = None,
+    file_path: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+    ] = None,
+    mode: typing.Annotated[
+        SttMode,
+        Field(description="`batch` (default) or `stream`."),
+    ] = "batch",
+    model: typing.Annotated[
+        typing.Optional[str],
+        Field(description="STT model ID. Defaults to `ink-whisper` for batch and `ink-2` for stream. Call `list_models` with `capability=\"stt\"` for valid ids."),
+    ] = None,
+    language: typing.Annotated[
+        typing.Optional[str],
+        Field(description="ISO-639-1 language code (defaults to `en` for stream; batch uses API default)."),
+    ] = None,
+    encoding: typing.Annotated[
+        typing.Optional[STTEncoding],
+        Field(description="Required for raw PCM without a container header (both modes)."),
+    ] = None,
+    sample_rate: typing.Annotated[
+        typing.Optional[int],
+        Field(description="Sample rate in Hz when `encoding` is set."),
+    ] = None,
+    timestamp_granularities: typing.Annotated[
+        typing.Optional[typing.Sequence[typing.Literal["word"]]],
+        Field(description="Pass `[\"word\"]` for word-level timestamps when supported."),
+    ] = None,
+    file_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cartesia cloud file id. The server downloads it. Use this from hosted clients."),
+    ] = None,
 ) -> STTTranscribeResponse:
     source = _resolve_audio_input(
-        file_path, file_id, request_options=request_options if mode == "batch" else None
+        file_path, file_id
     )
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
-        _ = request_options
         return _speech_to_text_stream(
             file_path=source,
             model=stt_model,
@@ -1126,7 +1033,6 @@ def speech_to_text(
         encoding=encoding,
         sample_rate=sample_rate,
         timestamp_granularities=timestamp_granularities,
-        request_options=request_options,
     )
 
 
@@ -1137,21 +1043,19 @@ def speech_to_text(
         hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
         server host (for local `uvx` or server-side `speech_to_text` in the same session).
         On hosted MCP those local copies are under a temp directory and purged after a TTL.
-
+        
         Use the `file_id` from a prior `text_to_speech` call (`save=true`, the default)
         or from playground TTS history.
-
-        Parameters
-        ----------
-        file_id : str
-            Cloud file ID (e.g. from `text_to_speech`).
-
-        format : typing.Optional[DownloadFormat]
-            Pass `playback` to wrap raw PCM as WAV in the download link and local file.
         """)
 def download_file(
-    file_id: str,
-    format: typing.Optional[DownloadFormat] = None,
+    file_id: typing.Annotated[
+        str,
+        Field(description="Cloud file ID (e.g. from `text_to_speech`)."),
+    ],
+    format: typing.Annotated[
+        typing.Optional[DownloadFormat],
+        Field(description="Pass `playback` to wrap raw PCM as WAV in the download link and local file."),
+    ] = None,
 ) -> DownloadedFileResult:
     return _deliver_cloud_file(file_id, format=format)
 
@@ -1160,33 +1064,32 @@ def download_file(
     annotations=_read_only_tool("Get credit usage"),
     description="""
         Returns credit usage over time (`GET /usage/credits`).
-
+        
         Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
         `interval` buckets results by `day`, `week`, or `month`.
-
-        Parameters
-        ----------
-        start_ts : typing.Optional[str]
-
-        end_ts : typing.Optional[str]
-
-        interval : typing.Optional[UsageInterval]
-
-        api_key_id : typing.Optional[str]
-            Limit usage to a specific API key ID.
-
-        group_by : typing.Optional[UsageCreditsGroupBy]
-            Break down usage by capability, model, voice, or API key. When
-            `interval` is set it must be `day`. Grouped responses use
-            `{ group_by, data: [{ id, label?, buckets }] }`.
         """)
 def get_credit_usage(
-    start_ts: typing.Optional[str] = None,
-    end_ts: typing.Optional[str] = None,
-    interval: typing.Optional[UsageInterval] = None,
-    api_key_id: typing.Optional[str] = None,
-    group_by: typing.Optional[UsageCreditsGroupBy] = None,
+    start_ts: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Start of the usage window (ISO 8601 timestamp)."),
+    ] = None,
+    end_ts: typing.Annotated[
+        typing.Optional[str],
+        Field(description="End of the usage window (ISO 8601 timestamp)."),
+    ] = None,
+    interval: typing.Annotated[
+        typing.Optional[UsageInterval],
+        Field(description="Bucket size for the returned usage time series."),
+    ] = None,
+    api_key_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Limit usage to a specific API key ID."),
+    ] = None,
+    group_by: typing.Annotated[
+        typing.Optional[UsageCreditsGroupBy],
+        Field(description="Break down usage by capability, model, voice, or API key. When `interval` is set it must be `day`. Grouped responses use `{ group_by, data: [{ id, label?, buckets }] }`."),
+    ] = None,
 ) -> dict[str, typing.Any]:
     return extra_api.get_usage_credits(
         _require_admin_client(),
@@ -1202,22 +1105,20 @@ def get_credit_usage(
     annotations=_read_only_tool("List pronunciation dictionaries"),
     description="""
         List pronunciation dictionaries for the authenticated user.
-
-        Parameters
-        ----------
-        limit : typing.Optional[int]
-            Number of dictionaries per page (1–100).
-
-        starting_after : typing.Optional[str]
-            Cursor: dictionary ID to start after.
-
-        ending_before : typing.Optional[str]
-            Cursor: dictionary ID to end before.
         """)
 def list_pronunciation_dicts(
-    limit: typing.Optional[int] = 10,
-    starting_after: typing.Optional[str] = None,
-    ending_before: typing.Optional[str] = None,
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(description="Number of dictionaries per page (1–100)."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: dictionary ID to start after."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: dictionary ID to end before."),
+    ] = None,
 ) -> ListPronunciationDictsResult:
     page = client.pronunciation_dicts.list(
         limit=limit,
@@ -1244,19 +1145,16 @@ def _pronunciation_dict_items_for_sdk(
     annotations=_additive_tool("Create pronunciation dictionary"),
     description="""
         Create a pronunciation dictionary.
-
-        Parameters
-        ----------
-        name : str
-
-        items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
-            Mappings of `text` to `pronunciation` (IPA or sounds-like).
-            Optional `case_sensitive` (default false): when false, match every
-            capitalization of `text` on Sonic 3.6.
         """)
 def create_pronunciation_dict(
-    name: str,
-    items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
+    name: typing.Annotated[
+        str,
+        Field(description="Name of the pronunciation dictionary."),
+    ],
+    items: typing.Annotated[
+        typing.Optional[typing.Sequence[PronunciationDictItemParams]],
+        Field(description="Mappings of `text` to `pronunciation` (IPA or sounds-like). Optional `case_sensitive` (default false): when false, match every capitalization of `text` on Sonic 3.6."),
+    ] = None,
 ) -> dict[str, typing.Any]:
     return client.pronunciation_dicts.create(
         name=name,
@@ -1267,12 +1165,14 @@ def create_pronunciation_dict(
 @mcp.tool(
     annotations=_read_only_tool("Get pronunciation dictionary"),
     description="""
-        Parameters
-        ----------
-        dict_id : str
-            Pronunciation dictionary ID.
+        Get a pronunciation dictionary and its items by ID.
         """)
-def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
+def get_pronunciation_dict(
+    dict_id: typing.Annotated[
+        str,
+        Field(description="Pronunciation dictionary ID."),
+    ],
+) -> dict[str, typing.Any]:
     return client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
 
 
@@ -1280,20 +1180,20 @@ def get_pronunciation_dict(dict_id: str) -> dict[str, typing.Any]:
     annotations=_destructive_tool("Update pronunciation dictionary"),
     description="""
         Update a pronunciation dictionary.
-
-        Parameters
-        ----------
-        dict_id : str
-
-        name : typing.Optional[str]
-
-        items : typing.Optional[typing.Sequence[PronunciationDictItemParams]]
-            Optional `case_sensitive` (default false) on each item.
         """)
 def update_pronunciation_dict(
-    dict_id: str,
-    name: typing.Optional[str] = None,
-    items: typing.Optional[typing.Sequence[PronunciationDictItemParams]] = None,
+    dict_id: typing.Annotated[
+        str,
+        Field(description="The ID of the pronunciation dictionary to update."),
+    ],
+    name: typing.Annotated[
+        typing.Optional[str],
+        Field(description="New name for the pronunciation dictionary."),
+    ] = None,
+    items: typing.Annotated[
+        typing.Optional[typing.Sequence[PronunciationDictItemParams]],
+        Field(description="Optional `case_sensitive` (default false) on each item."),
+    ] = None,
 ) -> dict[str, typing.Any]:
     if name is None and items is None:
         raise ValueError("At least one of `name` or `items` must be provided.")
@@ -1308,12 +1208,14 @@ def update_pronunciation_dict(
 @mcp.tool(
     annotations=_destructive_tool("Delete pronunciation dictionary"),
     description="""
-        Parameters
-        ----------
-        dict_id : str
-            Pronunciation dictionary ID to delete.
+        Permanently delete a pronunciation dictionary.
         """)
-def delete_pronunciation_dict(dict_id: str) -> DeletePronunciationDictResult:
+def delete_pronunciation_dict(
+    dict_id: typing.Annotated[
+        str,
+        Field(description="Pronunciation dictionary ID to delete."),
+    ],
+) -> DeletePronunciationDictResult:
     client.pronunciation_dicts.delete(dict_id)
     return DeletePronunciationDictResult(success=True)
 

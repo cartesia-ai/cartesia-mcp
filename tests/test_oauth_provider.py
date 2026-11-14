@@ -3,11 +3,6 @@
 import asyncio
 
 import pytest
-from cartesia_mcp.oauth_provider import (
-    CartesiaOAuthProvider,
-    _redirect_uri_is_allowed,
-)
-from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 from mcp.server.auth.provider import (
     AuthorizationParams,
     AuthorizeError,
@@ -15,6 +10,12 @@ from mcp.server.auth.provider import (
 )
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
+
+from cartesia_mcp.oauth_provider import (
+    CartesiaOAuthProvider,
+    _redirect_uri_is_allowed,
+)
+from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
 
 
 def _reset_store() -> None:

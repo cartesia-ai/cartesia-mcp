@@ -1,0 +1,49 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cartesia-ai/cartesia-mcp",
+  "title": "Cartesia",
+  "description": "Cartesia voice AI: text-to-speech, speech-to-text, voice cloning, and voice management.",
+  "websiteUrl": "https://docs.cartesia.ai/tools/ai/mcp",
+  "repository": {
+    "url": "https://github.com/cartesia-ai/cartesia-mcp",
+    "source": "github"
+  },
+  "version": "0.31.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "cartesia-mcp",
+      "version": "0.31.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "CARTESIA_API_KEY",
+          "description": "Cartesia API key from https://play.cartesia.ai/keys",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "CARTESIA_ADMIN_API_KEY",
+          "description": "Optional admin API key for credit usage tools",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "OUTPUT_DIRECTORY",
+          "description": "Directory where generated and downloaded audio files are written",
+          "isRequired": false
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.cartesia.ai/mcp"
+    }
+  ]
+}

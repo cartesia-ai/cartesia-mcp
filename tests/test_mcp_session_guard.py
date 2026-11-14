@@ -5,6 +5,8 @@ import json
 import logging
 import time
 
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -21,8 +23,6 @@ from cartesia_mcp.mcp_session_guard import (
     configure_hosted_session_manager,
     report_tool_call,
 )
-from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
-from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 
 class _FakeServer:

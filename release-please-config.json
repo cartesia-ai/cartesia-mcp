@@ -5,21 +5,61 @@
       "release-type": "python",
       "package-name": "cartesia-mcp",
       "extra-files": [
-        "cartesia_mcp/__init__.py"
+        "cartesia_mcp/__init__.py",
+        {
+          "type": "json",
+          "path": "server.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "server.json",
+          "jsonpath": "$.packages[0].version"
+        }
       ]
     }
   },
   "include-v-in-tag": true,
   "pull-request-title-pattern": "release: ${version}",
   "changelog-sections": [
-    { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Bug Fixes" },
-    { "type": "perf", "section": "Performance Improvements" },
-    { "type": "revert", "section": "Reverts" },
-    { "type": "docs", "section": "Documentation" },
-    { "type": "refactor", "section": "Refactors" },
-    { "type": "chore", "section": "Chores", "hidden": true },
-    { "type": "ci", "section": "Continuous Integration", "hidden": true },
-    { "type": "test", "section": "Tests", "hidden": true }
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes"
+    },
+    {
+      "type": "perf",
+      "section": "Performance Improvements"
+    },
+    {
+      "type": "revert",
+      "section": "Reverts"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation"
+    },
+    {
+      "type": "refactor",
+      "section": "Refactors"
+    },
+    {
+      "type": "chore",
+      "section": "Chores",
+      "hidden": true
+    },
+    {
+      "type": "ci",
+      "section": "Continuous Integration",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    }
   ]
 }
