@@ -12,7 +12,7 @@ from __future__ import annotations
 import typing
 
 if typing.TYPE_CHECKING:
-    from cartesia.pagination import SyncCursorIDPage
+    pass
 
 
 def _merge_extra_body(

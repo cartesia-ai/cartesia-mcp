@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
-from mcp.types import Icon, Tool as MCPTool, ToolAnnotations
+from mcp.types import Icon, ToolAnnotations
+from mcp.types import Tool as MCPTool
 
 from cartesia_mcp.offload_sync import offload_sync_callable
 from cartesia_mcp.tool_visibility import is_tool_visible

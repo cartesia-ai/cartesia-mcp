@@ -9,7 +9,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from mcp.server.auth.provider import AuthorizationCode, AuthorizationParams, RefreshToken
+from mcp.server.auth.provider import (
+    AuthorizationCode,
+    AuthorizationParams,
+    RefreshToken,
+)
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import AnyUrl
 

@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
-import cartesia_mcp.server as server
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
+
+import cartesia_mcp.server as server
 
 
 def test_stt_words_from_timestamps_flattens_word_timestamps() -> None:

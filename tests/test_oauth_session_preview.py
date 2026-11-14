@@ -1,5 +1,7 @@
 """Tests for internal OAuth session preview used by Connect UI."""
 
+from mcp.server.auth.provider import AuthorizationParams
+from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 from starlette.applications import Starlette
 from starlette.routing import Route
@@ -7,8 +9,6 @@ from starlette.testclient import TestClient
 
 from cartesia_mcp.hosted import oauth_internal_session
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
-from mcp.server.auth.provider import AuthorizationParams
-from mcp.shared.auth import OAuthClientInformationFull
 
 
 def _reset_store() -> None:
