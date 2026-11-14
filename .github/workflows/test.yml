@@ -22,7 +22,7 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync --dev --locked
+        run: uv sync --dev
 
       - name: Ruff
         run: uv run ruff check .
