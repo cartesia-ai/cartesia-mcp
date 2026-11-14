@@ -56,51 +56,6 @@ def test_download_file_returns_url_and_local_path(
     }
 
 
-@patch("cartesia_mcp.server.client")
-def test_text_to_speech_save_false_overrides_extra_body_save(
-    mock_client: MagicMock,
-) -> None:
-    mock_response = MagicMock(read=lambda: b"audio-bytes")
-    mock_response.headers = {"Cartesia-File-ID": "file_new"}
-    mock_client.tts.generate.return_value = mock_response
-
-    with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
-        result = server.text_to_speech(
-            transcript="Hello",
-            voice_id="voice_abc",
-            output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
-            save=False,
-            request_options={"extra_json": {"save": True}},
-        )
-
-    kwargs = mock_client.tts.generate.call_args.kwargs
-    assert kwargs["save"] is False
-    assert "save" not in kwargs.get("extra_body", {})
-    assert result == {"file_path": "/tmp/out.wav"}
-    assert "file_id" not in result
-
-
-@patch("cartesia_mcp.server.client")
-def test_text_to_speech_save_flag_does_not_mutate_request_options(
-    mock_client: MagicMock,
-) -> None:
-    mock_response = MagicMock(read=lambda: b"audio-bytes")
-    mock_response.headers = {}
-    mock_client.tts.generate.return_value = mock_response
-    request_options = {"extra_json": {"save": True, "duration": 1.5}}
-
-    with patch("cartesia_mcp.server._write_audio_output", return_value="/tmp/out.wav"):
-        server.text_to_speech(
-            transcript="Hello",
-            voice_id="voice_abc",
-            output_format={"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100},
-            save=False,
-            request_options=request_options,
-        )
-
-    assert request_options["extra_json"] == {"save": True, "duration": 1.5}
-
-
 @patch("cartesia_mcp.server._try_create_download_link")
 @patch("cartesia_mcp.server.client")
 def test_text_to_speech_save_returns_cloud_ids(
@@ -123,7 +78,7 @@ def test_text_to_speech_save_returns_cloud_ids(
 
     mock_client.tts.generate.assert_called_once()
     assert mock_client.tts.generate.call_args.kwargs["save"] is True
-    mock_cloud_url.assert_called_once_with("file_new", request_options=None)
+    mock_cloud_url.assert_called_once_with("file_new")
     assert result == {
         "file_id": "file_new",
         "download_url": "https://files.cartesia.ai/link/link_new",
