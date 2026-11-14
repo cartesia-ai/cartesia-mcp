@@ -5,6 +5,8 @@ HTTP helpers for Cartesia endpoints not generated on the Python SDK.
 (`CARTESIA_ADMIN_API_KEY`); standard API keys are rejected on `/usage/*`.
 
 Files helpers call the Cartesia files service (override with `CARTESIA_FILES_BASE_URL`).
+`get_account_notice` calls the Cartesia product backend (override with
+`CARTESIA_BACKEND_BASE_URL`).
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ DownloadFormat = typing.Literal["playback"]
 DEFAULT_FILES_BASE_URL = "https://files.cartesia.ai"
 DEFAULT_DOWNLOAD_LINK_LIFETIME_HOURS = 24
 CARTESIA_FILE_ID_HEADER = "cartesia-file-id"
-CARTESIA_NOTICE_HEADER = "cartesia-notice"
+DEFAULT_BACKEND_BASE_URL = "https://backend.cartesia.ai"
 
 
 def files_base_url() -> str:
@@ -43,13 +45,24 @@ def file_id_from_response_headers(headers: typing.Mapping[str, str]) -> typing.O
     return None
 
 
-def notice_from_response_headers(headers: typing.Mapping[str, str]) -> typing.Optional[str]:
-    """A message from Cartesia about the account, e.g. free credits running low."""
-    for key, value in headers.items():
-        if key.lower() == CARTESIA_NOTICE_HEADER:
-            stripped = value.strip()
-            return stripped or None
-    return None
+def backend_base_url() -> str:
+    return env_or_none("CARTESIA_BACKEND_BASE_URL", os.environ) or DEFAULT_BACKEND_BASE_URL
+
+
+def get_account_notice(client: Cartesia) -> typing.Optional[str]:
+    """GET /notices: a message from Cartesia for the person behind this API key, or None.
+
+    The backend decides who gets one, what it says and how often, so the copy can
+    change without an MCP release.
+    """
+    body = client.with_options(timeout=3.0, max_retries=0).get(
+        f"{backend_base_url().rstrip('/')}/notices",
+        cast_to=dict[str, typing.Any],
+    )
+    notice = body.get("notice") if isinstance(body, dict) else None
+    if not isinstance(notice, str):
+        return None
+    return notice.strip() or None
 
 
 def with_download_format(url: str, format: typing.Optional[DownloadFormat]) -> str:

@@ -3,8 +3,10 @@ Cartesia MCP Server
 """
 
 import argparse
+import hashlib
 import os
 import sys
+import time
 import typing
 from pathlib import Path
 from dotenv import load_dotenv
@@ -54,7 +56,11 @@ from cartesia_mcp.extra_api import (
 )
 from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
 from cartesia_mcp.clients import admin_client, client, require_admin_client
-from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
+from cartesia_mcp.credentials import (
+    configure_hosted_mode,
+    configure_stdio_credentials,
+    resolve_api_credential,
+)
 from cartesia_mcp.hosted import (
     configure_hosted_oauth_store,
     hosted_enabled,
@@ -265,6 +271,30 @@ def _try_create_download_link(
         return None
 
 
+# Asked at most this often per API key; the backend decides how often anyone gets one.
+NOTICE_CHECK_SECONDS = 15 * 60
+_notice_checked_at: dict[str, float] = {}
+
+
+def _account_notice() -> typing.Optional[str]:
+    """A message from Cartesia for this user (GET /notices), checked now and then; None on any failure."""
+    try:
+        key = hashlib.sha256(resolve_api_credential().encode()).hexdigest()
+    except Exception:
+        return None
+    now = time.monotonic()
+    last = _notice_checked_at.get(key)
+    if last is not None and now - last < NOTICE_CHECK_SECONDS:
+        return None
+    if len(_notice_checked_at) > 10_000:
+        _notice_checked_at.clear()
+    _notice_checked_at[key] = now
+    try:
+        return extra_api.get_account_notice(client)
+    except Exception:
+        return None
+
+
 def _cloud_file_on_disk(
     file_id: str,
     *,
@@ -457,7 +487,7 @@ def text_to_speech(
         else None
     )
 
-    notice = extra_api.notice_from_response_headers(result.headers)
+    notice = _account_notice()
     if not save:
         unsaved = GeneratedAudioResult(file_path=file_path)
         if notice is not None:
