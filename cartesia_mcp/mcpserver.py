@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
-from mcp.types import Icon, ToolAnnotations
+from mcp.server.mcpserver.context import Context
+from mcp.types import CallToolResult, Icon, ToolAnnotations
 from mcp.types import Tool as MCPTool
 
+from cartesia_mcp.notices import account_notice, with_notice
 from cartesia_mcp.offload_sync import offload_sync_callable
 from cartesia_mcp.tool_visibility import is_tool_visible
 
@@ -78,3 +81,13 @@ class CartesiaMCP(MCPServer):
             for tool in tools
             if is_tool_visible(tool.name)
         ]
+
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any], context: Context[Any, Any] | None = None
+    ) -> Any:
+        result = await super().call_tool(name, arguments, context)
+        if not isinstance(result, CallToolResult) or result.is_error:
+            return result
+        # Off the event loop, like sync tools; contextvars (the hosted credential) carry over.
+        notice = await asyncio.to_thread(account_notice)
+        return with_notice(result, notice) if notice else result
