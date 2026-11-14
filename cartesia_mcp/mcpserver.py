@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -28,7 +29,7 @@ class CartesiaMCP(MCPServer):
             offload_sync_callable(fn),
             name=name,
             title=title,
-            description=description,
+            description=inspect.cleandoc(description) if description else description,
             annotations=annotations,
             icons=icons,
             meta=meta,
