@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from contextvars import ContextVar
 
-from cartesia_mcp.config import env_or_none
 from cartesia_mcp.sdk_setup import is_admin_api_key
 
 _stdio_api_key: str | None = None

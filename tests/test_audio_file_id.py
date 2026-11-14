@@ -22,7 +22,7 @@ def test_resolve_audio_input_requires_exactly_one() -> None:
 @patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.wav"), "clip.wav"))
 def test_resolve_audio_input_downloads_file_id(mock_download: MagicMock) -> None:
     assert server._resolve_audio_input(None, " file_abc ") == "/tmp/clip.wav"
-    mock_download.assert_called_once_with("file_abc", request_options=None)
+    mock_download.assert_called_once_with("file_abc")
 
 
 def test_resolve_audio_input_keeps_server_path(tmp_path: Path) -> None:
@@ -70,7 +70,7 @@ def test_speech_to_text_accepts_file_id(mock_download: MagicMock, mock_client: M
         result = server.speech_to_text(file_id="file_abc", language="en")
 
     assert result.text == "hello"
-    mock_download.assert_called_once_with("file_abc", request_options=None)
+    mock_download.assert_called_once_with("file_abc")
     opened.assert_called_once_with("/tmp/clip.mp3", "rb")
 
 
@@ -87,5 +87,50 @@ def test_clone_voice_accepts_file_id(mock_download: MagicMock, mock_client: Magi
             file_id="file_abc",
         )
 
-    mock_download.assert_called_once_with("file_abc", request_options=None)
+    mock_download.assert_called_once_with("file_abc")
     assert mock_client.voices.clone.call_args.kwargs["name"] == "Test"
+
+
+def test_resolve_audio_input_hosted_accepts_output_directory_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    clip = tmp_path / "text_to_speech_clip.wav"
+    clip.write_bytes(b"audio")
+    assert server._resolve_audio_input(str(clip), None) == str(clip.resolve())
+
+
+@pytest.mark.parametrize("path", ["/etc/hostname", "/proc/self/environ"])
+def test_resolve_audio_input_hosted_rejects_paths_outside_output_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, path: str
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(path, None)
+
+
+def test_resolve_audio_input_hosted_rejects_traversal_and_symlink(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    out = tmp_path / "out"
+    out.mkdir()
+    secret = tmp_path / "secret.txt"
+    secret.write_text("secret")
+    (out / "link.wav").symlink_to(secret)
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(out))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(out / ".." / "secret.txt"), None)
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(out / "link.wav"), None)
+
+
+def test_resolve_audio_input_hosted_rejects_output_directory_itself(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(server, "_is_hosted", True)
+    monkeypatch.setattr(server, "OUTPUT_DIRECTORY", str(tmp_path))
+    with pytest.raises(ValueError, match="file_id"):
+        server._resolve_audio_input(str(tmp_path), None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -14,7 +15,6 @@ from cartesia_mcp.mcp_http import (
 )
 from cartesia_mcp.oauth_store import oauth_store
 from cartesia_mcp.register_rate_limit import client_ip
-from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 
 # General /mcp burst; reconnect storms still need initialize-specific limits below.
 MCP_RATE_LIMIT = 30

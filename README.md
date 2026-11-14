@@ -1,5 +1,7 @@
 # Cartesia MCP Server
 
+<!-- mcp-name: io.github.cartesia-ai/cartesia-mcp -->
+
 [![PyPI version](https://img.shields.io/pypi/v/cartesia-mcp)](https://pypi.org/project/cartesia-mcp/)
 
 The Cartesia MCP server exposes [Cartesia](https://cartesia.ai/) APIs over the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) so clients such as **Cursor**, **Claude Desktop**, and **OpenAI Agents** can list voices, run **TTS** and **STT**, manage pronunciation dictionaries, clone voices, and more—without one-off scripts.
@@ -97,6 +99,13 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
+## Prompts
+
+| Prompt | Description |
+| --- | --- |
+| `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
+| `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
+
 ## Releases
 
 Versions and PyPI publishes are driven by [Conventional Commits](https://www.conventionalcommits.org/) on `main` via release-please. Use PR titles like `feat: …` or `fix: …` (especially when squash merging). See [CONTRIBUTING.md](./CONTRIBUTING.md).
@@ -176,7 +185,7 @@ With the local server (`uvx` / stdio), `text_to_speech` also accepts `output_pat
 `speech_to_text` and `clone_voice` take one of:
 
 - **`file_id`** — a Cartesia cloud file from `text_to_speech` (`save=true`) or `download_file`. Use this on hosted MCP (`mcp.cartesia.ai`). The server downloads the bytes. A path on the agent machine will not be found.
-- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass a `file_path` from `download_file` / `save=false` TTS in the same hosted session. On hosted MCP, a missing or client-local path returns a clear validation error (prefer `file_id` instead of `/Users/...` or similar).
+- **`file_path`** — an absolute path on the machine running MCP that must exist. Use this with local `uvx`, or pass a `file_path` from `download_file` / `save=false` TTS in the same hosted session. On hosted MCP, only files the server wrote under its output directory are accepted; any other path (missing, client-local like `/Users/...`, or elsewhere on the server) returns a validation error telling you to use `file_id`.
 
 `download_url` is a 24-hour browser link. It is not an input to those tools.
 
