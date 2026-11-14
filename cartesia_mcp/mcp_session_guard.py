@@ -8,15 +8,16 @@ import os
 import re
 import socket
 import time
+import typing
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
-
-from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
-from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from cartesia_mcp.mcp_http import (
     is_mcp_path,
@@ -169,7 +170,7 @@ async def _terminate_session(
             meta.pop(session_id, None)
     terminate = getattr(transport, "terminate", None)
     if callable(terminate):
-        await terminate()
+        await typing.cast(Callable[[], Awaitable[object]], terminate)()
     return session_id
 
 

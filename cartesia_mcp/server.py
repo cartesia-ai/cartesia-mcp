@@ -8,11 +8,9 @@ import sys
 import typing
 from pathlib import Path
 
-from pydantic import Field
-from dotenv import load_dotenv
-from mcp.types import ToolAnnotations
 from cartesia import Cartesia, omit
 from cartesia.types import (
+    AttachVoiceAccent,
     Gender,
     GenderPresentation,
     GenerationConfigParam,
@@ -30,7 +28,21 @@ from cartesia.types import (
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
+from dotenv import load_dotenv
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
+from cartesia_mcp import __version__, extra_api
+from cartesia_mcp.branding import (
+    SERVER_DESCRIPTION,
+    SERVER_NAME,
+    WEBSITE_URL,
+    server_icons,
+)
+from cartesia_mcp.clients import client, require_admin_client
+from cartesia_mcp.config import env_or_none, validate_api_keys
+from cartesia_mcp.constants import DEFAULT_MODEL_ID
+from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
@@ -40,23 +52,12 @@ from cartesia_mcp.custom_types import (
     ListVoicesResult,
     PronunciationDictItemParams,
 )
-from cartesia_mcp import __version__, extra_api
-from cartesia_mcp.branding import (
-    SERVER_DESCRIPTION,
-    SERVER_NAME,
-    WEBSITE_URL,
-    server_icons,
-)
-from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp.extra_api import (
     DownloadFormat,
     ModelCapability,
     UsageCreditsGroupBy,
     UsageInterval,
 )
-from cartesia_mcp.config import ensure_admin_client, env_or_none, validate_api_keys
-from cartesia_mcp.clients import admin_client, client, require_admin_client
-from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
 from cartesia_mcp.hosted import (
     configure_hosted_oauth_store,
     hosted_enabled,
@@ -66,9 +67,9 @@ from cartesia_mcp.hosted import (
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
 from cartesia_mcp.utils import (
+    coerce_null_voice_locales,
     create_output_file,
     cursor_page_to_result,
-    coerce_null_voice_locales,
     default_output_directory,
     iter_stt_audio_chunks,
     resolve_local_download_filename,
@@ -639,7 +640,7 @@ def add_voice_accents(
         Field(description="The ID of the voice."),
     ],
     accents: typing.Annotated[
-        list[VoiceAccent],
+        list[AttachVoiceAccent],
         Field(description="Catalog accent ids from GET /accents (for example `british` or `parisian`). Display names are rejected on this API version."),
     ],
 ) -> Voice:
@@ -769,7 +770,7 @@ def list_voices(
         Field(description="Search voices by name, description, or voice ID."),
     ] = None,
     expand: typing.Annotated[
-        typing.Optional[typing.Sequence[str]],
+        typing.Optional[typing.Sequence[typing.Literal["preview_file_url"]]],
         Field(description="Additional fields to include in the response, such as `preview_file_url`."),
     ] = None,
 ) -> ListVoicesResult:

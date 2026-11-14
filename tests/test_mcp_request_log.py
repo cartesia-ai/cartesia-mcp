@@ -3,6 +3,9 @@
 import json
 import logging
 
+from mcp.server.auth.provider import AuthorizationParams
+from mcp.shared.auth import OAuthClientInformationFull
+from pydantic import AnyUrl
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -13,9 +16,6 @@ from cartesia_mcp.mcp_http import jsonrpc_method_from_body, jsonrpc_tool_name_fr
 from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware, tool_call_outcome
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
-from mcp.server.auth.provider import AuthorizationParams
-from mcp.shared.auth import OAuthClientInformationFull
-from pydantic import AnyUrl
 
 
 def _mcp_request_payloads(caplog) -> list[dict]:
