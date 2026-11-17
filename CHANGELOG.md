@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.33.0...cartesia-mcp-v0.34.0) (2026-11-17)
+
+
+### Features
+
+* log hosted file_path decisions by class ([#158](https://github.com/cartesia-ai/cartesia-mcp/issues/158)) ([c760995](https://github.com/cartesia-ai/cartesia-mcp/commit/c7609959b5b8fa98178b68997bec76ecf1b69f38))
+
 ## [0.33.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.32.0...cartesia-mcp-v0.33.0) (2026-11-14)
 
 
