@@ -37,6 +37,7 @@ def _voice(*, locales: object) -> Voice:
         name="Jolene",
         tagline="",
         visibility="all",
+        status="active",
     )
 
 

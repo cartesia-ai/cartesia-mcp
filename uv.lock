@@ -86,7 +86,7 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "4.2.0"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", version = "4.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
@@ -97,9 +97,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ef/cd/8841344c7753667f00357abdafdb3417a7ba86abdb7de43e93b6c09ea154/cartesia-4.2.0.tar.gz", hash = "sha256:c36c905f8a459eafaa555dc75d811f2d47770bc4a784e59b9428f3668248ac99", size = 342000, upload-time = "2026-09-02T21:35:03.479Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/d0/0809c42982b810b4d88154de3166532cfbf4eb1f9ffe6f6ac187c8d412cb/cartesia-5.0.0.tar.gz", hash = "sha256:da33cc6e94fdcc9dde53e2ece72af836cfd6b01bf85166a49dedac2684ffb5ea", size = 392487, upload-time = "2026-11-16T23:44:07.017Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/52/eb40886f218f8613f1fd62d3aa2d3d92595bd1eca8c1a2ecfed6d4dcf4e2/cartesia-4.2.0-py3-none-any.whl", hash = "sha256:8ad6648670819da99e43722b52151ba0b050eb1898da485af8f3767f24b43715", size = 220715, upload-time = "2026-09-02T21:35:05.076Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/10/23d5538dc2fa5e718cd6e4d98dfdded9909c619dd44a8a4f5151f5c8b756/cartesia-5.0.0-py3-none-any.whl", hash = "sha256:d92c45cdae052532f3e2339fff754dee5e46774b8fd54d6b98b59be98a70a20d", size = 314726, upload-time = "2026-11-16T23:44:08.102Z" },
 ]
 
 [package.optional-dependencies]
@@ -109,7 +109,7 @@ websockets = [
 
 [[package]]
 name = "cartesia-mcp"
-version = "0.32.0"
+version = "0.33.0"
 source = { editable = "." }
 dependencies = [
     { name = "cartesia", extra = ["websockets"] },
@@ -134,7 +134,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], specifier = ">=4.2.0,<5" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=5.0.0,<6" },
     { name = "ddtrace", marker = "extra == 'hosted'", specifier = ">=4.8.2,<5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=2,<3" },

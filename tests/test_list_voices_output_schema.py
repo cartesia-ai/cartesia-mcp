@@ -46,6 +46,7 @@ def _voice(**overrides: object) -> Voice:
         "country": None,
         "gender": None,
         "preview_file_url": None,
+        "status": "active",
     }
     values.update(overrides)
     return Voice(**values)  # type: ignore[arg-type]

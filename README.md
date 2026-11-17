@@ -69,6 +69,8 @@ Ask your agent things like:
 - Check credit usage for your account
 - Localize an existing voice into another language
 - List catalog accent IDs, then add British English to a cloned voice
+- Create a voice agent that takes pizza orders, then give me a link to try it
+- Why did my agent's last call end early?
 
 ## Tools
 
@@ -85,8 +87,19 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `delete_voice` | Delete a cloned voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `list_accents` | List catalog accent IDs and metadata (`british`, `standard-japanese`, …) |
-| `list_models` | List callable Sonic (TTS) and Ink (STT) model ids (`capability=tts|stt`) |
-| `list_agent_models` | List Managed Agents LLM ids from `GET /v1/agents/models` (full catalog) |
+| `list_models` | List Sonic and Ink ids for TTS and STT. Not a Managed Agent `model.id` |
+| `list_agents` | List Managed Agents (search by name) |
+| `get_agent` | Get an agent's current config and a Playground link to try it |
+| `create_agent` | Create a Managed Agent from instructions, model, voice, and system tools; returns a Playground link |
+| `update_agent` | Change an agent's name, description, or config (config changes publish a new version) |
+| `delete_agent` | Permanently delete a Managed Agent |
+| `list_agent_models` | List Managed Agents LLM ids. Not Sonic or Ink ids from `list_models` |
+| `list_agent_calls` | List a Managed Agent's calls with status, end reason, error, and config version |
+| `get_agent_call` | Debug one call: outcome, variables, and turns with timing and tool calls (`detail=full` for raw JSON) |
+| `list_agent_versions` | List a Managed Agent's config versions |
+| `get_agent_version` | Get the config a version (or a call's `agent_version_id`) ran with |
+| `list_phone_numbers` | List phone numbers and the agent each routes inbound calls to (read only) |
+| `get_phone_number` | Get one phone number, its assigned agent, and provider (read only) |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |
@@ -105,6 +118,8 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 | --- | --- |
 | `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
 | `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
+| `create_voice_agent` | Build a Managed Agent from a plain-language description and share a Playground link |
+| `debug_agent_call` | Find why an agent call went wrong and propose a config fix |
 
 ## Releases
 

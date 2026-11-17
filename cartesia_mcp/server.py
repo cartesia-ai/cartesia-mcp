@@ -25,6 +25,8 @@ from cartesia.types import (
     VoiceAccent,
     VoiceMetadata,
 )
+from cartesia.types.agent_create_params import Config as AgentCreateConfig
+from cartesia.types.agent_update_params import Config as AgentUpdateConfig
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
@@ -35,8 +37,10 @@ from pydantic import Field
 from cartesia_mcp import __version__, extra_api
 from cartesia_mcp.branding import (
     SERVER_DESCRIPTION,
+    SERVER_INSTRUCTIONS,
     SERVER_NAME,
     WEBSITE_URL,
+    playground_agent_url,
     server_icons,
 )
 from cartesia_mcp.clients import client, require_admin_client
@@ -67,13 +71,18 @@ from cartesia_mcp.hosted import (
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
 from cartesia_mcp.utils import (
+    agent_call_list_to_result,
+    agent_version_list_to_result,
     coerce_null_voice_locales,
+    condense_agent_call,
     create_output_file,
     cursor_page_to_result,
     default_output_directory,
     iter_stt_audio_chunks,
+    page_result,
     resolve_local_download_filename,
     save_downloaded_file,
+    sdk_page_to_result,
     start_output_directory_cleanup,
     voice_list_page_to_result,
 )
@@ -101,6 +110,7 @@ elif CARTESIA_API_KEY:
 mcp = CartesiaMCP(
     SERVER_NAME,
     description=SERVER_DESCRIPTION,
+    instructions=SERVER_INSTRUCTIONS,
     website_url=WEBSITE_URL,
     icons=server_icons(origin=server_public_url() if _is_hosted else None),
     version=__version__,
@@ -590,7 +600,11 @@ def list_accents() -> ListAccentsResponse:
     annotations=_read_only_tool("List models"),
     description="""
         List callable Sonic (TTS) and Ink (STT) model ids from GET /models.
-        
+
+        These ids are for `text_to_speech` and `speech_to_text` only. Do not
+        pass them as a Managed Agent `model.id`. Call `list_agent_models` for
+        that catalog.
+
         Each row has `id` and `capability` (`tts` or `stt`). TTS rows include
         `supported_languages`, the sorted synthesis language codes that model accepts.
         STT rows include `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
@@ -614,16 +628,400 @@ def list_models(
     annotations=_read_only_tool("List agent models"),
     description="""
         List LLMs available for Managed Agents from GET /v1/agents/models.
-        
+
         Use these `id` values for an agent's `model.id` (and explicit fallback
-        model ids). Do not invent model ids. Each row includes provider,
-        display name, latency, and token pricing. Returns the full catalog
-        (pagination is followed server-side).
+        model ids). Do not invent model ids, and do not use ids from
+        `list_models` (`sonic-*`, `ink-*`). Those are speech models. Each row
+        includes provider, display name, latency, and token pricing. Returns
+        the full catalog (pagination is followed server-side).
         """)
 def list_agent_models() -> dict[str, typing.Any]:
     return extra_api.list_agent_models(
         _api_client(),
     )
+
+
+AgentCallDetail = typing.Literal["condensed", "full"]
+PhoneNumberProviderType = typing.Literal["twilio", "cartesia", "sip_trunk"]
+
+
+def _or_omit(value: typing.Any) -> typing.Any:
+    return omit if value is None else value
+
+
+def _agent_with_playground_url(agent: typing.Any) -> dict[str, typing.Any]:
+    result = agent.to_dict(mode="json")
+    result["playground_url"] = playground_agent_url(result["id"])
+    return result
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List agents"),
+    description="""
+        List the account's Managed Agents, newest first.
+
+        Rows have `id`, `name`, `description`, `version_id` (the current
+        config version), and timestamps. Call `get_agent` for the config.
+        """)
+def list_agents(
+    q: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Search agents by name."),
+    ] = None,
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(ge=1, le=100, description="Agents per page."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: `next_page` from the previous result."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: agent ID to end before (previous page)."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    return sdk_page_to_result(
+        _api_client().agents.list(
+            q=_or_omit(q),
+            limit=_or_omit(limit),
+            starting_after=_or_omit(starting_after),
+            ending_before=_or_omit(ending_before),
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_read_only_tool("Get agent"),
+    description="""
+        Get a Managed Agent: name, description, the current `config`
+        (instructions, initial message, model, voice, tools, system tools,
+        turn-taking, variables), the current `version`, and `playground_url`
+        for trying the agent in the browser.
+        """)
+def get_agent(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+) -> dict[str, typing.Any]:
+    return _agent_with_playground_url(_api_client().agents.retrieve(agent_id))
+
+
+@mcp.tool(
+    annotations=_additive_tool("Create agent"),
+    description="""
+        Create a Managed Agent: a hosted voice agent Cartesia runs for web,
+        phone, and websocket calls.
+
+        Write `config.instructions` for what the user described (role, goal,
+        tone, steps, what to collect, when to end or transfer). An agent with
+        no instructions runs a generic default prompt.
+
+        - `config.model.id`: an id from `list_agent_models`.
+        - `config.audio.output.voice_id`: a voice from `list_voices`.
+        - `config.initial_message`: what the agent says first, or null to wait.
+        - Per-caller context: reference `{{name}}` in instructions or the
+          initial message, pass values when the call starts, and put sample
+          values in `config.dynamic_variable_placeholders` for test calls.
+        - Ending, transferring, DTMF, and voicemail detection are built in:
+          enable them under `config.system_tools`. There are no separate
+          transfer or end-call endpoints.
+        - `config.tools` takes ids of tools already created with the Tools
+          API. This server does not create tools.
+
+        There is no API to simulate a call. Open the returned `playground_url`
+        to talk to the agent.
+        """)
+def create_agent(
+    name: typing.Annotated[
+        str,
+        Field(min_length=1, description="Agent name. It does not need to be unique."),
+    ],
+    description: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Short description of what the agent does."),
+    ] = None,
+    config: typing.Annotated[
+        typing.Optional[AgentCreateConfig],
+        Field(description="Agent config. Omitted fields use the API defaults."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    return _agent_with_playground_url(
+        _api_client().agents.create(
+            name=name,
+            description=_or_omit(description),
+            config=_or_omit(config),
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Update agent"),
+    description="""
+        Update a Managed Agent. Send only the fields to change.
+
+        Inside `config`, list and map fields (`tools`, `keyterms`,
+        `knowledge_base_documents`, `dynamic_variable_placeholders`, ...)
+        replace the existing value, so send the full list. Call `get_agent`
+        first when editing one.
+
+        Each `config` change publishes a new version, which live calls use
+        right away. Describe it with `version_description`. Name and
+        description changes do not create a version.
+        """)
+def update_agent(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    name: typing.Annotated[
+        typing.Optional[str],
+        Field(min_length=1, description="New agent name."),
+    ] = None,
+    description: typing.Annotated[
+        typing.Optional[str],
+        Field(description="New agent description."),
+    ] = None,
+    config: typing.Annotated[
+        typing.Optional[AgentUpdateConfig],
+        Field(description="Config fields to change."),
+    ] = None,
+    version_description: typing.Annotated[
+        typing.Optional[str],
+        Field(description="What changed, shown in version history. Only with `config`."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    if name is None and description is None and config is None:
+        raise ValueError("Provide at least one of `name`, `description`, or `config`.")
+    return _agent_with_playground_url(
+        _api_client().agents.update(
+            agent_id,
+            name=_or_omit(name),
+            description=_or_omit(description),
+            config=_or_omit(config),
+            version_description=_or_omit(version_description),
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Delete agent"),
+    description="""
+        Permanently delete a Managed Agent. Confirm the agent's name with the
+        user before calling this.
+        """)
+def delete_agent(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+) -> dict[str, typing.Any]:
+    _api_client().agents.delete(agent_id)
+    return {"success": True}
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List agent calls"),
+    description="""
+        List a Managed Agent's calls, newest first, to debug them.
+
+        Each row has the call `id`, `status`, `end_reason`, `error_message`,
+        start and end times, `summary`, and `agent_version_id` (the config that
+        ran). Pass a call `id` to `get_agent_call` for the transcript.
+
+        Apps should not poll this for new calls; configure an event webhook
+        on the agent instead.
+        """)
+def list_agent_calls(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`). The API requires it."),
+    ],
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(ge=1, le=100, description="Calls per page."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: `next_page` from the previous result."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: call ID to end before (previous page)."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    return agent_call_list_to_result(
+        sdk_page_to_result(
+            _api_client().agents.calls.list(
+                agent_id=agent_id,
+                limit=_or_omit(limit),
+                starting_after=_or_omit(starting_after),
+                ending_before=_or_omit(ending_before),
+            )
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_read_only_tool("Get agent call"),
+    description="""
+        Get one Managed Agent call to debug it.
+
+        By default (`detail="condensed"`) returns the outcome (`status`,
+        `end_reason`, `error_message`, `summary`), `agent_version_id`,
+        `dynamic_variables`, the connection, `latency_ms` (count, mean and max
+        per metric, such as `llm_first_text_ms` and `agent_turn_ms`), and each
+        turn's role, text, timing in seconds, interruption, TTS time to first
+        byte, and tool calls with arguments and results (long results are
+        truncated). Pass `detail="full"` for the raw API payload.
+
+        The agent's current config may have changed since the call. To read
+        the config that actually ran, pass `agent_id` and `agent_version_id`
+        to `get_agent_version`.
+        """)
+def get_agent_call(
+    call_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Call ID (`ac_...`) from `list_agent_calls`."),
+    ],
+    detail: typing.Annotated[
+        AgentCallDetail,
+        Field(description="`condensed` (default) or `full` for the raw call JSON."),
+    ] = "condensed",
+) -> dict[str, typing.Any]:
+    call = _api_client().agents.calls.retrieve(call_id).to_dict(mode="json")
+    if detail == "full":
+        return call
+    return condense_agent_call(call)
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List agent versions"),
+    description="""
+        List a Managed Agent's config versions, newest first.
+
+        Every config change creates an immutable version. Rows have `id`,
+        `created_at`, and `description`; call `get_agent_version` for the
+        config.
+        """)
+def list_agent_versions(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(ge=1, le=100, description="Versions per page."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: `next_page` from the previous result."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: version ID to end before (previous page)."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    return agent_version_list_to_result(
+        sdk_page_to_result(
+            _api_client().agents.versions.list(
+                agent_id,
+                limit=_or_omit(limit),
+                starting_after=_or_omit(starting_after),
+                ending_before=_or_omit(ending_before),
+            )
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_read_only_tool("Get agent version"),
+    description="""
+        Get one Managed Agent config version: instructions, voice, model,
+        tools, and the rest of the config as it was saved.
+
+        Use the `agent_version_id` from `get_agent_call` to see the config a
+        call ran with. Versions are read-only; there is no restore. To roll
+        back, send this config to `update_agent`.
+        """)
+def get_agent_version(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    version_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Version ID (`av_...`)."),
+    ],
+) -> dict[str, typing.Any]:
+    return (
+        _api_client()
+        .agents.versions.retrieve(version_id, agent_id=agent_id)
+        .to_dict(mode="json")
+    )
+
+
+@mcp.tool(
+    annotations=_read_only_tool("List phone numbers"),
+    description="""
+        List the account's Managed Agents phone numbers and which agent each
+        one routes inbound calls to (`agent`, or `null` when unassigned).
+
+        Filter by `agent_id` to check whether an agent answers any number. Read
+        only: this server does not provision, import, or reassign numbers, and
+        does not place outbound calls.
+        """)
+def list_phone_numbers(
+    agent_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Only numbers assigned to this agent for inbound calls."),
+    ] = None,
+    type: typing.Annotated[
+        typing.Optional[PhoneNumberProviderType],
+        Field(description="Provider type: `cartesia`, `twilio`, or `sip_trunk`."),
+    ] = None,
+    q: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Search by number or label."),
+    ] = None,
+    limit: typing.Annotated[
+        typing.Optional[int],
+        Field(ge=1, le=100, description="Numbers per page."),
+    ] = 10,
+    starting_after: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: `next_page` from the previous result."),
+    ] = None,
+    ending_before: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Cursor: phone number ID to end before (previous page)."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    page = _api_client().agents.phone_numbers.list(
+        agent_id=_or_omit(agent_id),
+        type=_or_omit(type),
+        q=_or_omit(q),
+        limit=_or_omit(limit),
+        starting_after=_or_omit(starting_after),
+        ending_before=_or_omit(ending_before),
+    )
+    return page_result([number.to_dict(mode="json") for number in page.data], page.has_more)
+
+
+@mcp.tool(
+    annotations=_read_only_tool("Get phone number"),
+    description="""
+        Get one Managed Agents phone number: the number, label, assigned agent,
+        and provider (SIP trunk passwords are never returned).
+        """)
+def get_phone_number(
+    phone_number_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Phone number ID from `list_phone_numbers`."),
+    ],
+) -> dict[str, typing.Any]:
+    return _api_client().agents.phone_numbers.retrieve(phone_number_id).to_dict(mode="json")
 
 
 @mcp.tool(
@@ -1249,6 +1647,71 @@ def clone_and_localize(file_id: str, name: str, target_language: str) -> str:
         f"{target_language!r}.\n"
         f"Call `localize_voice` on the new voice with language={target_language!r} and that "
         "accent, then generate a short sample with `text_to_speech` in the target language."
+    )
+
+
+_AGENT_USE_CASE_NOTES = """\
+Notes for common agents:
+- Inbound support or receptionist: greet with the business name, answer from the facts \
+given, collect name and callback number, and enable `system_tools.transfer_to_number` \
+for a human handoff.
+- Restaurant or order taking: confirm each item, size, and quantity, read the full order \
+back, and give a pickup time.
+- Outbound sales or SDR: open with who is calling and why in one sentence, qualify with a \
+few questions, and handle "not interested" politely. Put the lead's details in \
+`{{variables}}`.
+- Calling a business on the user's behalf: state the goal, enable \
+`system_tools.send_dtmf` to navigate phone menus, and \
+`system_tools.voicemail_detection` to hang up on voicemail.
+- Interview, sales, or language practice: stay in character as the counterpart, keep \
+turns short, and give feedback only when the user asks or the session ends.
+- Companion or tutor: be warm, remember what the caller said earlier in the call, and \
+ask one question at a time.
+"""
+
+
+@mcp.prompt(
+    title="Create a voice agent",
+    description="Build a Managed Agent from a plain-language description and share a link to try it.",
+)
+def create_voice_agent(description: str) -> str:
+    return (
+        f"Build a Cartesia Managed Agent for: {description!r}.\n"
+        "1. Ask at most two questions if a key detail is missing, such as the business "
+        "name, the facts the agent must know, or when it should transfer or hang up.\n"
+        "2. Call `list_agent_models` and pick a model id. Call `list_voices` with a query "
+        "that matches the persona and language, and pick a voice.\n"
+        "3. Write `config.instructions` as a spoken-word system prompt: role, goal, tone, "
+        "the steps of the conversation, what to collect, and when to end the call. Keep "
+        "replies short and avoid formatting the caller cannot hear. Write a one-sentence "
+        "`config.initial_message`.\n"
+        "4. Use `{{variable}}` placeholders for anything that changes per caller and set "
+        "test values in `config.dynamic_variable_placeholders`.\n"
+        "5. Call `create_agent`, then give the user the `playground_url` to talk to it.\n"
+        "6. After a test call, use `list_agent_calls` and `get_agent_call` to review the "
+        "transcript, and refine the agent with `update_agent`.\n\n" + _AGENT_USE_CASE_NOTES
+    )
+
+
+@mcp.prompt(
+    title="Debug a voice agent call",
+    description="Find why a Managed Agent call went wrong and propose a config fix.",
+)
+def debug_agent_call(agent_id: str, call_id: str = "") -> str:
+    call_step = (
+        f"Call `get_agent_call` with call_id={call_id!r}."
+        if call_id
+        else f"Call `list_agent_calls` with agent_id={agent_id!r}, pick the call the user "
+        "means (or the latest failed one), and call `get_agent_call` on it."
+    )
+    return (
+        f"{call_step}\n"
+        "Check `status`, `end_reason`, and `error_message`, then read the turns for "
+        "misunderstandings, interruptions, failed tool calls, and slow `latency_ms`.\n"
+        f"Call `get_agent_version` with agent_id={agent_id!r} and the call's "
+        "`agent_version_id` to read the config that ran.\n"
+        "Explain the cause, then propose the smallest config change. Apply it with "
+        "`update_agent` only after the user agrees."
     )
 
 

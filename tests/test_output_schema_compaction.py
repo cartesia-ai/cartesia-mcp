@@ -64,6 +64,7 @@ def test_listed_voice_schema_accepts_new_accent_values() -> None:
         "name": "Test",
         "tagline": "",
         "visibility": "owner",
+        "status": "active",
         "accent": "accent-added-after-this-sdk",
     }
     jsonschema.validate(voice, schema)

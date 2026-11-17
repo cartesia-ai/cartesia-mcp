@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import cartesia_mcp.extra_api as extra_api
@@ -63,3 +64,19 @@ def test_list_agent_models_tool(
     mock_list_agent_models.assert_called_once()
     assert mock_list_agent_models.call_args.args[0] is mock_client
     assert result["data"][0]["id"] == "claude-sonnet-5"
+
+
+def test_model_catalog_tools_name_the_other_catalog(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "cartesia_mcp.tool_visibility.resolve_admin_api_credential",
+        lambda: "sk_car_admin_test.key",
+    )
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+
+    speech = tools["list_models"].description
+    agents = tools["list_agent_models"].description
+
+    assert "list_agent_models" in speech
+    assert "text_to_speech" in speech
+    assert "list_models" in agents
+    assert "sonic-*" in agents

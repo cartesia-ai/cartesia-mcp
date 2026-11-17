@@ -9,7 +9,7 @@ import cartesia_mcp.server as server
 
 def test_all_tools_have_annotation_title_and_hint():
     tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 20
+    assert len(tools) == 31
 
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"
@@ -33,6 +33,14 @@ def test_read_only_tools():
         "get_voice",
         "list_accents",
         "list_agent_models",
+        "list_agents",
+        "get_agent",
+        "list_agent_calls",
+        "get_agent_call",
+        "list_agent_versions",
+        "get_agent_version",
+        "list_phone_numbers",
+        "get_phone_number",
         "list_models",
         "list_voices",
         "speech_to_text",
@@ -55,6 +63,7 @@ def test_additive_tools():
         "clone_voice",
         "add_voice_accents",
         "create_pronunciation_dict",
+        "create_agent",
     }
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in additive_tools:
@@ -71,6 +80,8 @@ def test_destructive_tools():
         "delete_voice_accent",
         "update_pronunciation_dict",
         "delete_pronunciation_dict",
+        "update_agent",
+        "delete_agent",
     }
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in destructive_tools:
