@@ -143,6 +143,7 @@ def test_get_agent_call_condenses_by_default(api: Api) -> None:
     assert tool_call["arguments"] == {"order_id": "42"}
     assert len(tool_call["result"]) == CONDENSED_TOOL_RESULT_CHARS
     assert tool_call["result_truncated"] is True
+    assert tool_call["result_chars"] == CONDENSED_TOOL_RESULT_CHARS + 10
 
 
 def test_get_agent_call_full_keeps_fields_the_sdk_does_not_model(api: Api) -> None:
@@ -353,6 +354,8 @@ def test_condense_tolerates_missing_and_malformed_fields() -> None:
                 "not a turn",
                 {"role": "user", "text": "hi", "tool_calls": [None, {"name": "t"}]},
                 {"log_metric": {"name": "x", "value": "NaN"}},
+                {"role": "system", "log_metric": "oops"},
+                {"role": "system", "log_metric": None},
             ],
         }
     )
@@ -392,3 +395,4 @@ def test_condense_keeps_tool_call_variable_updates_and_short_results() -> None:
     }
     assert "result" not in second
     assert "result_truncated" not in first
+    assert "result_chars" not in first

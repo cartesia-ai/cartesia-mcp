@@ -874,7 +874,7 @@ def list_agent_calls(
         per metric, such as `llm_first_text_ms` and `agent_turn_ms`), and each
         turn's role, text, timing in seconds, interruption, TTS time to first
         byte, and tool calls with arguments and results (long results are
-        truncated). Pass `detail="full"` for the raw API payload.
+        truncated; `result_chars` is the full length). Pass `detail="full"` for the raw API payload.
 
         The agent's current config may have changed since the call. To read
         the config that actually ran, pass `agent_id` and `agent_version_id`

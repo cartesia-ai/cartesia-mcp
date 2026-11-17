@@ -392,21 +392,6 @@ _CALL_SUMMARY_FIELDS = (
 )
 
 
-def _with_page_cursor(
-    payload: dict[str, typing.Any], data: list[dict[str, typing.Any]]
-) -> dict[str, typing.Any]:
-    result: dict[str, typing.Any] = {
-        "data": data,
-        "has_more": bool(payload.get("has_more", False)),
-    }
-    next_page = payload.get("next_page")
-    if next_page:
-        result["next_page"] = next_page
-    elif result["has_more"] and data:
-        result["next_page"] = data[-1]["id"]
-    return result
-
-
 def _condensed_tool_call(tool_call: dict[str, typing.Any]) -> dict[str, typing.Any]:
     condensed: dict[str, typing.Any] = {
         "name": tool_call.get("name"),
@@ -416,6 +401,7 @@ def _condensed_tool_call(tool_call: dict[str, typing.Any]) -> dict[str, typing.A
     if isinstance(result, str) and len(result) > CONDENSED_TOOL_RESULT_CHARS:
         condensed["result"] = result[:CONDENSED_TOOL_RESULT_CHARS]
         condensed["result_truncated"] = True
+        condensed["result_chars"] = len(result)
     elif result is not None:
         condensed["result"] = result
     if tool_call.get("dynamic_variable_updates"):
@@ -442,7 +428,7 @@ def _condensed_turn(turn: dict[str, typing.Any]) -> dict[str, typing.Any]:
 
 
 def _is_metric_turn(turn: dict[str, typing.Any]) -> bool:
-    return isinstance(turn.get("log_metric"), dict)
+    return "log_metric" in turn
 
 
 def _latency_summary(
@@ -452,6 +438,8 @@ def _latency_summary(
     values: dict[str, list[float]] = {}
     for turn in turns:
         metric = turn["log_metric"]
+        if not isinstance(metric, dict):
+            continue
         name, value = metric.get("name"), metric.get("value")
         if isinstance(name, str) and isinstance(value, (int, float)):
             values.setdefault(name, []).append(float(value))
@@ -496,7 +484,7 @@ def agent_call_list_to_result(payload: dict[str, typing.Any]) -> dict[str, typin
         for call in payload.get("data", [])
         if isinstance(call, dict)
     ]
-    return _with_page_cursor(payload, rows)
+    return {**payload, "data": rows}
 
 
 def agent_version_list_to_result(
@@ -511,4 +499,4 @@ def agent_version_list_to_result(
         for version in payload.get("data", [])
         if isinstance(version, dict)
     ]
-    return _with_page_cursor(payload, rows)
+    return {**payload, "data": rows}
