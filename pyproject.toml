@@ -5,7 +5,7 @@ description = "The official Cartesia MCP server"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "cartesia[websockets]>=5.0.0,<6",
+    "cartesia[websockets]>=5.1.0,<6",
     "httpx>=0.28.1",
     "mcp[cli]>=2,<3",
     "python-dotenv>=1.0.0",

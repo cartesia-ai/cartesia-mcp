@@ -86,7 +86,7 @@ wheels = [
 
 [[package]]
 name = "cartesia"
-version = "5.0.0"
+version = "5.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", version = "4.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.14'" },
@@ -97,9 +97,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/67/d0/0809c42982b810b4d88154de3166532cfbf4eb1f9ffe6f6ac187c8d412cb/cartesia-5.0.0.tar.gz", hash = "sha256:da33cc6e94fdcc9dde53e2ece72af836cfd6b01bf85166a49dedac2684ffb5ea", size = 392487, upload-time = "2026-11-16T23:44:07.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7c/96/926edc18e697a74f2c3b1a64b2f88e6aef62118fe119b1eb9dfd7d5ad067/cartesia-5.1.0.tar.gz", hash = "sha256:6560f2623c4b575c81dd9419f66c02791f254b5ce2ce82f4cb7a76e78ad50bb3", size = 402415, upload-time = "2026-11-17T22:14:27.348Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f9/10/23d5538dc2fa5e718cd6e4d98dfdded9909c619dd44a8a4f5151f5c8b756/cartesia-5.0.0-py3-none-any.whl", hash = "sha256:d92c45cdae052532f3e2339fff754dee5e46774b8fd54d6b98b59be98a70a20d", size = 314726, upload-time = "2026-11-16T23:44:08.102Z" },
+    { url = "https://files.pythonhosted.org/packages/80/7a/aff2f213b2109d5ab36e4d64eeb6cca09609433cbf086e8717e30b9f1e5a/cartesia-5.1.0-py3-none-any.whl", hash = "sha256:cdd794ca6c6aa0eb396b1d6af94996dff7c46fcc14b9534967d7107ebb7d7dc6", size = 335589, upload-time = "2026-11-17T22:14:25.975Z" },
 ]
 
 [package.optional-dependencies]
@@ -134,7 +134,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cartesia", extras = ["websockets"], specifier = ">=5.0.0,<6" },
+    { name = "cartesia", extras = ["websockets"], specifier = ">=5.1.0,<6" },
     { name = "ddtrace", marker = "extra == 'hosted'", specifier = ">=4.8.2,<5" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=2,<3" },

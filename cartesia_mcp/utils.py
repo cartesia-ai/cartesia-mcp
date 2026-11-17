@@ -322,10 +322,10 @@ def create_output_file(output_directory: str, tool_type: ToolType,
 
 
 def _page_has_more(page: SyncCursorIDPage[typing.Any]) -> bool:
-    # SyncCursorIDPage.has_next_page() is True for any non-empty page; the API's has_more is not.
-    extra = getattr(page, "model_extra", None)
-    if isinstance(extra, dict) and isinstance(extra.get("has_more"), bool):
-        return extra["has_more"]
+    # cartesia 5.1 stores has_more on the page and stops when it is false.
+    has_more = getattr(page, "has_more", None)
+    if isinstance(has_more, bool):
+        return has_more
     return page.has_next_page()
 
 
