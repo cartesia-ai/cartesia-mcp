@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from cartesia_mcp.credentials import resolve_admin_api_credential
 
-ADMIN_ONLY_TOOLS = frozenset({"get_credit_usage"})
+ADMIN_ONLY_TOOLS = frozenset({"get_credit_usage", "get_agent_usage"})
 
 
 def admin_tools_available() -> bool:

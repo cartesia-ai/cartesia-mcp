@@ -1,11 +1,8 @@
 import json
-import typing
-from collections.abc import Callable, Iterator
-from unittest.mock import patch
 
 import httpx
 import pytest
-from cartesia import Cartesia
+from conftest import Api
 
 import cartesia_mcp.server as server
 from cartesia_mcp.utils import CONDENSED_TOOL_RESULT_CHARS, condense_agent_call
@@ -67,45 +64,6 @@ AGENT = {
     "config": {"instructions": "Help callers."},
     "version": {"id": "av_1", "created_at": "2026-08-28T18:33:03Z"},
 }
-
-Handler = Callable[[httpx.Request], typing.Any]
-
-
-class Api:
-    """Fake Cartesia API: records requests and answers from a route table."""
-
-    def __init__(self) -> None:
-        self.requests: list[httpx.Request] = []
-        self.routes: dict[tuple[str, str], Handler] = {}
-
-    def on(self, method: str, path: str, body: typing.Any) -> None:
-        self.routes[(method, path)] = lambda _request: body
-
-    def _handle(self, request: httpx.Request) -> httpx.Response:
-        self.requests.append(request)
-        handler = self.routes.get((request.method, request.url.raw_path.decode().split("?")[0]))
-        if handler is None:
-            return httpx.Response(404, json={"error": "not found"})
-        body = handler(request)
-        return httpx.Response(204) if body is None else httpx.Response(200, json=body)
-
-    @property
-    def last(self) -> httpx.Request:
-        return self.requests[-1]
-
-
-@pytest.fixture
-def api() -> Iterator[Api]:
-    fake = Api()
-    sdk = Cartesia(
-        api_key="sk_test",
-        base_url="https://api.test",
-        max_retries=0,
-        http_client=httpx.Client(transport=httpx.MockTransport(fake._handle)),
-    )
-    with patch("cartesia_mcp.server.client", sdk):
-        yield fake
-
 
 def _query(request: httpx.Request) -> dict[str, str]:
     return dict(request.url.params)
@@ -301,6 +259,95 @@ def test_update_agent_requires_a_change(api: Api) -> None:
     assert api.requests == []
 
 
+WEBHOOK_TOOL = {
+    "id": "tool_1",
+    "name": "lookup_order",
+    "description": "Look up an order.",
+    "type": "webhook",
+    "execution_mode": "immediate",
+    "pre_tool_speech": "auto",
+    "response_timeout_secs": 20,
+    "assignments": [],
+    "created_at": "2026-08-28T18:33:03Z",
+    "updated_at": "2026-08-28T18:33:03Z",
+    "api_schema": {"method": "GET", "url": "https://example.com/orders/{order_id}"},
+}
+
+
+def test_list_agent_tools_summarizes_and_filters(api: Api) -> None:
+    api.on("GET", "/v1/agents/tools", {"data": [WEBHOOK_TOOL], "has_more": True, "next_page": "tool_1"})
+
+    result = server.list_agent_tools(type="webhook", agent_id="agent_1")
+
+    assert _query(api.last) == {
+        "type": "webhook",
+        "agent_id": "agent_1",
+        "limit": "10",
+    }
+    assert result["data"] == [
+        {
+            "id": "tool_1",
+            "name": "lookup_order",
+            "description": "Look up an order.",
+            "type": "webhook",
+        }
+    ]
+    assert result["next_page"] == "tool_1"
+    assert "api_schema" not in result["data"][0]
+
+
+def test_get_agent_tool_keeps_schema_and_drops_nothing_secret(api: Api) -> None:
+    api.on("GET", "/v1/agents/tools/tool_1", WEBHOOK_TOOL)
+
+    result = server.get_agent_tool("tool_1", expand=["agents"])
+
+    assert _query(api.last) == {"expand": "agents"}
+    assert result["api_schema"]["url"].startswith("https://example.com")
+
+
+def test_create_agent_tool_sends_client_tool(api: Api) -> None:
+    api.on("POST", "/v1/agents/tools", WEBHOOK_TOOL)
+    tool = {
+        "type": "client",
+        "name": "lookup_order",
+        "description": "Look up an order by id.",
+        "execution_mode": "immediate",
+        "expects_response": True,
+        "pre_tool_speech": "auto",
+        "parameters": {
+            "type": "object",
+            "properties": {"order_id": {"type": "string"}},
+            "required": ["order_id"],
+        },
+    }
+
+    result = server.create_agent_tool(tool)
+
+    assert json.loads(api.last.content) == tool
+    assert result["id"] == "tool_1"
+
+
+def test_update_agent_tool_sends_only_given_fields(api: Api) -> None:
+    api.on("PATCH", "/v1/agents/tools/tool_1", WEBHOOK_TOOL)
+
+    server.update_agent_tool("tool_1", {"description": "Look up an order by id."})
+
+    assert json.loads(api.last.content) == {"description": "Look up an order by id."}
+
+
+def test_update_agent_tool_requires_a_change(api: Api) -> None:
+    with pytest.raises(ValueError, match="at least one"):
+        server.update_agent_tool("tool_1", {})
+    assert api.requests == []
+
+
+def test_delete_agent_tool(api: Api) -> None:
+    api.on("DELETE", "/v1/agents/tools/tool_1", None)
+
+    assert server.delete_agent_tool("tool_1") == {"success": True}
+    assert api.last.method == "DELETE"
+
+
 def test_delete_agent(api: Api) -> None:
     api.on("DELETE", "/v1/agents/agent_1", None)
 
@@ -352,10 +399,9 @@ def test_condense_tolerates_missing_and_malformed_fields() -> None:
             "id": "ac_3",
             "transcript": [
                 "not a turn",
-                {"role": "user", "text": "hi", "tool_calls": [None, {"name": "t"}]},
+                {"role": "user", "text": "hi", "log_metric": None, "tool_calls": [None, {"name": "t"}]},
                 {"log_metric": {"name": "x", "value": "NaN"}},
                 {"role": "system", "log_metric": "oops"},
-                {"role": "system", "log_metric": None},
             ],
         }
     )

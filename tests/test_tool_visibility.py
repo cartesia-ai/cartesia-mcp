@@ -13,7 +13,7 @@ from cartesia_mcp.tool_visibility import (
 
 
 def test_admin_only_tools_constant():
-    assert ADMIN_ONLY_TOOLS == frozenset({"get_credit_usage"})
+    assert ADMIN_ONLY_TOOLS == frozenset({"get_credit_usage", "get_agent_usage"})
 
 
 def test_is_tool_visible_hides_admin_tools_without_credential(monkeypatch):
@@ -42,12 +42,14 @@ def test_list_tools_hides_admin_tools_without_credential(monkeypatch):
     )
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
-    assert len(names) == 30
+    assert len(names) == 76
     assert "get_credit_usage" not in names
+    assert "get_agent_usage" not in names
     assert "list_accents" in names
     assert "list_models" in names
     assert "list_agent_models" in names
     assert "create_agent" in names
+    assert "create_agent_tool" in names
     assert "get_agent_call" in names
     assert "get_phone_number" in names
     assert "add_voice_accents" in names
@@ -61,5 +63,6 @@ def test_list_tools_shows_admin_tools_with_credential(monkeypatch):
     )
     tools = asyncio.run(server.mcp.list_tools())
     names = {tool.name for tool in tools}
-    assert len(names) == 31
+    assert len(names) == 78
     assert "get_credit_usage" in names
+    assert "get_agent_usage" in names

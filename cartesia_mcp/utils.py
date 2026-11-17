@@ -329,11 +329,24 @@ def _page_has_more(page: SyncCursorIDPage[typing.Any]) -> bool:
     return page.has_next_page()
 
 
-def page_result(data: list[dict[str, typing.Any]], has_more: bool) -> dict[str, typing.Any]:
+def page_result(
+    data: list[dict[str, typing.Any]],
+    has_more: bool,
+    next_page: typing.Optional[str] = None,
+) -> dict[str, typing.Any]:
     result: dict[str, typing.Any] = {"data": data, "has_more": has_more}
     if has_more and data:
-        result["next_page"] = data[-1]["id"]
+        result["next_page"] = next_page or data[-1]["id"]
     return result
+
+
+def list_response_to_result(response: typing.Any) -> dict[str, typing.Any]:
+    """Pages from list endpoints the SDK types as `{data, has_more, next_page}` models."""
+    return page_result(
+        [item.to_dict(mode="json") for item in response.data],
+        response.has_more,
+        response.next_page,
+    )
 
 
 def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
@@ -428,7 +441,9 @@ def _condensed_turn(turn: dict[str, typing.Any]) -> dict[str, typing.Any]:
 
 
 def _is_metric_turn(turn: dict[str, typing.Any]) -> bool:
-    return "log_metric" in turn
+    # A null field on a speech turn is not a metric. A present non-null value is,
+    # even when it is not a dict.
+    return turn.get("log_metric") is not None
 
 
 def _latency_summary(

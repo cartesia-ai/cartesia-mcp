@@ -29,8 +29,16 @@ To debug an agent, use `list_agent_calls` and `get_agent_call`, then \
 `get_agent_version` with the call's `agent_version_id` to read the config that ran.
 
 Only the tools listed here exist. Transfers, ending calls, DTMF, and voicemail \
-detection are `config.system_tools` on the agent, not endpoints. There is no \
-call simulation, outbound dialing, or phone number provisioning in this server.\
+detection are `config.system_tools` on the agent, not endpoints. Custom actions \
+are `create_agent_tool`, then the returned id goes in `config.tools`. Knowledge \
+base folders and documents, event webhooks, and evaluation metrics each have \
+their own tools; attach them through the agent's config or `attach_agent_metric`. \
+There is no call simulation.
+
+`create_agent_calls`, `create_call_batch`, `retry_call_batch`, and \
+`provision_phone_number` dial real people or buy a number. Never call them \
+until the user has confirmed the exact numbers, agent, and phone number in this \
+conversation. Confirm the target before any update or delete as well.\
 """
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
