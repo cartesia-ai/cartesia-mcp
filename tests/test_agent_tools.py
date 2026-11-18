@@ -302,7 +302,7 @@ def test_create_agent_sends_config_and_returns_playground_url(api: Api) -> None:
 def test_update_agent_sends_only_given_fields(api: Api) -> None:
     api.on("PATCH", "/v1/agents/agent_1", AGENT)
 
-    agents.update_agent(
+    result = agents.update_agent(
         "agent_1",
         config={"initial_message": "Hello!"},
         version_description="Shorter greeting",
@@ -313,6 +313,7 @@ def test_update_agent_sends_only_given_fields(api: Api) -> None:
         "config": {"initial_message": "Hello!"},
         "version_description": "Shorter greeting",
     }
+    assert result["playground_url"] == "https://play.cartesia.ai/agents/agent_1"
 
 
 def test_attach_agent_tool_keeps_existing_ids(api: Api) -> None:

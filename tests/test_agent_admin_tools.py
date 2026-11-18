@@ -212,7 +212,7 @@ def test_update_knowledge_document_sends_only_given_fields(api: Api) -> None:
 def test_delete_knowledge_document_only_forces_when_asked(api: Api) -> None:
     api.on("DELETE", "/agents/documents/kbdoc_1", None)
 
-    agents.delete_knowledge_document("kbdoc_1")
+    assert agents.delete_knowledge_document("kbdoc_1") == {"success": True}
     assert "force" not in _query(api)
     agents.delete_knowledge_document("kbdoc_1", force=True)
     assert _query(api)["force"] == "true"
@@ -246,7 +246,7 @@ def test_create_event_webhook_sends_secret_but_does_not_return_it(api: Api) -> N
 
 
 def test_update_event_webhook_keeps_secret_unless_given(api: Api) -> None:
-    api.on("PATCH", "/agents/webhooks/agent_webhook_1", "")
+    api.on("PATCH", "/agents/webhooks/agent_webhook_1", WEBHOOK)
 
     assert agents.update_event_webhook("agent_webhook_1", "https://example.com/new") == {
         "success": True
