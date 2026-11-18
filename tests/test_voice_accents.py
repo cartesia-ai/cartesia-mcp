@@ -5,7 +5,7 @@ from cartesia.types import ListAccentsResponse
 import cartesia_mcp.server as server
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_accents_returns_catalog_ids(mock_client: MagicMock) -> None:
     mock_client.voices.list_accents.return_value = ListAccentsResponse(
         accents=[
@@ -34,7 +34,7 @@ def test_list_accents_returns_catalog_ids(mock_client: MagicMock) -> None:
     assert [accent.id for accent in result.accents] == ["british", "standard-japanese"]
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_add_voice_accents_calls_sdk(mock_client: MagicMock) -> None:
     mock_client.voices.add_accents.return_value = MagicMock()
 
@@ -46,7 +46,7 @@ def test_add_voice_accents_calls_sdk(mock_client: MagicMock) -> None:
     assert kwargs["accents"] == ["british", "parisian"]
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_delete_voice_accent_calls_sdk(mock_client: MagicMock) -> None:
     mock_client.voices.delete_accent.return_value = MagicMock()
 

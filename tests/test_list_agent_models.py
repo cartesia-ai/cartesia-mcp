@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import MagicMock, patch
 
+import cartesia_mcp.agents as agents
 import cartesia_mcp.extra_api as extra_api
 import cartesia_mcp.server as server
 
@@ -51,7 +52,7 @@ def test_extra_api_list_agent_models_follows_next_page() -> None:
 
 
 @patch("cartesia_mcp.server.extra_api.list_agent_models")
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_agent_models_tool(
     mock_client: MagicMock, mock_list_agent_models: MagicMock
 ) -> None:
@@ -59,7 +60,7 @@ def test_list_agent_models_tool(
         "data": [{"id": "claude-sonnet-5", "provider": "Anthropic"}]
     }
 
-    result = server.list_agent_models()
+    result = agents.list_agent_models()
 
     mock_list_agent_models.assert_called_once()
     assert mock_list_agent_models.call_args.args[0] is mock_client
@@ -74,9 +75,9 @@ def test_model_catalog_tools_name_the_other_catalog(monkeypatch) -> None:
     tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
 
     speech = tools["list_models"].description
-    agents = tools["list_agent_models"].description
+    agent_text = tools["list_agent_models"].description
 
     assert "list_agent_models" in speech
     assert "text_to_speech" in speech
-    assert "list_models" in agents
-    assert "sonic-*" in agents
+    assert "list_models" in agent_text
+    assert "sonic-*" in agent_text

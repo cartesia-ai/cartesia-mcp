@@ -15,7 +15,7 @@ def test_resolve_stt_model_override() -> None:
     assert server._resolve_stt_model("batch", "ink-2") == "ink-2"
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_speech_to_text_batch_uses_transcribe(
     mock_client: MagicMock,
     tmp_path: Path,
@@ -34,7 +34,7 @@ def test_speech_to_text_batch_uses_transcribe(
     assert kwargs["language"] == "en"
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 @patch("cartesia_mcp.server.iter_stt_audio_chunks")
 def test_speech_to_text_stream_uses_auto_finalize_websocket(
     mock_iter_chunks: MagicMock,

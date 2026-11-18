@@ -19,7 +19,7 @@ def test_stt_words_from_timestamps_flattens_word_timestamps() -> None:
     ]
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -> None:
     mock_response = MagicMock(read=lambda: b"audio")
     mock_response.headers = {"Cartesia-File-ID": "file_test"}
@@ -41,7 +41,7 @@ def test_text_to_speech_passes_duration_via_extra_body(mock_client: MagicMock) -
     assert kwargs["save"] is True
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_clone_voice_passes_mode_via_extra_body(
     mock_client: MagicMock,
     tmp_path: Path,
@@ -64,7 +64,7 @@ def test_clone_voice_passes_mode_via_extra_body(
     assert kwargs["accent"] is server.omit
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_clone_voice_passes_accent(mock_client: MagicMock, tmp_path: Path) -> None:
     mock_client.voices.clone.return_value = MagicMock()
     clip = tmp_path / "clip.wav"
@@ -82,7 +82,7 @@ def test_clone_voice_passes_accent(mock_client: MagicMock, tmp_path: Path) -> No
     assert mock_client.voices.clone.call_args.kwargs["accent"] == "southern-us"
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 @patch("cartesia_mcp.server.iter_stt_audio_chunks")
 def test_speech_to_text_stream_non_english_uses_manual_finalize(
     mock_iter_chunks: MagicMock,
@@ -112,7 +112,7 @@ def test_speech_to_text_stream_non_english_uses_manual_finalize(
     mock_client.stt.auto_finalize.websocket.assert_not_called()
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 @patch("cartesia_mcp.server.iter_stt_audio_chunks")
 def test_speech_to_text_stream_word_timestamps_use_manual_finalize(
     mock_iter_chunks: MagicMock,

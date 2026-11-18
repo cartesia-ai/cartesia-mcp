@@ -70,7 +70,7 @@ def test_coerce_keeps_existing_locales() -> None:
     assert coerced.locales[0].is_native is True
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_get_voice_null_locales_structured_output_validates(mock_client: MagicMock) -> None:
     mock_client.voices.get.return_value = _voice(locales=None)
 
@@ -81,7 +81,7 @@ def test_get_voice_null_locales_structured_output_validates(mock_client: MagicMo
     jsonschema.validate(instance=structured, schema=_schema("get_voice"))
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_voices_null_locales_become_empty_list(mock_client: MagicMock) -> None:
     page = MagicMock()
     page.data = [_voice(locales=None)]

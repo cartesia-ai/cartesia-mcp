@@ -16,7 +16,7 @@ def prod_files_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
 @patch("cartesia_mcp.server.extra_api.create_file_download_link")
 @patch("cartesia_mcp.server.extra_api.download_file_bytes")
 @patch("cartesia_mcp.server.extra_api.get_file_info")
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_download_file_returns_url_and_local_path(
     mock_client: MagicMock,
     mock_get_file_info: MagicMock,
@@ -57,7 +57,7 @@ def test_download_file_returns_url_and_local_path(
 
 
 @patch("cartesia_mcp.server._try_create_download_link")
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_save_returns_cloud_ids(
     mock_client: MagicMock,
     mock_cloud_url: MagicMock,
@@ -87,7 +87,7 @@ def test_text_to_speech_save_returns_cloud_ids(
 
 
 @patch("cartesia_mcp.server._try_create_download_link", return_value=None)
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_save_returns_file_id_when_link_fails(
     mock_client: MagicMock,
     _mock_cloud_url: MagicMock,
@@ -112,7 +112,7 @@ def test_text_to_speech_save_returns_file_id_when_link_fails(
 @patch("cartesia_mcp.server.extra_api.download_file_bytes")
 @patch("cartesia_mcp.server.extra_api.get_file_info")
 @patch("cartesia_mcp.server._try_create_download_link", return_value=None)
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_download_file_returns_local_path_when_link_fails(
     mock_client: MagicMock,
     _mock_cloud_url: MagicMock,
@@ -135,7 +135,7 @@ def test_download_file_returns_local_path_when_link_fails(
     assert "download_url" not in result
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_without_save_returns_local_path_only(
     mock_client: MagicMock,
 ) -> None:

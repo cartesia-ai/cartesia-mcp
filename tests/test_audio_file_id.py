@@ -63,7 +63,7 @@ def test_cloud_file_on_disk_keeps_extension(
     assert save.call_args.kwargs["filename"] == "out.wav"
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 @patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.mp3"), "clip.mp3"))
 def test_speech_to_text_accepts_file_id(mock_download: MagicMock, mock_client: MagicMock) -> None:
     mock_client.stt.transcribe.return_value = MagicMock(text="hello")
@@ -76,7 +76,7 @@ def test_speech_to_text_accepts_file_id(mock_download: MagicMock, mock_client: M
     opened.assert_called_once_with("/tmp/clip.mp3", "rb")
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 @patch("cartesia_mcp.server._cloud_file_on_disk", return_value=(Path("/tmp/clip.wav"), "clip.wav"))
 def test_clone_voice_accepts_file_id(mock_download: MagicMock, mock_client: MagicMock) -> None:
     mock_client.voices.clone.return_value = MagicMock(id="voice_new")

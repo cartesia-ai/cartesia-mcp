@@ -4,7 +4,7 @@ import httpx
 import pytest
 from conftest import Api
 
-import cartesia_mcp.server as server
+import cartesia_mcp.agents as agents
 from cartesia_mcp.utils import CONDENSED_TOOL_RESULT_CHARS, condense_agent_call
 
 CALL = {
@@ -72,7 +72,7 @@ def _query(request: httpx.Request) -> dict[str, str]:
 def test_get_agent_call_condenses_by_default(api: Api) -> None:
     api.on("GET", "/agents/calls/ac_1", CALL)
 
-    result = server.get_agent_call("ac_1")
+    result = agents.get_agent_call("ac_1")
 
     assert result["status"] == "failed"
     assert result["end_reason"] == "call_inactivity"
@@ -107,7 +107,7 @@ def test_get_agent_call_condenses_by_default(api: Api) -> None:
 def test_get_agent_call_full_keeps_fields_the_sdk_does_not_model(api: Api) -> None:
     api.on("GET", "/agents/calls/ac_1", CALL)
 
-    result = server.get_agent_call("ac_1", detail="full")
+    result = agents.get_agent_call("ac_1", detail="full")
 
     assert result["transcript"][1]["tool_calls"][0]["result"] == CALL["transcript"][1][
         "tool_calls"
@@ -118,7 +118,7 @@ def test_get_agent_call_full_keeps_fields_the_sdk_does_not_model(api: Api) -> No
 def test_list_agent_calls_sends_filters_omits_transcript_and_sets_cursor(api: Api) -> None:
     api.on("GET", "/agents/calls", {"data": [CALL], "has_more": True})
 
-    result = server.list_agent_calls("agent_1", limit=5, starting_after="ac_9")
+    result = agents.list_agent_calls("agent_1", limit=5, starting_after="ac_9")
 
     assert _query(api.last) == {"agent_id": "agent_1", "limit": "5", "starting_after": "ac_9"}
     row = result["data"][0]
@@ -146,7 +146,7 @@ def test_list_agent_versions_drops_config(api: Api) -> None:
         },
     )
 
-    result = server.list_agent_versions("agent_1")
+    result = agents.list_agent_versions("agent_1")
 
     assert result == {
         "data": [{"id": "av_1", "created_at": "2026-08-28T18:33:03Z", "description": "v1"}],
@@ -157,7 +157,7 @@ def test_list_agent_versions_drops_config(api: Api) -> None:
 def test_get_agent_version_path(api: Api) -> None:
     api.on("GET", "/v1/agents/agent_1/versions/av_1", {"id": "av_1", "config": {}})
 
-    assert server.get_agent_version("agent_1", "av_1")["id"] == "av_1"
+    assert agents.get_agent_version("agent_1", "av_1")["id"] == "av_1"
 
 
 def test_list_phone_numbers_filters_and_cursor(api: Api) -> None:
@@ -167,7 +167,7 @@ def test_list_phone_numbers_filters_and_cursor(api: Api) -> None:
         {"data": [{"id": "pn_1", "number": "+15550100", "agent": None}], "has_more": True},
     )
 
-    result = server.list_phone_numbers(agent_id="agent_1", type="sip_trunk")
+    result = agents.list_phone_numbers(agent_id="agent_1", type="sip_trunk")
 
     assert _query(api.last) == {"agent_id": "agent_1", "type": "sip_trunk", "limit": "10"}
     assert result["data"][0]["number"] == "+15550100"
@@ -176,10 +176,10 @@ def test_list_phone_numbers_filters_and_cursor(api: Api) -> None:
 
 def test_ids_stay_one_path_segment(api: Api) -> None:
     for call in (
-        lambda: server.get_agent_call("ac_1/logs?x=1"),
-        lambda: server.get_agent_version("../agents", "av_1"),
-        lambda: server.get_phone_number("pn_1/../x"),
-        lambda: server.delete_agent("agent_1/versions"),
+        lambda: agents.get_agent_call("ac_1/logs?x=1"),
+        lambda: agents.get_agent_version("../agents", "av_1"),
+        lambda: agents.get_phone_number("pn_1/../x"),
+        lambda: agents.delete_agent("agent_1/versions"),
     ):
         with pytest.raises(Exception):
             call()
@@ -197,7 +197,7 @@ def test_list_agents_returns_summaries_and_cursor(api: Api) -> None:
     summary = {key: AGENT[key] for key in ("id", "name", "description", "created_at")}
     api.on("GET", "/v1/agents", {"data": [summary], "has_more": True})
 
-    result = server.list_agents(q="support")
+    result = agents.list_agents(q="support")
 
     assert _query(api.last) == {"q": "support", "limit": "10"}
     assert result["data"][0]["name"] == "Support"
@@ -207,7 +207,7 @@ def test_list_agents_returns_summaries_and_cursor(api: Api) -> None:
 def test_get_agent_adds_playground_url(api: Api) -> None:
     api.on("GET", "/v1/agents/agent_1", AGENT)
 
-    result = server.get_agent("agent_1")
+    result = agents.get_agent("agent_1")
 
     assert result["config"] == {"instructions": "Help callers."}
     assert result["playground_url"] == "https://play.cartesia.ai/agents/agent_1"
@@ -216,7 +216,7 @@ def test_get_agent_adds_playground_url(api: Api) -> None:
 def test_create_agent_sends_config_and_returns_playground_url(api: Api) -> None:
     api.on("POST", "/v1/agents", AGENT)
 
-    result = server.create_agent(
+    result = agents.create_agent(
         name="Support",
         config={
             "instructions": "Help callers.",
@@ -240,7 +240,7 @@ def test_create_agent_sends_config_and_returns_playground_url(api: Api) -> None:
 def test_update_agent_sends_only_given_fields(api: Api) -> None:
     api.on("PATCH", "/v1/agents/agent_1", AGENT)
 
-    server.update_agent(
+    agents.update_agent(
         "agent_1",
         config={"initial_message": "Hello!"},
         version_description="Shorter greeting",
@@ -255,7 +255,7 @@ def test_update_agent_sends_only_given_fields(api: Api) -> None:
 
 def test_update_agent_requires_a_change(api: Api) -> None:
     with pytest.raises(ValueError, match="at least one"):
-        server.update_agent("agent_1")
+        agents.update_agent("agent_1")
     assert api.requests == []
 
 
@@ -277,7 +277,7 @@ WEBHOOK_TOOL = {
 def test_list_agent_tools_summarizes_and_filters(api: Api) -> None:
     api.on("GET", "/v1/agents/tools", {"data": [WEBHOOK_TOOL], "has_more": True, "next_page": "tool_1"})
 
-    result = server.list_agent_tools(type="webhook", agent_id="agent_1")
+    result = agents.list_agent_tools(type="webhook", agent_id="agent_1")
 
     assert _query(api.last) == {
         "type": "webhook",
@@ -299,7 +299,7 @@ def test_list_agent_tools_summarizes_and_filters(api: Api) -> None:
 def test_get_agent_tool_keeps_schema_and_drops_nothing_secret(api: Api) -> None:
     api.on("GET", "/v1/agents/tools/tool_1", WEBHOOK_TOOL)
 
-    result = server.get_agent_tool("tool_1", expand=["agents"])
+    result = agents.get_agent_tool("tool_1", expand=["agents"])
 
     assert _query(api.last) == {"expand": "agents"}
     assert result["api_schema"]["url"].startswith("https://example.com")
@@ -321,7 +321,7 @@ def test_create_agent_tool_sends_client_tool(api: Api) -> None:
         },
     }
 
-    result = server.create_agent_tool(tool)
+    result = agents.create_agent_tool(tool)
 
     assert json.loads(api.last.content) == tool
     assert result["id"] == "tool_1"
@@ -330,28 +330,28 @@ def test_create_agent_tool_sends_client_tool(api: Api) -> None:
 def test_update_agent_tool_sends_only_given_fields(api: Api) -> None:
     api.on("PATCH", "/v1/agents/tools/tool_1", WEBHOOK_TOOL)
 
-    server.update_agent_tool("tool_1", {"description": "Look up an order by id."})
+    agents.update_agent_tool("tool_1", {"description": "Look up an order by id."})
 
     assert json.loads(api.last.content) == {"description": "Look up an order by id."}
 
 
 def test_update_agent_tool_requires_a_change(api: Api) -> None:
     with pytest.raises(ValueError, match="at least one"):
-        server.update_agent_tool("tool_1", {})
+        agents.update_agent_tool("tool_1", {})
     assert api.requests == []
 
 
 def test_delete_agent_tool(api: Api) -> None:
     api.on("DELETE", "/v1/agents/tools/tool_1", None)
 
-    assert server.delete_agent_tool("tool_1") == {"success": True}
+    assert agents.delete_agent_tool("tool_1") == {"success": True}
     assert api.last.method == "DELETE"
 
 
 def test_delete_agent(api: Api) -> None:
     api.on("DELETE", "/v1/agents/agent_1", None)
 
-    assert server.delete_agent("agent_1") == {"success": True}
+    assert agents.delete_agent("agent_1") == {"success": True}
     assert api.last.method == "DELETE"
 
 

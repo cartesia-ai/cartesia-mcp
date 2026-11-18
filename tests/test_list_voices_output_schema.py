@@ -58,7 +58,7 @@ def test_list_voices_output_schema_allows_null_next_page() -> None:
     assert {"type": "null"} in next_page_schema.get("anyOf", [])
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_voices_last_page_structured_output_validates(mock_client: MagicMock) -> None:
     """Final pages omit next_page; FastMCP dump fills it as null."""
     schema = _list_voices_output_schema()
@@ -76,7 +76,7 @@ def test_list_voices_last_page_structured_output_validates(mock_client: MagicMoc
     jsonschema.validate(instance=structured, schema=schema)
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_voices_with_next_page_structured_output_validates(
     mock_client: MagicMock,
 ) -> None:

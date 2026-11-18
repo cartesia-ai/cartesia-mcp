@@ -53,5 +53,5 @@ def api() -> Iterator[Api]:
         max_retries=0,
         http_client=httpx.Client(transport=httpx.MockTransport(fake._handle)),
     )
-    with patch("cartesia_mcp.server.client", sdk):
+    with patch("cartesia_mcp.mcp_app.client", sdk):
         yield fake

@@ -14,7 +14,7 @@ def _wav_format() -> dict[str, object]:
     return {"container": "wav", "encoding": "pcm_s16le", "sample_rate": 44100}
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_output_path_writes_file(
     mock_client: MagicMock,
     tmp_path: Path,
@@ -36,7 +36,7 @@ def test_text_to_speech_output_path_writes_file(
     assert result == {"file_path": str(dest.resolve())}
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_output_path_relative_to_cwd(
     mock_client: MagicMock,
     tmp_path: Path,
@@ -60,7 +60,7 @@ def test_text_to_speech_output_path_relative_to_cwd(
     assert result == {"file_path": str(dest)}
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_output_path_rejected_on_hosted(
     mock_client: MagicMock,
     tmp_path: Path,
@@ -80,7 +80,7 @@ def test_text_to_speech_output_path_rejected_on_hosted(
     mock_client.tts.generate.assert_not_called()
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_text_to_speech_output_path_rejects_directory(
     mock_client: MagicMock,
     tmp_path: Path,
