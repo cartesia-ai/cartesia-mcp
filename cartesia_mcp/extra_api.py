@@ -150,6 +150,23 @@ def list_agent_models(client: Cartesia) -> dict[str, typing.Any]:
     return {"data": models}
 
 
+def upload_file(
+    client: Cartesia,
+    *,
+    filename: str,
+    content: bytes,
+    purpose: str,
+) -> dict[str, typing.Any]:
+    """POST /files as multipart. `purpose` selects how the file may be used."""
+    return client.post(
+        _files_url("/files"),
+        cast_to=dict[str, typing.Any],
+        body={"purpose": purpose},
+        files={"file": (filename, content)},
+        options={"headers": {"Content-Type": "multipart/form-data"}},
+    )
+
+
 def create_file_download_link(
     client: Cartesia,
     file_id: str,

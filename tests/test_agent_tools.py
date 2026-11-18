@@ -315,6 +315,48 @@ def test_update_agent_sends_only_given_fields(api: Api) -> None:
     }
 
 
+def test_attach_agent_tool_keeps_existing_ids(api: Api) -> None:
+    current = {
+        **AGENT,
+        "config": {"tools": [{"id": "tool_old"}], "instructions": "Help callers."},
+    }
+    api.on("GET", "/v1/agents/agent_1", current)
+    api.on("PATCH", "/v1/agents/agent_1", current)
+
+    agents.attach_agent_tool("agent_1", "tool_new")
+
+    assert json.loads(api.last.content) == {
+        "config": {"tools": [{"id": "tool_old"}, {"id": "tool_new"}]}
+    }
+
+
+def test_attach_agent_tool_skips_update_when_already_attached(api: Api) -> None:
+    current = {**AGENT, "config": {"tools": [{"id": "tool_old"}]}}
+    api.on("GET", "/v1/agents/agent_1", current)
+
+    result = agents.attach_agent_tool("agent_1", "tool_old")
+
+    assert [request.method for request in api.requests] == ["GET"]
+    assert result["playground_url"] == "https://play.cartesia.ai/agents/agent_1"
+
+
+def test_detach_knowledge_document_sends_the_remaining_ids(api: Api) -> None:
+    current = {
+        **AGENT,
+        "config": {
+            "knowledge_base_documents": [{"id": "kbdoc_1"}, {"id": "kbdoc_2"}]
+        },
+    }
+    api.on("GET", "/v1/agents/agent_1", current)
+    api.on("PATCH", "/v1/agents/agent_1", current)
+
+    agents.detach_knowledge_document("agent_1", "kbdoc_1")
+
+    assert json.loads(api.last.content) == {
+        "config": {"knowledge_base_documents": [{"id": "kbdoc_2"}]}
+    }
+
+
 def test_update_agent_requires_a_change(api: Api) -> None:
     with pytest.raises(ValueError, match="at least one"):
         agents.update_agent("agent_1")

@@ -92,6 +92,38 @@ def test_folder_id_stays_one_path_segment(api: Api) -> None:
     assert api.last.url.raw_path.decode() == "/agents/folders/a%2Fb"
 
 
+def test_create_knowledge_document_from_file_path_uploads_then_creates(
+    api: Api, tmp_path
+) -> None:
+    source = tmp_path / "returns.pdf"
+    source.write_bytes(b"%PDF-1.4")
+    api.on("POST", "/files", {"id": "file_1", "filename": "returns.pdf"})
+    api.on("POST", "/agents/documents/bulk", [DOCUMENT])
+
+    agents.create_knowledge_documents(
+        [{"file_path": str(source), "name": "returns", "folder_id": "kbfldr_1"}]
+    )
+
+    upload, create = api.requests
+    assert upload.url.path == "/files"
+    assert b"knowledge_base_document" in upload.content
+    assert b"returns.pdf" in upload.content
+    assert json.loads(create.content) == {
+        "documents": [
+            {"name": "returns", "folder_id": "kbfldr_1", "file_id": "file_1"}
+        ]
+    }
+
+
+def test_create_knowledge_document_rejects_file_path_on_hosted(
+    api: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(agents, "_is_hosted", True)
+    with pytest.raises(ValueError, match="Hosted MCP"):
+        agents.create_knowledge_documents([{"file_path": "/tmp/returns.pdf"}])
+    assert api.requests == []
+
+
 def test_create_knowledge_documents_sends_bulk_body_without_echoing_text(api: Api) -> None:
     api.on("POST", "/agents/documents/bulk", [DOCUMENT])
 
@@ -272,8 +304,8 @@ def test_provision_and_import_send_expected_bodies(api: Api) -> None:
     api.on("POST", "/agents/phone-numbers/provision", number)
     api.on("POST", "/agents/phone-numbers", number)
 
-    agents.provision_phone_number("Support line", agent_id="agent_1")
-    assert _body(api) == {"label": "Support line", "agent_id": "agent_1"}
+    agents.provision_phone_number("Support line")
+    assert _body(api) == {"label": "Support line"}
 
     agents.import_phone_number("Mine", "+14155551234", {"id": "prov_1"})
     assert _body(api) == {

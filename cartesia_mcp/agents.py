@@ -1,6 +1,7 @@
 """Managed Agents tools and prompts: agents, calls, versions, knowledge base, webhooks, metrics, phone numbers, and batches."""
 
 import typing
+from pathlib import Path
 
 from cartesia import omit
 from cartesia.types.agent_create_params import Config as AgentCreateConfig
@@ -28,6 +29,7 @@ from cartesia_mcp.mcp_app import (
     _additive_tool,
     _api_client,
     _destructive_tool,
+    _is_hosted,
     _read_only_tool,
     _real_world_tool,
     _require_admin_client,
@@ -185,7 +187,10 @@ def create_agent(
         Inside `config`, list and map fields (`tools`, `keyterms`,
         `knowledge_base_documents`, `dynamic_variable_placeholders`, ...)
         replace the existing value, so send the full list. Call `get_agent`
-        first when editing one.
+        first when editing one. To add or remove one tool or knowledge id,
+        use `attach_agent_tool`, `detach_agent_tool`, `attach_knowledge_folder`,
+        `detach_knowledge_folder`, `attach_knowledge_document`, or
+        `detach_knowledge_document`. Those keep the other ids.
 
         Each `config` change publishes a new version, which live calls use
         right away. Describe it with `version_description`. Name and
@@ -223,6 +228,183 @@ def update_agent(
             config=_or_omit(config),
             version_description=_or_omit(version_description),
         )
+    )
+
+
+def _reference_ids(config: dict[str, typing.Any], key: str) -> list[str]:
+    values = config.get(key) or []
+    if not isinstance(values, list):
+        return []
+    return [
+        value["id"]
+        for value in values
+        if isinstance(value, dict) and isinstance(value.get("id"), str)
+    ]
+
+
+def _set_agent_reference(
+    agent_id: str, key: str, ref_id: str, *, attach: bool
+) -> dict[str, typing.Any]:
+    """Add or remove one `{id}` on an agent without replacing the other ids."""
+    agent = _api_client().agents.retrieve(agent_id).to_dict(mode="json")
+    config = agent.get("config")
+    if not isinstance(config, dict):
+        config = {}
+    ids = _reference_ids(config, key)
+    if attach:
+        changed = ref_id not in ids
+        if changed:
+            ids.append(ref_id)
+    else:
+        changed = ref_id in ids
+        ids = [existing for existing in ids if existing != ref_id]
+    if not changed:
+        agent["playground_url"] = playground_agent_url(str(agent["id"]))
+        return agent
+    return _agent_with_playground_url(
+        _api_client().agents.update(
+            agent_id,
+            config=typing.cast(
+                AgentUpdateConfig, {key: [{"id": item} for item in ids]}
+            ),
+        )
+    )
+
+
+@mcp.tool(
+    annotations=_additive_tool("Attach agent tool"),
+    description="""
+        Add one tool id to an agent and keep the tools already attached. Prefer
+        this over `update_agent` when adding a single tool. `config.tools`
+        replaces the whole list. Publishes a new version when the tool was not
+        already attached. Live calls use that version right away.
+        """,
+)
+def attach_agent_tool(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    tool_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Tool ID from `create_agent_tool` or `list_agent_tools`."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(agent_id, "tools", tool_id, attach=True)
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Detach agent tool"),
+    description="""
+        Remove one tool id from an agent and keep the others. Confirm the tool
+        and the agent with the user first. Publishes a new version when the
+        tool was attached. Live calls use that version right away.
+        """,
+)
+def detach_agent_tool(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    tool_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Tool ID currently in the agent's `config.tools`."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(agent_id, "tools", tool_id, attach=False)
+
+
+@mcp.tool(
+    annotations=_additive_tool("Attach knowledge folder"),
+    description="""
+        Let an agent search one more knowledge folder, and keep the folders
+        already attached. Prefer this over `update_agent`, which replaces
+        `config.knowledge_base_folders`. Publishes a new version when the
+        folder was not already attached.
+        """,
+)
+def attach_knowledge_folder(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    folder_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Folder ID from `list_knowledge_folders`."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(
+        agent_id, "knowledge_base_folders", folder_id, attach=True
+    )
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Detach knowledge folder"),
+    description="""
+        Stop an agent searching one knowledge folder, and keep the others.
+        Confirm the folder and the agent with the user first. Does not delete
+        the folder. Publishes a new version when the folder was attached.
+        """,
+)
+def detach_knowledge_folder(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    folder_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Folder ID currently on the agent."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(
+        agent_id, "knowledge_base_folders", folder_id, attach=False
+    )
+
+
+@mcp.tool(
+    annotations=_additive_tool("Attach knowledge document"),
+    description="""
+        Let an agent search one more knowledge document, and keep the documents
+        already attached. Prefer this over `update_agent`, which replaces
+        `config.knowledge_base_documents`. Publishes a new version when the
+        document was not already attached.
+        """,
+)
+def attach_knowledge_document(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    document_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Document ID from `list_knowledge_documents`."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(
+        agent_id, "knowledge_base_documents", document_id, attach=True
+    )
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Detach knowledge document"),
+    description="""
+        Stop an agent searching one knowledge document, and keep the others.
+        Confirm the document and the agent with the user first. Does not delete
+        the document. Publishes a new version when the document was attached.
+        """,
+)
+def detach_knowledge_document(
+    agent_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Managed Agent ID (`agent_...`)."),
+    ],
+    document_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Document ID currently on the agent."),
+    ],
+) -> dict[str, typing.Any]:
+    return _set_agent_reference(
+        agent_id, "knowledge_base_documents", document_id, attach=False
     )
 
 
@@ -899,12 +1081,67 @@ def get_knowledge_document(
     )
 
 
+class KnowledgeDocumentUpload(typing.TypedDict, total=False):
+    content: str
+    file_id: str
+    file_path: str
+    folder_id: str
+    name: str
+    metadata: dict[str, str]
+
+
+def _knowledge_document_for_sdk(
+    document: KnowledgeDocumentUpload,
+) -> KnowledgeDocumentInput:
+    sources = [
+        key for key in ("content", "file_id", "file_path") if document.get(key)
+    ]
+    if len(sources) != 1:
+        raise ValueError(
+            "Each document needs exactly one of `content`, `file_id`, or `file_path`."
+        )
+    prepared: dict[str, typing.Any] = {
+        key: value
+        for key, value in document.items()
+        if key != "file_path" and value is not None
+    }
+    if "file_path" not in sources:
+        return typing.cast(KnowledgeDocumentInput, prepared)
+    if _is_hosted:
+        raise ValueError(
+            "Hosted MCP cannot read `file_path`. Pass `content`, or a `file_id` "
+            "from a file uploaded with purpose `knowledge_base_document`."
+        )
+    file_path = document.get("file_path")
+    if not isinstance(file_path, str):
+        raise ValueError("Each document needs exactly one of `content`, `file_id`, or `file_path`.")
+    path = Path(file_path).expanduser()
+    if not path.is_file():
+        raise ValueError(f"`file_path` is not a file: {path}")
+    uploaded = extra_api.upload_file(
+        _api_client(),
+        filename=path.name,
+        content=path.read_bytes(),
+        purpose="knowledge_base_document",
+    )
+    file_id = uploaded.get("id")
+    if not isinstance(file_id, str) or not file_id:
+        raise RuntimeError("files API did not return a file id")
+    prepared["file_id"] = file_id
+    return typing.cast(KnowledgeDocumentInput, prepared)
+
+
 @mcp.tool(
     annotations=_additive_tool("Create knowledge documents"),
     description="""
-        Upload 1 to 100 text documents agents can search during calls. Each needs
-        `content` (up to 1 MB) and may set `name`, `folder_id`, and `metadata`
-        (string values, used to filter retrieval).
+        Upload 1 to 100 documents agents can search during calls. Each needs
+        exactly one of `content` (text, up to 1 MB), `file_id` (a file already
+        uploaded with purpose `knowledge_base_document`), or `file_path` (an
+        absolute path on the local MCP server). `file_path` is uploaded for
+        you, and the platform extracts text from PDF and `.docx`. Hosted MCP
+        cannot read a path: pass `content` or `file_id`. Each document may set
+        `name`, `folder_id`, and `metadata` (string values, used to filter
+        retrieval).
 
         Documents start as `processing`. Check `status` with
         `get_knowledge_document`, and use `retry_knowledge_document` on a
@@ -913,12 +1150,12 @@ def get_knowledge_document(
 )
 def create_knowledge_documents(
     documents: typing.Annotated[
-        list[KnowledgeDocumentInput],
+        list[KnowledgeDocumentUpload],
         Field(min_length=1, max_length=100, description="Documents to upload."),
     ],
 ) -> dict[str, typing.Any]:
     created = _api_client().agents.knowledge_base.documents.create_bulk(
-        documents=documents
+        documents=[_knowledge_document_for_sdk(document) for document in documents]
     )
     return {"data": [_without_content(d.to_dict(mode="json")) for d in created]}
 
@@ -1056,7 +1293,9 @@ def get_event_webhook(
     description="""
         Create an event webhook. Cartesia POSTs call events to `url` and sends
         `secret` back in the `X-Webhook-Secret` header so your endpoint can verify
-        the request. The secret is write-only and is not echoed in the result.
+        the request. The user chooses the secret and keeps their own copy. Ask
+        them for it before calling. The result does not include it, and neither
+        do `get_event_webhook` or `list_event_webhooks`.
         Attach the returned `id` to an agent with `config.event_webhook_id`.
         """,
 )
@@ -1380,15 +1619,16 @@ def get_phone_provisioning_usage() -> dict[str, typing.Any]:
     description="""
         Buy a new Cartesia-managed phone number. This can incur charges and cannot
         be undone from here. Only call it after the user has confirmed, in this
-        conversation, that they want a new number, plus its label and the agent
-        that should answer it.
+        conversation, that they want a new number and its label.
+
+        The number is not assigned to an agent. Read `number` from the result
+        back to the user. Assign it with `update_phone_number` only after they
+        have confirmed that number.
 
         Check `remaining` from `get_phone_provisioning_usage` first. If it is 0,
         tell the user the monthly limit is reached instead of buying.
 
-        Cartesia numbers take inbound calls and outbound calls to US numbers. Pass
-        `agent_id` to answer inbound calls with that agent; omit it to keep the
-        number outbound-only.
+        Cartesia numbers take inbound calls and outbound calls to US numbers.
         """,
 )
 def provision_phone_number(
@@ -1396,16 +1636,8 @@ def provision_phone_number(
         str,
         Field(min_length=1, description="Human-readable name for the number."),
     ],
-    agent_id: typing.Annotated[
-        typing.Optional[str],
-        Field(description="Agent that answers inbound calls. Omit for outbound-only."),
-    ] = None,
 ) -> dict[str, typing.Any]:
-    return (
-        _api_client()
-        .agents.phone_numbers.provision(label=label, agent_id=_or_omit(agent_id))
-        .to_dict(mode="json")
-    )
+    return _api_client().agents.phone_numbers.provision(label=label).to_dict(mode="json")
 
 
 @mcp.tool(
@@ -1966,14 +2198,17 @@ def create_voice_agent(description: str) -> str:
         "first, or leave it unset to wait.\n"
         "4. Use `{{variable}}` placeholders for anything that changes per caller and set "
         "test values in `config.dynamic_variable_placeholders`.\n"
-        "5. If the agent must look something up or take an action, call "
-        "`create_agent_tool` and put the returned id in `config.tools`. Ending, "
-        "transferring, DTMF, and voicemail detection are `config.system_tools`.\n"
-        "If it must answer from the user's documents, call `create_knowledge_folder` and "
-        "`create_knowledge_documents`, then set `config.knowledge_base_folders`.\n"
-        "6. Call `create_agent`, then give the user the `playground_url` to talk to it.\n"
+        "5. Call `create_agent`, then give the user the `playground_url`. A config "
+        "change is live immediately. Try it there before assigning a phone number.\n"
+        "6. If the agent must look something up or take an action, call "
+        "`create_agent_tool`, then `attach_agent_tool`. Ending, transferring, "
+        "DTMF, and voicemail detection are `config.system_tools`.\n"
+        "If it must answer from the user's documents, call `create_knowledge_folder` "
+        "and `create_knowledge_documents`, then `attach_knowledge_folder` or "
+        "`attach_knowledge_document`.\n"
         "7. After a test call, use `list_agent_calls`, `get_agent_call_logs`, and "
-        "`get_agent_call` to review it, then refine the agent with `update_agent`.\n"
+        "`get_agent_call` to review it. Change instructions with `update_agent`. "
+        "Add or remove one tool or document with the attach and detach tools.\n"
     )
 
 
@@ -1981,13 +2216,21 @@ def create_voice_agent(description: str) -> str:
     title="Debug a voice agent call",
     description="Find why a Managed Agent call went wrong and propose a config fix.",
 )
-def debug_agent_call(agent_id: str, call_id: str = "") -> str:
-    find_step = (
-        f"The call ID is {call_id!r}."
-        if call_id
-        else f"Call `list_agent_calls` with agent_id={agent_id!r} and pick the call the "
-        "user means (or the latest failed one)."
-    )
+def debug_agent_call(agent_id: str = "", call_id: str = "") -> str:
+    if call_id and agent_id:
+        find_step = f"The call ID is {call_id!r} on agent {agent_id!r}."
+    elif call_id:
+        find_step = f"The call ID is {call_id!r}."
+    elif agent_id:
+        find_step = (
+            f"Call `list_agent_calls` with agent_id={agent_id!r} and pick the call the "
+            "user means (or the latest failed one)."
+        )
+    else:
+        find_step = (
+            "Call `list_agents` and pick the agent the user means. Then call "
+            "`list_agent_calls` for it and pick the call they mean (or the latest failed one)."
+        )
     return (
         f"{find_step}\n"
         "Call `get_agent_call_logs` for that call first: the runtime logs show errors "

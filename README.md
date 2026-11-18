@@ -98,7 +98,9 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `delete_agent` | Permanently delete a Managed Agent |
 | `list_agent_tools` | List webhook and client tools an agent can call |
 | `get_agent_tool` | Get a tool's request schema (credentials are never returned) |
-| `create_agent_tool` | Create a webhook or client tool, then attach its id in `config.tools` |
+| `create_agent_tool` | Create a webhook or client tool, then `attach_agent_tool` |
+| `attach_agent_tool` | Add one tool to an agent and keep the tools already attached |
+| `detach_agent_tool` | Remove one tool from an agent and keep the others |
 | `update_agent_tool` | Change a tool. Schema fields replace the stored value |
 | `delete_agent_tool` | Delete a tool that no agent uses |
 | `list_agent_models` | List Managed Agents LLM ids. Not Sonic or Ink ids from `list_models` |
@@ -118,7 +120,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `cancel_call_batch` | Stop dialing a batch |
 | `retry_call_batch` | Dial a batch's failed recipients again (confirm first) |
 | `get_phone_provisioning_usage` | This month's phone number provisioning usage and remaining quota (read only) |
-| `provision_phone_number` | Buy a Cartesia-managed phone number (confirm first) |
+| `provision_phone_number` | Buy a Cartesia-managed phone number, unassigned until the user confirms it |
 | `import_phone_number` | Link a number you own through a provider |
 | `update_phone_number` | Change a number's label, inbound agent, or provider |
 | `delete_phone_number` | Remove a phone number |
@@ -134,7 +136,11 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `delete_knowledge_folder` | Delete a folder (`force` also deletes its contents) |
 | `list_knowledge_documents` | List documents with status and size, without their text |
 | `get_knowledge_document` | Get one document's text and processing status |
-| `create_knowledge_documents` | Upload up to 100 text documents |
+| `create_knowledge_documents` | Upload up to 100 documents from text, a `file_id`, or a local `file_path` |
+| `attach_knowledge_folder` | Let an agent search one more folder and keep the folders already attached |
+| `detach_knowledge_folder` | Stop an agent searching one folder, without deleting it |
+| `attach_knowledge_document` | Let an agent search one more document and keep the documents already attached |
+| `detach_knowledge_document` | Stop an agent searching one document, without deleting it |
 | `update_knowledge_document` | Change a document's text, name, metadata, or folder |
 | `delete_knowledge_document` | Delete a document |
 | `retry_knowledge_document` | Reprocess a failed document |

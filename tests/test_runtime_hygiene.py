@@ -24,7 +24,9 @@ def test_prompts_registered() -> None:
     } <= prompts
 
 
-TOOL_LIKE = re.compile(r"`((?:list|get|create|update|delete)_[a-z_]+)`")
+TOOL_LIKE = re.compile(
+    r"`((?:list|get|create|update|delete|attach|detach)_[a-z_]+)`"
+)
 
 
 def test_agent_guidance_only_names_registered_tools() -> None:
