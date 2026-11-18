@@ -44,7 +44,11 @@ from cartesia_mcp.branding import (
 from cartesia_mcp.clients import client, require_admin_client
 from cartesia_mcp.config import env_or_none, validate_api_keys
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
-from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
+from cartesia_mcp.credentials import (
+    configure_hosted_mode,
+    configure_stdio_credentials,
+    resolve_api_credential,
+)
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
@@ -77,6 +81,7 @@ from cartesia_mcp.utils import (
     resolve_local_download_filename,
     save_downloaded_file,
     start_output_directory_cleanup,
+    tenant_output_dirname,
     voice_list_page_to_result,
 )
 
@@ -246,7 +251,7 @@ def _write_audio_output(
         dest.write_bytes(audio_bytes)
         return str(dest)
 
-    output_file = create_output_file(OUTPUT_DIRECTORY, tool_type, extension)
+    output_file = create_output_file(_caller_output_directory(), tool_type, extension)
     with output_file.open("wb") as f:
         f.write(audio_bytes)
     return str(output_file)
@@ -286,7 +291,7 @@ def _cloud_file_on_disk(
     )
     content = extra_api.download_file_bytes(sdk_client, file_id, format=format)
     output_path = save_downloaded_file(
-        OUTPUT_DIRECTORY,
+        _caller_output_directory(),
         file_id=file_id,
         filename=local_filename,
         content=content,
@@ -294,14 +299,29 @@ def _cloud_file_on_disk(
     return output_path, local_filename
 
 
+def _caller_output_directory() -> str:
+    """Where this caller's local copies live.
+
+    Hosted MCP serves every tenant from one process, so each caller gets its own
+    subdirectory of ``OUTPUT_DIRECTORY``. Paths are returned to clients, and a
+    shared directory would let one tenant pass another tenant's path as
+    ``file_path``. Local stdio has a single user and keeps ``OUTPUT_DIRECTORY``.
+    """
+    if not _is_hosted:
+        return OUTPUT_DIRECTORY
+    return str(
+        Path(OUTPUT_DIRECTORY) / tenant_output_dirname(resolve_api_credential())
+    )
+
+
 def _is_hosted_output_file(path: Path) -> bool:
-    """Hosted ``file_path`` inputs must be files this server wrote under ``OUTPUT_DIRECTORY``."""
+    """Hosted ``file_path`` inputs must be files this server wrote for the same caller."""
     try:
         resolved = path.resolve(strict=True)
     except (OSError, RuntimeError):
         return False
     return resolved.is_file() and resolved.is_relative_to(
-        Path(OUTPUT_DIRECTORY).resolve()
+        Path(_caller_output_directory()).resolve()
     )
 
 
@@ -332,7 +352,7 @@ def _hosted_file_path_class(
 ) -> str:
     """Classify a hosted ``file_path``. The class is safe to log; the path is not.
 
-    ``caller_root`` matches ``output_root`` until each caller has its own directory.
+    ``caller_root`` is the calling account's own directory under ``output_root``.
     A file under the output root but outside the caller root is ``other_tenant``.
     Sensitive prefixes are classified from the path as given, before symlinks.
     """
@@ -371,11 +391,10 @@ def _hosted_file_path_class(
 
 def _log_hosted_file_path(tool: str, path: Path) -> None:
     output_root = Path(OUTPUT_DIRECTORY).resolve()
-    # One directory for every caller today, so caller_root equals output_root.
     file_class = _hosted_file_path_class(
         path,
         output_root=output_root,
-        caller_root=output_root,
+        caller_root=Path(_caller_output_directory()).resolve(),
     )
     logger.info(
         json.dumps(
@@ -799,7 +818,7 @@ def clone_voice(
     ],
     file_path: typing.Annotated[
         typing.Optional[str],
-        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote for you in this account (from `download_file` or `save=false` TTS)."),
     ] = None,
     file_id: typing.Annotated[
         typing.Optional[str],
@@ -1079,7 +1098,7 @@ def _speech_to_text_stream(
 def speech_to_text(
     file_path: typing.Annotated[
         typing.Optional[str],
-        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote for you in this account (from `download_file` or `save=false` TTS)."),
     ] = None,
     mode: typing.Annotated[
         SttMode,
