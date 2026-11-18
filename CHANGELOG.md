@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.34.1...cartesia-mcp-v1.0.0) (2026-11-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* manage the full Managed Agents lifecycle from the MCP ([#156](https://github.com/cartesia-ai/cartesia-mcp/issues/156))
+
+### Features
+
+* manage the full Managed Agents lifecycle from the MCP ([#156](https://github.com/cartesia-ai/cartesia-mcp/issues/156)) ([682b4da](https://github.com/cartesia-ai/cartesia-mcp/commit/682b4da2d20705a126c9961ec0f4d731ce63fe91))
+
+
+### Chores
+
+* set the next release to 1.0.0 ([c75b3ce](https://github.com/cartesia-ai/cartesia-mcp/commit/c75b3cedda9e7cf0dc16eeace0a9c22373c12ef2))
+
 ## [0.34.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.34.0...cartesia-mcp-v0.34.1) (2026-11-18)
 
 
