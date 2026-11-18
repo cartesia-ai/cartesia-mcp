@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.34.0...cartesia-mcp-v0.34.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* scope hosted file_path inputs to the calling account ([#157](https://github.com/cartesia-ai/cartesia-mcp/issues/157)) ([b4ea85f](https://github.com/cartesia-ai/cartesia-mcp/commit/b4ea85fab0cf9c4cf77d07c2db08080777a01b52))
+
 ## [0.34.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.33.0...cartesia-mcp-v0.34.0) (2026-11-17)
 
 
