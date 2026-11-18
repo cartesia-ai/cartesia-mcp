@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import json
 import logging
 import os
@@ -48,6 +49,20 @@ def default_output_directory(*, hosted: bool) -> str:
     return "."
 
 
+def tenant_output_dirname(credential: str) -> str:
+    """Stable, non-reversible subdirectory name for one hosted caller's files."""
+    return "t_" + hashlib.sha256(credential.encode()).hexdigest()[:32]
+
+
+def _iter_output_files(dir_path: Path) -> typing.Iterator[Path]:
+    """Regular files directly under ``dir_path`` and one level down (per-tenant dirs)."""
+    for path in dir_path.iterdir():
+        if path.is_dir() and not path.is_symlink():
+            yield from (child for child in path.iterdir() if child.is_file())
+        elif path.is_file():
+            yield path
+
+
 def output_file_ttl_seconds() -> float:
     raw = os.getenv("OUTPUT_FILE_TTL_SECONDS")
     if raw is None or not raw.strip():
@@ -69,9 +84,7 @@ def measure_output_directory(directory: str) -> tuple[int, int]:
         return 0, 0
     files = 0
     total_bytes = 0
-    for path in dir_path.iterdir():
-        if not path.is_file():
-            continue
+    for path in _iter_output_files(dir_path):
         try:
             total_bytes += path.stat().st_size
             files += 1
@@ -92,15 +105,25 @@ def purge_stale_output_files(
         return 0
     cutoff = (time.time() if now is None else now) - max_age_seconds
     removed = 0
-    for path in dir_path.iterdir():
-        if not path.is_file():
-            continue
+    emptied_dirs: set[Path] = set()
+    for path in _iter_output_files(dir_path):
         try:
             if path.stat().st_mtime < cutoff:
                 path.unlink(missing_ok=True)
                 removed += 1
+                if path.parent != dir_path:
+                    emptied_dirs.add(path.parent)
         except OSError:
             logger.debug("Could not purge output file %s", path, exc_info=True)
+    # Tenant subdirectories emptied by the purge go too, so one empty directory
+    # per API key does not accumulate forever. rmdir only succeeds when empty;
+    # a directory that gained fresh files since simply stays.
+    for subdir in emptied_dirs:
+        try:
+            subdir.rmdir()
+            logger.debug("Removed emptied output subdirectory %s", subdir)
+        except OSError:
+            pass
     return removed
 
 

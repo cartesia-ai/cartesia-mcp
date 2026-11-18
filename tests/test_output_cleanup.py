@@ -181,5 +181,59 @@ def test_hosted_text_to_speech_save_false_still_writes(
 
     assert "file_path" in result
     path = Path(result["file_path"])
-    assert path.parent == tmp_path
+    # Hosted writes go to the caller's own subdirectory, never the shared root.
+    assert path.parent.parent == tmp_path
+    assert path.parent.name.startswith("t_")
     assert path.read_bytes() == b"audio-bytes"
+
+
+def test_cleanup_covers_tenant_subdirectories(tmp_path: Path) -> None:
+    now = time.time()
+    tenant = tmp_path / "t_abc"
+    tenant.mkdir()
+    old = tenant / "old.wav"
+    old.write_bytes(b"aaaa")
+    os.utime(old, (now - 7200, now - 7200))
+    (tenant / "new.wav").write_bytes(b"bbb")
+    (tmp_path / "root.wav").write_bytes(b"cc")
+    assert measure_output_directory(str(tmp_path)) == (3, 9)
+    assert purge_stale_output_files(str(tmp_path), max_age_seconds=3600, now=now) == 1
+    assert not old.exists()
+
+
+def test_purge_removes_emptied_tenant_directories(tmp_path: Path) -> None:
+    now = time.time()
+    tenant = tmp_path / "t_abc"
+    tenant.mkdir()
+    old = tenant / "old.wav"
+    old.write_bytes(b"aaaa")
+    os.utime(old, (now - 7200, now - 7200))
+    other = tmp_path / "t_def"
+    other.mkdir()
+    keep = other / "keep.wav"
+    keep.write_bytes(b"bbb")
+    root_file = tmp_path / "root.wav"
+    root_file.write_bytes(b"c")
+
+    assert purge_stale_output_files(str(tmp_path), max_age_seconds=3600, now=now) == 1
+
+    assert not old.exists()
+    assert not tenant.exists()  # emptied tenant dir goes with its last file
+    assert keep.exists() and other.exists()  # non-empty tenant dir stays
+    assert root_file.exists()  # root-level files are never removed with a dir
+
+
+def test_purge_keeps_tenant_directory_with_fresh_files(tmp_path: Path) -> None:
+    now = time.time()
+    tenant = tmp_path / "t_abc"
+    tenant.mkdir()
+    old = tenant / "old.wav"
+    old.write_bytes(b"aaaa")
+    os.utime(old, (now - 7200, now - 7200))
+    fresh = tenant / "new.wav"
+    fresh.write_bytes(b"bbb")
+
+    assert purge_stale_output_files(str(tmp_path), max_age_seconds=3600, now=now) == 1
+
+    assert not old.exists()
+    assert tenant.exists() and fresh.exists()  # still in use
