@@ -77,7 +77,7 @@ Ask your agent things like:
 
 ## Tools
 
-Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
+Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` and `cartesia_mcp/agents.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
 
 | Tool | Description |
 |------|-------------|

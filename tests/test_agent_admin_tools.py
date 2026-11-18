@@ -330,6 +330,12 @@ def test_create_twilio_provider_and_update_sip_provider(api: Api) -> None:
     assert _body(api) == {"type": "sip_trunk", "label": "new"}
 
 
+def test_update_phone_provider_requires_a_change(api: Api) -> None:
+    with pytest.raises(ValueError, match="at least one field"):
+        agents.update_phone_provider("prov_1", {"type": "sip_trunk"})
+    assert api.requests == []
+
+
 # Outbound calls and batches
 
 

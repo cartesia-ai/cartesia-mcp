@@ -146,15 +146,13 @@ def get_agent(
           initial message, pass values when the call starts, and put sample
           values in `config.dynamic_variable_placeholders` for test calls.
         - Ending, transferring, DTMF, and voicemail detection are built in:
-          enable them under `config.system_tools`. There are no separate
-          transfer or end-call endpoints.
+          enable them under `config.system_tools`.
         - `config.tools` takes ids from `create_agent_tool` or `list_agent_tools`.
         - `config.knowledge_base_folders` and `config.knowledge_base_documents`
           take ids from `list_knowledge_folders` and `list_knowledge_documents`.
         - `config.event_webhook_id` takes an id from `list_event_webhooks`.
 
-        There is no API to simulate a call. Open the returned `playground_url`
-        to talk to the agent.
+        Open the returned `playground_url` to talk to the agent.
         """)
 def create_agent(
     name: typing.Annotated[
@@ -460,9 +458,7 @@ def get_agent_version(
         List the account's Managed Agents phone numbers and which agent each
         one routes inbound calls to (`agent`, or `null` when unassigned).
 
-        Filter by `agent_id` to check whether an agent answers any number. Read
-        only: this server does not provision, import, or reassign numbers, and
-        does not place outbound calls.
+        Filter by `agent_id` to check whether an agent answers any number.
         """)
 def list_phone_numbers(
     agent_id: typing.Annotated[
@@ -1634,6 +1630,8 @@ def update_phone_provider(
         Field(description="Twilio or SIP trunk fields to change."),
     ],
 ) -> dict[str, typing.Any]:
+    if not any(key != "type" for key in provider):
+        raise ValueError("Provide at least one field to change besides `type`.")
     # The SDK types this as overloads, which a spread union does not match.
     return (
         _api_client()
@@ -1952,26 +1950,6 @@ def get_agent_usage(
     )
 
 
-_AGENT_USE_CASE_NOTES = """\
-Notes for common agents:
-- Inbound support or receptionist: greet with the business name, answer from the facts \
-given, collect name and callback number, and enable `system_tools.transfer_to_number` \
-for a human handoff.
-- Restaurant or order taking: confirm each item, size, and quantity, read the full order \
-back, and give a pickup time.
-- Outbound sales or SDR: open with who is calling and why in one sentence, qualify with a \
-few questions, and handle "not interested" politely. Put the lead's details in \
-`{{variables}}`.
-- Calling a business on the user's behalf: state the goal, enable \
-`system_tools.send_dtmf` to navigate phone menus, and \
-`system_tools.voicemail_detection` to hang up on voicemail.
-- Interview, sales, or language practice: stay in character as the counterpart, keep \
-turns short, and give feedback only when the user asks or the session ends.
-- Companion or tutor: be warm, remember what the caller said earlier in the call, and \
-ask one question at a time.
-"""
-
-
 @mcp.prompt(
     title="Create a voice agent",
     description="Build a Managed Agent from a plain-language description and share a link to try it.",
@@ -1983,10 +1961,9 @@ def create_voice_agent(description: str) -> str:
         "name, the facts the agent must know, or when it should transfer or hang up.\n"
         "2. Call `list_agent_models` and pick a model id. Call `list_voices` with a query "
         "that matches the persona and language, and pick a voice.\n"
-        "3. Write `config.instructions` as a spoken-word system prompt: role, goal, tone, "
-        "the steps of the conversation, what to collect, and when to end the call. Keep "
-        "replies short and avoid formatting the caller cannot hear. Write a one-sentence "
-        "`config.initial_message`.\n"
+        "3. Write `config.instructions` for the role, goal, steps, what to collect, and "
+        "when to end or transfer. Set `config.initial_message` to what the agent says "
+        "first, or leave it unset to wait.\n"
         "4. Use `{{variable}}` placeholders for anything that changes per caller and set "
         "test values in `config.dynamic_variable_placeholders`.\n"
         "5. If the agent must look something up or take an action, call "
@@ -1995,8 +1972,8 @@ def create_voice_agent(description: str) -> str:
         "If it must answer from the user's documents, call `create_knowledge_folder` and "
         "`create_knowledge_documents`, then set `config.knowledge_base_folders`.\n"
         "6. Call `create_agent`, then give the user the `playground_url` to talk to it.\n"
-        "7. After a test call, use `list_agent_calls` and `get_agent_call` to review the "
-        "transcript, and refine the agent with `update_agent`.\n\n" + _AGENT_USE_CASE_NOTES
+        "7. After a test call, use `list_agent_calls`, `get_agent_call_logs`, and "
+        "`get_agent_call` to review it, then refine the agent with `update_agent`.\n"
     )
 
 
