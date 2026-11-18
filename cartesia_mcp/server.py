@@ -3,6 +3,8 @@ Cartesia MCP Server
 """
 
 import argparse
+import json
+import logging
 import os
 import sys
 import typing
@@ -56,7 +58,11 @@ from cartesia_mcp.branding import (
 from cartesia_mcp.clients import client, require_admin_client
 from cartesia_mcp.config import env_or_none, validate_api_keys
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
-from cartesia_mcp.credentials import configure_hosted_mode, configure_stdio_credentials
+from cartesia_mcp.credentials import (
+    configure_hosted_mode,
+    configure_stdio_credentials,
+    resolve_api_credential,
+)
 from cartesia_mcp.custom_types import (
     DeletePronunciationDictResult,
     DeleteVoiceResult,
@@ -95,10 +101,17 @@ from cartesia_mcp.utils import (
     save_downloaded_file,
     sdk_page_to_result,
     start_output_directory_cleanup,
+    tenant_output_dirname,
     voice_list_page_to_result,
 )
 
 load_dotenv()
+
+logger = logging.getLogger("cartesia_mcp.mcp")
+
+_HOSTED_FILE_PATH_TOOLS = frozenset({"speech_to_text", "clone_voice"})
+_SENSITIVE_ROOTS = ("/proc", "/etc", "/sys", "/root")
+_CLIENT_ROOTS = ("/Users", "/home")
 
 _is_hosted = hosted_enabled() or (
     "--transport" in sys.argv and "streamable-http" in sys.argv
@@ -267,7 +280,7 @@ def _write_audio_output(
         dest.write_bytes(audio_bytes)
         return str(dest)
 
-    output_file = create_output_file(OUTPUT_DIRECTORY, tool_type, extension)
+    output_file = create_output_file(_caller_output_directory(), tool_type, extension)
     with output_file.open("wb") as f:
         f.write(audio_bytes)
     return str(output_file)
@@ -307,7 +320,7 @@ def _cloud_file_on_disk(
     )
     content = extra_api.download_file_bytes(sdk_client, file_id, format=format)
     output_path = save_downloaded_file(
-        OUTPUT_DIRECTORY,
+        _caller_output_directory(),
         file_id=file_id,
         filename=local_filename,
         content=content,
@@ -315,20 +328,121 @@ def _cloud_file_on_disk(
     return output_path, local_filename
 
 
+def _caller_output_directory() -> str:
+    """Where this caller's local copies live.
+
+    Hosted MCP serves every tenant from one process, so each caller gets its own
+    subdirectory of ``OUTPUT_DIRECTORY``. Paths are returned to clients, and a
+    shared directory would let one tenant pass another tenant's path as
+    ``file_path``. Local stdio has a single user and keeps ``OUTPUT_DIRECTORY``.
+    """
+    if not _is_hosted:
+        return OUTPUT_DIRECTORY
+    return str(
+        Path(OUTPUT_DIRECTORY) / tenant_output_dirname(resolve_api_credential())
+    )
+
+
 def _is_hosted_output_file(path: Path) -> bool:
-    """Hosted ``file_path`` inputs must be files this server wrote under ``OUTPUT_DIRECTORY``."""
+    """Hosted ``file_path`` inputs must be files this server wrote for the same caller."""
     try:
         resolved = path.resolve(strict=True)
     except (OSError, RuntimeError):
         return False
     return resolved.is_file() and resolved.is_relative_to(
-        Path(OUTPUT_DIRECTORY).resolve()
+        Path(_caller_output_directory()).resolve()
+    )
+
+
+def _under_any_root(path: Path, roots: tuple[str, ...]) -> bool:
+    text = path.as_posix()
+    return any(text == root or text.startswith(root + "/") for root in roots)
+
+
+def _symlink_escapes(path: Path, resolved: Path | None, output_root: Path) -> bool:
+    """A symlink on ``path`` resolves outside ``output_root``."""
+    if resolved is None or resolved.is_relative_to(output_root):
+        return False
+    cursor = path
+    while True:
+        if cursor.is_symlink():
+            return True
+        parent = cursor.parent
+        if parent == cursor:
+            return False
+        cursor = parent
+
+
+def _hosted_file_path_class(
+    path: Path,
+    *,
+    output_root: Path,
+    caller_root: Path,
+) -> str:
+    """Classify a hosted ``file_path``. The class is safe to log; the path is not.
+
+    ``caller_root`` is the calling account's own directory under ``output_root``.
+    A file under the output root but outside the caller root is ``other_tenant``.
+    Sensitive prefixes are classified from the path as given, before symlinks.
+    """
+    expanded = path.expanduser()
+    try:
+        resolved = expanded.resolve(strict=True)
+    except (OSError, RuntimeError):
+        resolved = None
+
+    if ".." in expanded.parts and (
+        resolved is None or not resolved.is_relative_to(output_root)
+    ):
+        return "traversal"
+    if _under_any_root(expanded, _SENSITIVE_ROOTS):
+        return "server_sensitive"
+    if _symlink_escapes(expanded, resolved, output_root):
+        return "traversal"
+    if (
+        resolved is not None
+        and resolved.is_file()
+        and resolved.is_relative_to(caller_root)
+    ):
+        return "caller_file"
+    if (
+        resolved is not None
+        and resolved.is_file()
+        and resolved.is_relative_to(output_root)
+    ):
+        return "other_tenant"
+    if _under_any_root(expanded, _CLIENT_ROOTS):
+        return "client_local"
+    if resolved is None or not resolved.is_file():
+        return "missing"
+    return "client_local"
+
+
+def _log_hosted_file_path(tool: str, path: Path) -> None:
+    output_root = Path(OUTPUT_DIRECTORY).resolve()
+    file_class = _hosted_file_path_class(
+        path,
+        output_root=output_root,
+        caller_root=Path(_caller_output_directory()).resolve(),
+    )
+    logger.info(
+        json.dumps(
+            {
+                "event": "mcp_audio_input",
+                "class": file_class,
+                "result": "accept" if file_class == "caller_file" else "reject",
+                "tool": tool if tool in _HOSTED_FILE_PATH_TOOLS else "other",
+            },
+            separators=(",", ":"),
+        )
     )
 
 
 def _resolve_audio_input(
     file_path: typing.Optional[str],
     file_id: typing.Optional[str],
+    *,
+    tool: typing.Optional[str] = None,
 ) -> str:
     """Resolve ``file_id`` (cloud) or ``file_path`` (this machine) to a local path."""
     path = file_path.strip() if isinstance(file_path, str) else ""
@@ -340,6 +454,8 @@ def _resolve_audio_input(
         return str(output_path)
     if path:
         resolved = Path(path).expanduser()
+        if _is_hosted:
+            _log_hosted_file_path(tool or "other", resolved)
         if _is_hosted and not _is_hosted_output_file(resolved):
             raise ValueError(
                 f"Path '{path}' was not found on the MCP server. When using the "
@@ -2540,7 +2656,7 @@ def clone_voice(
     ],
     file_path: typing.Annotated[
         typing.Optional[str],
-        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote for you in this account (from `download_file` or `save=false` TTS)."),
     ] = None,
     file_id: typing.Annotated[
         typing.Optional[str],
@@ -2555,7 +2671,7 @@ def clone_voice(
         Field(description="Catalog accent id from GET /accents (for example `southern-us` or `parisian`). Display names are rejected on this API version. Omit to leave unset."),
     ] = None,
 ) -> VoiceMetadata:
-    source = _resolve_audio_input(file_path, file_id)
+    source = _resolve_audio_input(file_path, file_id, tool="clone_voice")
     clone_kwargs: dict[str, typing.Any] = {}
     _merge_extra_body(clone_kwargs, {"mode": mode})
     with open(source, "rb") as clip:
@@ -2820,7 +2936,7 @@ def _speech_to_text_stream(
 def speech_to_text(
     file_path: typing.Annotated[
         typing.Optional[str],
-        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote (from `download_file` or `save=false` TTS)."),
+        Field(description="Absolute path on this MCP server. Must exist; hosted MCP only accepts files this server wrote for you in this account (from `download_file` or `save=false` TTS)."),
     ] = None,
     mode: typing.Annotated[
         SttMode,
@@ -2851,9 +2967,7 @@ def speech_to_text(
         Field(description="Cartesia cloud file id. The server downloads it. Use this from hosted clients."),
     ] = None,
 ) -> STTTranscribeResponse:
-    source = _resolve_audio_input(
-        file_path, file_id
-    )
+    source = _resolve_audio_input(file_path, file_id, tool="speech_to_text")
     stt_model = _resolve_stt_model(mode, model)
     if mode == "stream":
         return _speech_to_text_stream(
