@@ -124,6 +124,53 @@ def test_create_knowledge_document_rejects_file_path_on_hosted(
     assert api.requests == []
 
 
+@pytest.mark.parametrize(
+    ("relative", "error"),
+    [
+        (".ssh/notes.txt", "hidden"),
+        (".env", "hidden"),
+        ("id_ed25519", "must be one of"),
+        ("credentials.pem", "must be one of"),
+    ],
+)
+def test_create_knowledge_document_refuses_non_document_paths(
+    api: Api, tmp_path, relative: str, error: str
+) -> None:
+    source = tmp_path / relative
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text("secret")
+
+    with pytest.raises(ValueError, match=error):
+        agents.create_knowledge_documents([{"file_path": str(source)}])
+    assert api.requests == []
+
+
+def test_create_knowledge_document_refuses_symlink_into_hidden_folder(
+    api: Api, tmp_path
+) -> None:
+    target = tmp_path / ".aws" / "config.txt"
+    target.parent.mkdir()
+    target.write_text("secret")
+    link = tmp_path / "config.txt"
+    link.symlink_to(target)
+
+    with pytest.raises(ValueError, match="hidden"):
+        agents.create_knowledge_documents([{"file_path": str(link)}])
+    assert api.requests == []
+
+
+def test_create_knowledge_document_refuses_oversized_file(
+    api: Api, tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(agents, "KNOWLEDGE_FILE_MAX_BYTES", 4)
+    source = tmp_path / "big.txt"
+    source.write_text("12345")
+
+    with pytest.raises(ValueError, match="20 MB"):
+        agents.create_knowledge_documents([{"file_path": str(source)}])
+    assert api.requests == []
+
+
 def test_create_knowledge_documents_sends_bulk_body_without_echoing_text(api: Api) -> None:
     api.on("POST", "/agents/documents/bulk", [DOCUMENT])
 

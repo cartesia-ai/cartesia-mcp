@@ -65,6 +65,23 @@ AgentCallDetail = typing.Literal["condensed", "full"]
 PhoneNumberProviderType = typing.Literal["twilio", "cartesia", "sip_trunk"]
 AGENT_CALL_LOGS_MAX_CHARS = 100_000
 AGENT_CALLS_WITH_TRANSCRIPTS_MAX_LIMIT = 20
+KNOWLEDGE_FILE_EXTENSIONS = frozenset(
+    {
+        ".pdf",
+        ".docx",
+        ".html",
+        ".md",
+        ".csv",
+        ".txt",
+        ".json",
+        ".yaml",
+        ".yml",
+        ".xml",
+        ".tsv",
+        ".log",
+    }
+)
+KNOWLEDGE_FILE_MAX_BYTES = 20_000_000
 
 
 def _or_omit(value: typing.Any) -> typing.Any:
@@ -1115,9 +1132,20 @@ def _knowledge_document_for_sdk(
     file_path = document.get("file_path")
     if not isinstance(file_path, str):
         raise ValueError("Each document needs exactly one of `content`, `file_id`, or `file_path`.")
-    path = Path(file_path).expanduser()
+    path = Path(file_path).expanduser().resolve()
     if not path.is_file():
         raise ValueError(f"`file_path` is not a file: {path}")
+    if any(part.startswith(".") for part in path.parts):
+        raise ValueError(
+            "`file_path` cannot be a hidden file or inside a hidden folder."
+        )
+    if path.suffix.lower() not in KNOWLEDGE_FILE_EXTENSIONS:
+        raise ValueError(
+            "`file_path` must be one of: "
+            + ", ".join(sorted(KNOWLEDGE_FILE_EXTENSIONS))
+        )
+    if path.stat().st_size > KNOWLEDGE_FILE_MAX_BYTES:
+        raise ValueError("`file_path` is larger than 20 MB.")
     uploaded = extra_api.upload_file(
         _api_client(),
         filename=path.name,
@@ -1138,7 +1166,8 @@ def _knowledge_document_for_sdk(
         exactly one of `content` (text, up to 1 MB), `file_id` (a file already
         uploaded with purpose `knowledge_base_document`), or `file_path` (an
         absolute path on the local MCP server). `file_path` is uploaded for
-        you, and the platform extracts text from PDF and `.docx`. Hosted MCP
+        you and must be a document under 20 MB (PDF, `.docx`, HTML, Markdown,
+        text, CSV, JSON, YAML, or XML) outside hidden folders. Hosted MCP
         cannot read a path: pass `content` or `file_id`. Each document may set
         `name`, `folder_id`, and `metadata` (string values, used to filter
         retrieval).
