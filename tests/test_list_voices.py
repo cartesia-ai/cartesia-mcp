@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import cartesia_mcp.server as server
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_voices_passes_is_starred_via_extra_query(mock_client: MagicMock) -> None:
     mock_client.voices.list.return_value = MagicMock(data=[])
 

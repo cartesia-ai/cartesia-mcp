@@ -13,26 +13,31 @@ from cartesia_mcp.offload_sync import offload_sync_callable
 from cartesia_mcp.tool_visibility import is_tool_visible
 
 
-def compact_output_schema(schema: Any) -> Any:
-    """Drop titles and string enums from an output schema; clients only need the shape.
+def compact_output_schema(schema: Any, *, keep_enums: bool = False) -> Any:
+    """Drop titles and string enums from a schema; output clients only need the shape.
+
+    Input schemas pass `keep_enums=True`: there the enum is the list of valid values.
 
     Output enums (accent ids, language codes) add kilobytes to every tool listing and
     reject values the API adds before the SDK catches up.
     """
     if isinstance(schema, list):
-        return [compact_output_schema(item) for item in schema]
+        return [compact_output_schema(item, keep_enums=keep_enums) for item in schema]
     if not isinstance(schema, dict):
         return schema
     out: dict[str, Any] = {}
     for key, value in schema.items():
         if key == "title" and isinstance(value, str):
             continue
-        if key == "enum" and schema.get("type") == "string":
+        if key == "enum" and schema.get("type") == "string" and not keep_enums:
             continue
         if key in ("properties", "$defs") and isinstance(value, dict):
-            out[key] = {name: compact_output_schema(sub) for name, sub in value.items()}
+            out[key] = {
+                name: compact_output_schema(sub, keep_enums=keep_enums)
+                for name, sub in value.items()
+            }
         else:
-            out[key] = compact_output_schema(value)
+            out[key] = compact_output_schema(value, keep_enums=keep_enums)
     for key in ("anyOf", "oneOf"):
         if key in out:
             unique: list[Any] = []
@@ -74,7 +79,12 @@ class CartesiaMCP(MCPServer):
     async def list_tools(self) -> list[MCPTool]:
         tools = await super().list_tools()
         return [
-            tool.model_copy(update={"output_schema": compact_output_schema(tool.output_schema)})
+            tool.model_copy(
+                update={
+                    "input_schema": compact_output_schema(tool.input_schema, keep_enums=True),
+                    "output_schema": compact_output_schema(tool.output_schema),
+                }
+            )
             for tool in tools
             if is_tool_visible(tool.name)
         ]

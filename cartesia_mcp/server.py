@@ -6,11 +6,10 @@ import argparse
 import json
 import logging
 import os
-import sys
 import typing
 from pathlib import Path
 
-from cartesia import Cartesia, omit
+from cartesia import omit
 from cartesia.types import (
     AttachVoiceAccent,
     Gender,
@@ -30,23 +29,15 @@ from cartesia.types import (
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
-from dotenv import load_dotenv
-from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from cartesia_mcp import __version__, extra_api
-from cartesia_mcp.branding import (
-    SERVER_DESCRIPTION,
-    SERVER_NAME,
-    WEBSITE_URL,
-    server_icons,
+from cartesia_mcp import (
+    agents,  # noqa: F401 -- registers the Managed Agents tools
+    extra_api,
+    mcp_app,
 )
-from cartesia_mcp.clients import client, require_admin_client
-from cartesia_mcp.config import env_or_none, validate_api_keys
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp.credentials import (
-    configure_hosted_mode,
-    configure_stdio_credentials,
     resolve_api_credential,
 )
 from cartesia_mcp.custom_types import (
@@ -65,18 +56,23 @@ from cartesia_mcp.extra_api import (
     UsageInterval,
 )
 from cartesia_mcp.hosted import (
-    configure_hosted_oauth_store,
-    hosted_enabled,
-    hosted_server_kwargs,
     run_hosted,
-    server_public_url,
 )
-from cartesia_mcp.mcpserver import CartesiaMCP
+from cartesia_mcp.mcp_app import (
+    CARTESIA_API_KEY,
+    OUTPUT_DIRECTORY,
+    _additive_tool,
+    _api_client,
+    _destructive_tool,
+    _is_hosted,
+    _read_only_tool,
+    _require_admin_client,
+    mcp,
+)
 from cartesia_mcp.utils import (
     coerce_null_voice_locales,
     create_output_file,
     cursor_page_to_result,
-    default_output_directory,
     iter_stt_audio_chunks,
     resolve_local_download_filename,
     save_downloaded_file,
@@ -85,71 +81,11 @@ from cartesia_mcp.utils import (
     voice_list_page_to_result,
 )
 
-load_dotenv()
-
 logger = logging.getLogger("cartesia_mcp.mcp")
 
 _HOSTED_FILE_PATH_TOOLS = frozenset({"speech_to_text", "clone_voice"})
 _SENSITIVE_ROOTS = ("/proc", "/etc", "/sys", "/root")
 _CLIENT_ROOTS = ("/Users", "/home")
-
-_is_hosted = hosted_enabled() or (
-    "--transport" in sys.argv and "streamable-http" in sys.argv
-)
-CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY = validate_api_keys(
-    env_or_none("CARTESIA_API_KEY"),
-    env_or_none("CARTESIA_ADMIN_API_KEY"),
-    require_api_key=not _is_hosted,
-)
-
-OUTPUT_DIRECTORY = default_output_directory(hosted=_is_hosted)
-
-if _is_hosted:
-    configure_hosted_mode()
-    if hosted_enabled():
-        configure_hosted_oauth_store()
-elif CARTESIA_API_KEY:
-    configure_stdio_credentials(CARTESIA_API_KEY, CARTESIA_ADMIN_API_KEY)
-
-mcp = CartesiaMCP(
-    SERVER_NAME,
-    description=SERVER_DESCRIPTION,
-    website_url=WEBSITE_URL,
-    icons=server_icons(origin=server_public_url() if _is_hosted else None),
-    version=__version__,
-    **(hosted_server_kwargs() if _is_hosted else {}),
-)
-
-# Tools only touch the caller's Cartesia account, so none are open-world.
-def _read_only_tool(title: str) -> ToolAnnotations:
-    return ToolAnnotations(
-        title=title, read_only_hint=True, idempotent_hint=True, open_world_hint=False
-    )
-
-
-def _additive_tool(title: str) -> ToolAnnotations:
-    return ToolAnnotations(
-        title=title, read_only_hint=False, destructive_hint=False, open_world_hint=False
-    )
-
-
-def _destructive_tool(title: str, *, idempotent: bool = True) -> ToolAnnotations:
-    return ToolAnnotations(
-        title=title,
-        read_only_hint=False,
-        destructive_hint=True,
-        idempotent_hint=idempotent,
-        open_world_hint=False,
-    )
-
-
-def _require_admin_client() -> Cartesia:
-    return require_admin_client()
-
-
-def _api_client() -> Cartesia:
-    return typing.cast(Cartesia, client)
-
 
 def _build_generation_config(
     *,
@@ -706,7 +642,11 @@ def list_accents() -> ListAccentsResponse:
     annotations=_read_only_tool("List models"),
     description="""
         List callable Sonic (TTS) and Ink (STT) model ids from GET /models.
-        
+
+        These ids are for `text_to_speech` and `speech_to_text` only. Do not
+        pass them as a Managed Agent `model.id`. Call `list_agent_models` for
+        that catalog.
+
         Each row has `id` and `capability` (`tts` or `stt`). TTS rows include
         `supported_languages`, the sorted synthesis language codes that model accepts.
         STT rows include `modes` (`stream` and/or `batch`). Pass `id` to `text_to_speech` as
@@ -723,22 +663,6 @@ def list_models(
     return extra_api.list_models(
         _api_client(),
         capability=capability,
-    )
-
-
-@mcp.tool(
-    annotations=_read_only_tool("List agent models"),
-    description="""
-        List LLMs available for Managed Agents from GET /v1/agents/models.
-        
-        Use these `id` values for an agent's `model.id` (and explicit fallback
-        model ids). Do not invent model ids. Each row includes provider,
-        display name, latency, and token pricing. Returns the full catalog
-        (pagination is followed server-side).
-        """)
-def list_agent_models() -> dict[str, typing.Any]:
-    return extra_api.list_agent_models(
-        _api_client(),
     )
 
 
@@ -940,7 +864,7 @@ def _speech_to_text_batch(
             kwargs["sample_rate"] = sample_rate
         if timestamp_granularities is not None:
             kwargs["timestamp_granularities"] = list(timestamp_granularities)
-        return _api_client().stt.transcribe(**kwargs)
+        return mcp_app.client.stt.transcribe(**kwargs)
 
 
 def _speech_to_text_stream_auto_finalize(
@@ -953,7 +877,7 @@ def _speech_to_text_stream_auto_finalize(
 ) -> STTTranscribeResponse:
     full_text = ""
 
-    with client.stt.auto_finalize.websocket(
+    with mcp_app.client.stt.auto_finalize.websocket(
         model=model,
         encoding=stream_encoding,
         sample_rate=stream_sample_rate,
@@ -1007,7 +931,7 @@ def _speech_to_text_stream_manual_finalize(
     response_language: typing.Optional[str] = stt_language
     words: typing.Optional[typing.List[SttWord]] = None
 
-    with client.stt.manual_finalize.websocket(**websocket_kwargs) as connection:
+    with mcp_app.client.stt.manual_finalize.websocket(**websocket_kwargs) as connection:
         for chunk in chunks:
             connection.send_raw(chunk)
 
@@ -1234,7 +1158,7 @@ def list_pronunciation_dicts(
         Field(description="Cursor: dictionary ID to end before."),
     ] = None,
 ) -> ListPronunciationDictsResult:
-    page = client.pronunciation_dicts.list(
+    page = mcp_app.client.pronunciation_dicts.list(
         limit=limit,
         starting_after=starting_after,
         ending_before=ending_before,
@@ -1270,7 +1194,7 @@ def create_pronunciation_dict(
         Field(description="Mappings of `text` to `pronunciation` (IPA or sounds-like). Optional `case_sensitive` (default false): when false, match every capitalization of `text` on Sonic 3.6."),
     ] = None,
 ) -> dict[str, typing.Any]:
-    return client.pronunciation_dicts.create(
+    return mcp_app.client.pronunciation_dicts.create(
         name=name,
         items=_pronunciation_dict_items_for_sdk(items) if items is not None else omit,
     ).model_dump(mode="json")
@@ -1287,7 +1211,7 @@ def get_pronunciation_dict(
         Field(description="Pronunciation dictionary ID."),
     ],
 ) -> dict[str, typing.Any]:
-    return client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
+    return mcp_app.client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
 
 
 @mcp.tool(
@@ -1316,7 +1240,7 @@ def update_pronunciation_dict(
         kwargs["name"] = name
     if items is not None:
         kwargs["items"] = _pronunciation_dict_items_for_sdk(items)
-    return client.pronunciation_dicts.update(dict_id, **kwargs).model_dump(mode="json")
+    return mcp_app.client.pronunciation_dicts.update(dict_id, **kwargs).model_dump(mode="json")
 
 
 @mcp.tool(
@@ -1330,7 +1254,7 @@ def delete_pronunciation_dict(
         Field(description="Pronunciation dictionary ID to delete."),
     ],
 ) -> DeletePronunciationDictResult:
-    client.pronunciation_dicts.delete(dict_id)
+    mcp_app.client.pronunciation_dicts.delete(dict_id)
     return DeletePronunciationDictResult(success=True)
 
 
@@ -1386,3 +1310,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

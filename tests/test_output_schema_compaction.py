@@ -64,6 +64,7 @@ def test_listed_voice_schema_accepts_new_accent_values() -> None:
         "name": "Test",
         "tagline": "",
         "visibility": "owner",
+        "status": "active",
         "accent": "accent-added-after-this-sdk",
     }
     jsonschema.validate(voice, schema)
@@ -74,3 +75,20 @@ def test_listed_voice_schema_accepts_new_accent_values() -> None:
         pass
     else:
         raise AssertionError("required fields must still be enforced")
+
+
+def test_listed_input_schemas_drop_titles_but_keep_enums() -> None:
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+
+    def titles(node: object) -> list[str]:
+        if isinstance(node, dict):
+            found = [v for k, v in node.items() if k == "title" and isinstance(v, str)]
+            return found + [t for v in node.values() for t in titles(v)]
+        if isinstance(node, list):
+            return [t for v in node for t in titles(v)]
+        return []
+
+    assert titles(tools["create_agent"].input_schema) == []
+    assert titles(tools["update_agent"].input_schema) == []
+    detail = tools["get_agent_call"].input_schema["properties"]["detail"]
+    assert detail["enum"] == ["condensed", "full"]

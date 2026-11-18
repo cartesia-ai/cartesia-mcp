@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import struct
 
 from starlette.applications import Starlette
@@ -14,6 +15,7 @@ from cartesia_mcp.branding import (
     ICON_SVG_FILE,
     PRODUCTION_MCP_ORIGIN,
     SERVER_DESCRIPTION,
+    SERVER_INSTRUCTIONS,
     SERVER_NAME,
     WEBSITE_URL,
     icon_url,
@@ -113,3 +115,14 @@ def test_index_links_icons_for_favicon_scrapers() -> None:
     assert '<link rel="icon" href="/icon.svg" type="image/svg+xml">' in response.text
     assert '<link rel="icon" href="/icon.png"' in response.text
     assert '<link rel="apple-touch-icon" href="/apple-touch-icon.png">' in response.text
+
+
+SNAKE_CASE_IN_BACKTICKS = re.compile(r"`([a-z]+(?:_[a-z]+)+)`")
+NOT_TOOL_NAMES = {"agent_version_id", "playground_url"}
+
+
+def test_server_instructions_name_only_registered_tools() -> None:
+    registered = {tool.name for tool in mcp._tool_manager.list_tools()}
+    named = set(SNAKE_CASE_IN_BACKTICKS.findall(SERVER_INSTRUCTIONS)) - NOT_TOOL_NAMES
+    assert named, "SERVER_INSTRUCTIONS names no tools"
+    assert named <= registered, f"not registered: {sorted(named - registered)}"

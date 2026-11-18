@@ -36,7 +36,7 @@ Or add to `.cursor/mcp.json` / your client’s MCP config:
 
 ### Local (`uvx`)
 
-Run the published package on your machine with an API key. Requires **[uv](https://docs.astral.sh/uv/)** (Python 3.13+ is installed by `uvx`) and a **[Cartesia API key](https://play.cartesia.ai/keys)**. Optionally set an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for `get_credit_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
+Run the published package on your machine with an API key. Requires **[uv](https://docs.astral.sh/uv/)** (Python 3.13+ is installed by `uvx`) and a **[Cartesia API key](https://play.cartesia.ai/keys)**. Optionally set an **[admin API key](https://play.cartesia.ai/keys)** (Keys → Admin) for `get_credit_usage` and `get_agent_usage`. Admin keys and standard keys are separate credentials; each only works on its own route class.
 
 **CLI** — `npx add-mcp "uvx cartesia-mcp" --name cartesia --env 'CARTESIA_API_KEY=${CARTESIA_API_KEY}'`
 
@@ -69,10 +69,15 @@ Ask your agent things like:
 - Check credit usage for your account
 - Localize an existing voice into another language
 - List catalog accent IDs, then add British English to a cloned voice
+- Create a voice agent that takes pizza orders, then give me a link to try it
+- Why did my agent's last call end early?
+- Add our returns policy to my support agent's knowledge base
+- Score my agent's calls on whether it confirmed the appointment, then show last week's results
+- Show Managed Agents usage by day for the last month
 
 ## Tools
 
-Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
+Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.py` and `cartesia_mcp/agents.py` (`tests/test_readme_tools.py` enforces that). Mirror the same tool names on [Cartesia docs — MCP](https://docs.cartesia.ai/tools/ai/mcp) when you ship a change.
 
 | Tool | Description |
 |------|-------------|
@@ -85,8 +90,73 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `delete_voice` | Delete a cloned voice |
 | `localize_voice` | Adapt a voice to another language or dialect |
 | `list_accents` | List catalog accent IDs and metadata (`british`, `standard-japanese`, …) |
-| `list_models` | List callable Sonic (TTS) and Ink (STT) model ids (`capability=tts|stt`) |
-| `list_agent_models` | List Managed Agents LLM ids from `GET /v1/agents/models` (full catalog) |
+| `list_models` | List Sonic and Ink ids for TTS and STT. Not a Managed Agent `model.id` |
+| `list_agents` | List Managed Agents (search by name) |
+| `get_agent` | Get an agent's current config and a Playground link to try it |
+| `create_agent` | Create a Managed Agent from instructions, model, voice, and system tools; returns a Playground link |
+| `update_agent` | Change an agent's name, description, or config (config changes publish a new version) |
+| `delete_agent` | Permanently delete a Managed Agent |
+| `list_agent_tools` | List webhook and client tools an agent can call |
+| `get_agent_tool` | Get a tool's request schema (credentials are never returned) |
+| `create_agent_tool` | Create a webhook or client tool, then `attach_agent_tool` |
+| `attach_agent_tool` | Add one tool to an agent and keep the tools already attached |
+| `detach_agent_tool` | Remove one tool from an agent and keep the others |
+| `update_agent_tool` | Change a tool. Schema fields replace the stored value |
+| `delete_agent_tool` | Delete a tool that no agent uses |
+| `list_agent_models` | List Managed Agents LLM ids. Not Sonic or Ink ids from `list_models` |
+| `list_agent_calls` | List a Managed Agent's calls with status, end reason, error, and config version |
+| `get_agent_call` | Debug one call: outcome, variables, and turns with timing and tool calls (`detail=full` for raw JSON) |
+| `get_agent_call_logs` | Runtime log lines for one call (read only; check first when a call fails) |
+| `list_agent_versions` | List a Managed Agent's config versions |
+| `get_agent_version` | Get the config a version (or a call's `agent_version_id`) ran with |
+| `list_phone_numbers` | List phone numbers and the agent each routes inbound calls to (read only) |
+| `get_phone_number` | Get one phone number, its assigned agent, and provider (read only) |
+| `create_agent_calls` | Place real outbound calls with an agent (asks the user to confirm numbers first) |
+| `cancel_agent_call` | Cancel an outbound call that has not connected |
+| `delete_agent_call` | Permanently delete a call record |
+| `list_call_batches` | List outbound call batches |
+| `get_call_batch` | Get a batch's status, progress, and per-recipient results |
+| `create_call_batch` | Start a batch that dials many recipients, now or scheduled (confirm first) |
+| `cancel_call_batch` | Stop dialing a batch |
+| `retry_call_batch` | Dial a batch's failed recipients again (confirm first) |
+| `get_phone_provisioning_usage` | This month's phone number provisioning usage and remaining quota (read only) |
+| `provision_phone_number` | Buy a Cartesia-managed phone number, unassigned until the user confirms it |
+| `import_phone_number` | Link a number you own through a provider |
+| `update_phone_number` | Change a number's label, inbound agent, or provider |
+| `delete_phone_number` | Remove a phone number |
+| `list_phone_providers` | List linked Twilio and SIP trunk providers (secrets never returned) |
+| `get_phone_provider` | Get one provider |
+| `create_twilio_provider` | Link a Twilio account |
+| `update_phone_provider` | Change a Twilio or SIP trunk provider |
+| `delete_phone_provider` | Unlink a provider |
+| `list_knowledge_folders` | List knowledge base folders, their documents, and the agents that can search them |
+| `get_knowledge_folder` | Get one folder |
+| `create_knowledge_folder` | Create a folder |
+| `update_knowledge_folder` | Rename or move a folder |
+| `delete_knowledge_folder` | Delete a folder (`force` also deletes its contents) |
+| `list_knowledge_documents` | List documents with status and size, without their text |
+| `get_knowledge_document` | Get one document's text and processing status |
+| `create_knowledge_documents` | Upload up to 100 documents from text, a `file_id`, or a local `file_path` |
+| `attach_knowledge_folder` | Let an agent search one more folder and keep the folders already attached |
+| `detach_knowledge_folder` | Stop an agent searching one folder, without deleting it |
+| `attach_knowledge_document` | Let an agent search one more document and keep the documents already attached |
+| `detach_knowledge_document` | Stop an agent searching one document, without deleting it |
+| `update_knowledge_document` | Change a document's text, name, metadata, or folder |
+| `delete_knowledge_document` | Delete a document |
+| `retry_knowledge_document` | Reprocess a failed document |
+| `list_event_webhooks` | List call event webhooks |
+| `get_event_webhook` | Get one event webhook (secret never returned) |
+| `create_event_webhook` | Create an event webhook, then set `config.event_webhook_id` |
+| `update_event_webhook` | Change a webhook's URL, name, or secret |
+| `delete_event_webhook` | Delete an event webhook |
+| `list_agent_metrics` | List evaluation metrics |
+| `get_agent_metric` | Get one metric and its scoring prompt |
+| `create_agent_metric` | Create a metric that scores finished calls |
+| `delete_agent_metric` | Delete a metric |
+| `attach_agent_metric` | Score an agent's calls with a metric |
+| `detach_agent_metric` | Stop scoring an agent's calls with a metric |
+| `list_agent_metric_results` | List evaluation scores, filtered by agent, call, metric, or date |
+| `export_agent_metric_results` | Export evaluation scores as CSV text |
 | `add_voice_accents` | Add catalog accents to an instant voice clone (`british`, `parisian`, …) |
 | `delete_voice_accent` | Remove a catalog accent from an instant voice clone |
 | `list_pronunciation_dicts` | List pronunciation dictionaries |
@@ -96,6 +166,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `delete_pronunciation_dict` | Delete a pronunciation dictionary |
 | `download_file` | Fetch a cloud file by ID (`download_url` + local copy) |
 | `get_credit_usage` | Credit usage over time (`CARTESIA_ADMIN_API_KEY`) |
+| `get_agent_usage` | Managed Agents cents, minutes, and calls over time (`CARTESIA_ADMIN_API_KEY`) |
 
 See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and return types.
 
@@ -105,6 +176,8 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 | --- | --- |
 | `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
 | `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
+| `create_voice_agent` | Build a Managed Agent from a plain-language description and share a Playground link |
+| `debug_agent_call` | Find why an agent call went wrong and propose a config fix |
 
 ## Releases
 
@@ -196,7 +269,7 @@ For `speech_to_text`, use the default batch mode for common containers (mp3, fla
 Some tools call [management endpoints](https://docs.cartesia.ai/api-reference/usage/credits) that accept **admin** API keys only (`sk_car_admin_...`). Set `CARTESIA_ADMIN_API_KEY` in `env` alongside `CARTESIA_API_KEY`:
 
 - `CARTESIA_API_KEY` — TTS, STT, voices, pronunciation dictionaries, etc.
-- `CARTESIA_ADMIN_API_KEY` — optional; required for `get_credit_usage` today. Admin keys do not work on generation routes, and standard keys do not work on admin routes.
+- `CARTESIA_ADMIN_API_KEY` — optional; required for `get_credit_usage` and `get_agent_usage`. Admin keys do not work on generation routes, and standard keys do not work on admin routes.
 
 Mint admin keys in the Playground under **Keys → Admin** (org admins only).
 

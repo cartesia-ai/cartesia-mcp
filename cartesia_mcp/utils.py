@@ -344,15 +344,41 @@ def create_output_file(output_directory: str, tool_type: ToolType,
     return dir_path / f"{tool_type}_{stamp}_{uuid.uuid4().hex[:8]}.{extension}"
 
 
-def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
-    data = [item.model_dump(mode="json") for item in page.data]
-    result: dict[str, typing.Any] = {
-        "data": data,
-        "has_more": page.has_next_page(),
-    }
-    if page.has_next_page() and data:
-        result["next_page"] = data[-1]["id"]
+def _page_has_more(page: SyncCursorIDPage[typing.Any]) -> bool:
+    # cartesia 5.1 stores has_more on the page and stops when it is false.
+    has_more = getattr(page, "has_more", None)
+    if isinstance(has_more, bool):
+        return has_more
+    return page.has_next_page()
+
+
+def page_result(
+    data: list[dict[str, typing.Any]],
+    has_more: bool,
+    next_page: typing.Optional[str] = None,
+) -> dict[str, typing.Any]:
+    result: dict[str, typing.Any] = {"data": data, "has_more": has_more}
+    if has_more and data:
+        result["next_page"] = next_page or data[-1]["id"]
     return result
+
+
+def list_response_to_result(response: typing.Any) -> dict[str, typing.Any]:
+    """Pages from list endpoints the SDK types as `{data, has_more, next_page}` models."""
+    return page_result(
+        [item.to_dict(mode="json") for item in response.data],
+        response.has_more,
+        response.next_page,
+    )
+
+
+def cursor_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
+    return page_result([item.model_dump(mode="json") for item in page.data], _page_has_more(page))
+
+
+def sdk_page_to_result(page: SyncCursorIDPage[typing.Any]) -> dict[str, typing.Any]:
+    """Like ``cursor_page_to_result`` but keeps the API's raw shape, including extra fields."""
+    return page_result([item.to_dict(mode="json") for item in page.data], _page_has_more(page))
 
 
 def coerce_null_voice_locales(voice: Voice) -> Voice:
@@ -383,3 +409,138 @@ def pronunciation_dict_list_to_result(
     elif result["has_more"] and result["data"]:
         result["next_page"] = result["data"][-1]["id"]
     return result
+
+
+# Tool results can be whole API payloads; the condensed call view is for reading
+# in chat, so cap each one and point at `detail="full"` for the rest.
+CONDENSED_TOOL_RESULT_CHARS = 2000
+
+_CALL_SUMMARY_FIELDS = (
+    "id",
+    "agent_id",
+    "agent_version_id",
+    "status",
+    "end_reason",
+    "error_message",
+    "start_time",
+    "end_time",
+    "summary",
+)
+
+
+def _condensed_tool_call(tool_call: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    condensed: dict[str, typing.Any] = {
+        "name": tool_call.get("name"),
+        "arguments": tool_call.get("arguments"),
+    }
+    result = tool_call.get("result")
+    if isinstance(result, str) and len(result) > CONDENSED_TOOL_RESULT_CHARS:
+        condensed["result"] = result[:CONDENSED_TOOL_RESULT_CHARS]
+        condensed["result_truncated"] = True
+        condensed["result_chars"] = len(result)
+    elif result is not None:
+        condensed["result"] = result
+    if tool_call.get("dynamic_variable_updates"):
+        condensed["dynamic_variable_updates"] = tool_call["dynamic_variable_updates"]
+    return condensed
+
+
+def _condensed_turn(turn: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    condensed: dict[str, typing.Any] = {
+        "role": turn.get("role"),
+        "text": turn.get("text"),
+        "start_s": turn.get("start_timestamp"),
+        "end_s": turn.get("end_timestamp"),
+        "interrupted": bool(turn.get("was_interrupted", False)),
+    }
+    if turn.get("tts_ttfb") is not None:
+        condensed["tts_ttfb_s"] = turn["tts_ttfb"]
+    tool_calls = turn.get("tool_calls")
+    if tool_calls:
+        condensed["tool_calls"] = [
+            _condensed_tool_call(call) for call in tool_calls if isinstance(call, dict)
+        ]
+    return condensed
+
+
+def _is_metric_turn(turn: dict[str, typing.Any]) -> bool:
+    # A null field on a speech turn is not a metric. A present non-null value is,
+    # even when it is not a dict.
+    return turn.get("log_metric") is not None
+
+
+def _latency_summary(
+    turns: list[dict[str, typing.Any]],
+) -> dict[str, dict[str, typing.Any]]:
+    """Per-metric count, mean and max over the call's `log_metric` system turns."""
+    values: dict[str, list[float]] = {}
+    for turn in turns:
+        metric = turn["log_metric"]
+        if not isinstance(metric, dict):
+            continue
+        name, value = metric.get("name"), metric.get("value")
+        if isinstance(name, str) and isinstance(value, (int, float)):
+            values.setdefault(name, []).append(float(value))
+    return {
+        name: {
+            "count": len(series),
+            "mean": round(sum(series) / len(series), 1),
+            "max": round(max(series), 1),
+        }
+        for name, series in values.items()
+    }
+
+
+def condense_agent_call(call: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    """Debugging view of one agent call: outcome, config version, variables, and turns."""
+    condensed = {field: call.get(field) for field in _CALL_SUMMARY_FIELDS}
+    telephony = call.get("telephony_params")
+    if isinstance(telephony, dict):
+        condensed["connection"] = {
+            key: telephony[key]
+            for key in ("connection_type", "from", "to")
+            if key in telephony
+        }
+    condensed["dynamic_variables"] = call.get("dynamic_variables") or {}
+    transcript = call.get("transcript")
+    turns = (
+        [turn for turn in transcript if isinstance(turn, dict)]
+        if isinstance(transcript, list)
+        else []
+    )
+    metric_turns = [turn for turn in turns if _is_metric_turn(turn)]
+    condensed["latency_ms"] = _latency_summary(metric_turns)
+    condensed["turns"] = [
+        _condensed_turn(turn) for turn in turns if not _is_metric_turn(turn)
+    ]
+    return condensed
+
+
+def agent_call_list_to_result(
+    payload: dict[str, typing.Any],
+    *,
+    condensed: bool = False,
+) -> dict[str, typing.Any]:
+    rows = [
+        condense_agent_call(call)
+        if condensed
+        else {field: call.get(field) for field in _CALL_SUMMARY_FIELDS}
+        for call in payload.get("data", [])
+        if isinstance(call, dict)
+    ]
+    return {**payload, "data": rows}
+
+
+def agent_version_list_to_result(
+    payload: dict[str, typing.Any],
+) -> dict[str, typing.Any]:
+    rows = [
+        {
+            "id": version.get("id"),
+            "created_at": version.get("created_at"),
+            "description": version.get("description"),
+        }
+        for version in payload.get("data", [])
+        if isinstance(version, dict)
+    ]
+    return {**payload, "data": rows}

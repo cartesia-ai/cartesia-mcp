@@ -76,6 +76,7 @@ def main() -> int:
     os.environ["OUTPUT_DIRECTORY"] = os.path.abspath(OUTPUT_DIR)
 
     # Import after OUTPUT_DIRECTORY is set (server reads env at import).
+    import cartesia_mcp.agents as agents  # noqa: WPS433
     import cartesia_mcp.server as s  # noqa: WPS433
 
     failures: list[str] = []
@@ -157,7 +158,7 @@ def main() -> int:
         else:
             ok("list_models", f"{len(ids)} models")
 
-    agent_models_result = run("list_agent_models", lambda: s.list_agent_models())
+    agent_models_result = run("list_agent_models", lambda: agents.list_agent_models())
     if agent_models_result is not None:
         rows = (
             agent_models_result.get("data")

@@ -4,6 +4,7 @@ import httpx
 from cartesia import Cartesia
 
 import cartesia_mcp.extra_api as extra_api
+import cartesia_mcp.mcp_app as mcp_app
 import cartesia_mcp.server as server
 
 
@@ -23,7 +24,7 @@ def test_extra_api_list_models_omits_capability_param() -> None:
 
 
 @patch("cartesia_mcp.server.extra_api.list_models")
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_list_models_tool(mock_client: MagicMock, mock_list_models: MagicMock) -> None:
     mock_list_models.return_value = {
         "data": [
@@ -58,7 +59,7 @@ def test_list_models_preserves_supported_languages() -> None:
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as http_client:
         sdk = Cartesia(api_key="test-key", http_client=http_client)
-        with patch.object(server, "client", sdk):
+        with patch.object(mcp_app, "client", sdk):
             result = server.list_models()
 
     assert result == payload

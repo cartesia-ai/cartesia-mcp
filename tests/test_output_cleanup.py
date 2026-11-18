@@ -120,7 +120,7 @@ def test_cleanup_output_directory_logs_and_metrics(
 
 
 @patch("cartesia_mcp.server._try_create_download_link")
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_hosted_text_to_speech_save_skips_local_write(
     mock_client: MagicMock,
     mock_cloud_url: MagicMock,
@@ -156,7 +156,7 @@ def test_hosted_text_to_speech_save_skips_local_write(
     assert list(tmp_path.iterdir()) == []
 
 
-@patch("cartesia_mcp.server.client")
+@patch("cartesia_mcp.mcp_app.client")
 def test_hosted_text_to_speech_save_false_still_writes(
     mock_client: MagicMock,
     monkeypatch: pytest.MonkeyPatch,
