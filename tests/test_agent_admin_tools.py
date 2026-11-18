@@ -125,37 +125,63 @@ def test_create_knowledge_document_rejects_file_path_on_hosted(
 
 
 @pytest.mark.parametrize(
-    ("relative", "error"),
-    [
-        (".ssh/notes.txt", "hidden"),
-        (".env", "hidden"),
-        ("id_ed25519", "must be one of"),
-        ("credentials.pem", "must be one of"),
-    ],
+    "relative", [".ssh/id_ed25519", ".env", ".aws/credentials", "credentials.pem"]
 )
 def test_create_knowledge_document_refuses_non_document_paths(
-    api: Api, tmp_path, relative: str, error: str
+    api: Api, tmp_path, relative: str
 ) -> None:
     source = tmp_path / relative
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text("secret")
 
-    with pytest.raises(ValueError, match=error):
+    with pytest.raises(ValueError, match="must be one of"):
         agents.create_knowledge_documents([{"file_path": str(source)}])
     assert api.requests == []
 
 
-def test_create_knowledge_document_refuses_symlink_into_hidden_folder(
+def test_create_knowledge_document_checks_the_symlink_target(
     api: Api, tmp_path
 ) -> None:
-    target = tmp_path / ".aws" / "config.txt"
+    target = tmp_path / ".aws" / "credentials"
     target.parent.mkdir()
     target.write_text("secret")
-    link = tmp_path / "config.txt"
+    link = tmp_path / "notes.txt"
     link.symlink_to(target)
 
-    with pytest.raises(ValueError, match="hidden"):
+    with pytest.raises(ValueError, match="must be one of"):
         agents.create_knowledge_documents([{"file_path": str(link)}])
+    assert api.requests == []
+
+
+def test_create_knowledge_document_uploads_from_hidden_project_folder(
+    api: Api, tmp_path
+) -> None:
+    source = tmp_path / ".cursor" / "worktrees" / "app" / "faq.md"
+    source.parent.mkdir(parents=True)
+    source.write_text("# FAQ")
+    api.on("POST", "/files", {"id": "file_1", "filename": "faq.md"})
+    api.on("POST", "/agents/documents/bulk", [DOCUMENT])
+
+    agents.create_knowledge_documents([{"file_path": str(source)}])
+
+    assert [request.url.path for request in api.requests] == [
+        "/files",
+        "/agents/documents/bulk",
+    ]
+
+
+def test_create_knowledge_documents_checks_every_path_before_uploading(
+    api: Api, tmp_path
+) -> None:
+    good = tmp_path / "returns.pdf"
+    good.write_bytes(b"%PDF-1.4")
+    bad = tmp_path / "id_ed25519"
+    bad.write_text("secret")
+
+    with pytest.raises(ValueError, match="must be one of"):
+        agents.create_knowledge_documents(
+            [{"file_path": str(good)}, {"file_path": str(bad)}]
+        )
     assert api.requests == []
 
 

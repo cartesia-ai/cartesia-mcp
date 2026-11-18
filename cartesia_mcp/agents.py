@@ -1107,9 +1107,8 @@ class KnowledgeDocumentUpload(typing.TypedDict, total=False):
     metadata: dict[str, str]
 
 
-def _knowledge_document_for_sdk(
-    document: KnowledgeDocumentUpload,
-) -> KnowledgeDocumentInput:
+def _knowledge_file_path(document: KnowledgeDocumentUpload) -> Path | None:
+    """The checked local file to upload for ``document``, or None if it has none."""
     sources = [
         key for key in ("content", "file_id", "file_path") if document.get(key)
     ]
@@ -1117,28 +1116,20 @@ def _knowledge_document_for_sdk(
         raise ValueError(
             "Each document needs exactly one of `content`, `file_id`, or `file_path`."
         )
-    prepared: dict[str, typing.Any] = {
-        key: value
-        for key, value in document.items()
-        if key != "file_path" and value is not None
-    }
-    if "file_path" not in sources:
-        return typing.cast(KnowledgeDocumentInput, prepared)
+    file_path = document.get("file_path")
+    if not file_path:
+        return None
     if _is_hosted:
         raise ValueError(
             "Hosted MCP cannot read `file_path`. Pass `content`, or a `file_id` "
             "from a file uploaded with purpose `knowledge_base_document`."
         )
-    file_path = document.get("file_path")
-    if not isinstance(file_path, str):
-        raise ValueError("Each document needs exactly one of `content`, `file_id`, or `file_path`.")
     path = Path(file_path).expanduser().resolve()
     if not path.is_file():
         raise ValueError(f"`file_path` is not a file: {path}")
-    if any(part.startswith(".") for part in path.parts):
-        raise ValueError(
-            "`file_path` cannot be a hidden file or inside a hidden folder."
-        )
+    # Document extensions keep keys, `.env`, and extensionless credential files
+    # out. Hidden folders stay allowed because projects live in them (agent
+    # worktrees, `~/.config`); the client's approval of this call covers the rest.
     if path.suffix.lower() not in KNOWLEDGE_FILE_EXTENSIONS:
         raise ValueError(
             "`file_path` must be one of: "
@@ -1146,16 +1137,28 @@ def _knowledge_document_for_sdk(
         )
     if path.stat().st_size > KNOWLEDGE_FILE_MAX_BYTES:
         raise ValueError("`file_path` is larger than 20 MB.")
-    uploaded = extra_api.upload_file(
-        _api_client(),
-        filename=path.name,
-        content=path.read_bytes(),
-        purpose="knowledge_base_document",
-    )
-    file_id = uploaded.get("id")
-    if not isinstance(file_id, str) or not file_id:
-        raise RuntimeError("files API did not return a file id")
-    prepared["file_id"] = file_id
+    return path
+
+
+def _knowledge_document_for_sdk(
+    document: KnowledgeDocumentUpload, path: Path | None
+) -> KnowledgeDocumentInput:
+    prepared: dict[str, typing.Any] = {
+        key: value
+        for key, value in document.items()
+        if key != "file_path" and value is not None
+    }
+    if path is not None:
+        uploaded = extra_api.upload_file(
+            _api_client(),
+            filename=path.name,
+            content=path.read_bytes(),
+            purpose="knowledge_base_document",
+        )
+        file_id = uploaded.get("id")
+        if not isinstance(file_id, str) or not file_id:
+            raise RuntimeError("files API did not return a file id")
+        prepared["file_id"] = file_id
     return typing.cast(KnowledgeDocumentInput, prepared)
 
 
@@ -1167,7 +1170,7 @@ def _knowledge_document_for_sdk(
         uploaded with purpose `knowledge_base_document`), or `file_path` (an
         absolute path on the local MCP server). `file_path` is uploaded for
         you and must be a document under 20 MB (PDF, `.docx`, HTML, Markdown,
-        text, CSV, JSON, YAML, or XML) outside hidden folders. Hosted MCP
+        text, CSV, JSON, YAML, or XML). Hosted MCP
         cannot read a path: pass `content` or `file_id`. Each document may set
         `name`, `folder_id`, and `metadata` (string values, used to filter
         retrieval).
@@ -1183,8 +1186,12 @@ def create_knowledge_documents(
         Field(min_length=1, max_length=100, description="Documents to upload."),
     ],
 ) -> dict[str, typing.Any]:
+    paths = [_knowledge_file_path(document) for document in documents]
     created = _api_client().agents.knowledge_base.documents.create_bulk(
-        documents=[_knowledge_document_for_sdk(document) for document in documents]
+        documents=[
+            _knowledge_document_for_sdk(document, path)
+            for document, path in zip(documents, paths, strict=True)
+        ]
     )
     return {"data": [_without_content(d.to_dict(mode="json")) for d in created]}
 
@@ -2267,7 +2274,7 @@ def debug_agent_call(agent_id: str = "", call_id: str = "") -> str:
         "Then call `get_agent_call` and check `status`, `end_reason`, and "
         "`error_message`, and read the turns for misunderstandings, interruptions, "
         "failed tool calls, and slow `latency_ms`.\n"
-        f"Call `get_agent_version` with agent_id={agent_id!r} and the call's "
+        "Call `get_agent_version` with the call's `agent_id` and "
         "`agent_version_id` to read the config that ran.\n"
         "Explain the cause, then propose the smallest config change. Apply it with "
         "`update_agent` only after the user agrees."

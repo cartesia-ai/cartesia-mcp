@@ -42,6 +42,11 @@ def test_agent_guidance_only_names_registered_tools() -> None:
     assert "'ac_1'" in texts[2]
 
 
+def test_debug_agent_call_without_agent_id_names_no_empty_id() -> None:
+    for text in (agents.debug_agent_call(call_id="ac_1"), agents.debug_agent_call()):
+        assert "''" not in text
+
+
 def test_generate_and_transcribe_prompt_mentions_tools() -> None:
     text = server.generate_and_transcribe("Hello there", voice="Katie")
     assert "text_to_speech" in text and "speech_to_text" in text and "'Katie'" in text
