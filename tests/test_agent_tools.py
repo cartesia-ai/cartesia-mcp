@@ -129,6 +129,68 @@ def test_list_agent_calls_sends_filters_omits_transcript_and_sets_cursor(api: Ap
     assert result["next_page"] == "ac_1"
 
 
+def test_list_agent_calls_with_transcripts_condenses_rows_and_sends_time_and_batch(
+    api: Api,
+) -> None:
+    row = {**CALL, "transcript": [{"role": "user", "text": "hi", "start_timestamp": 0.0}]}
+    api.on("GET", "/agents/calls", {"data": [row], "has_more": False})
+
+    result = agents.list_agent_calls(
+        "agent_1",
+        include_transcripts=True,
+        start_time_gte="2026-11-01T00:00:00Z",
+        start_time_lte="2026-11-02T00:00:00Z",
+        batch_id="cb_1",
+    )
+
+    assert _query(api.last) == {
+        "agent_id": "agent_1",
+        "limit": "10",
+        "expand": "transcript",
+        "start_time_gte": "2026-11-01T00:00:00Z",
+        "start_time_lte": "2026-11-02T00:00:00Z",
+        "batch_id": "cb_1",
+    }
+    assert result["data"][0]["turns"][0]["text"] == "hi"
+
+
+def test_list_agent_calls_with_transcripts_caps_the_page_size(api: Api) -> None:
+    with pytest.raises(ValueError, match="20"):
+        agents.list_agent_calls("agent_1", limit=21, include_transcripts=True)
+    assert api.requests == []
+
+
+def test_get_agent_call_logs_stops_at_the_character_budget(
+    api: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(agents, "AGENT_CALL_LOGS_MAX_CHARS", 10)
+    api.on(
+        "GET",
+        "/agents/calls/ac_1/logs",
+        {"call_id": "ac_1", "logs": ["abcdef", "ghijkl", "m"], "updated_at": "2026-11-01T00:00:00Z"},
+    )
+
+    result = agents.get_agent_call_logs("ac_1")
+
+    assert result["call_id"] == "ac_1"
+    assert result["logs"] == ["abcdef"]
+    assert result["truncated"] is True
+
+
+def test_get_phone_provisioning_usage_reads_the_monthly_quota(api: Api) -> None:
+    api.on(
+        "GET",
+        "/agents/phone-numbers/provision",
+        {"monthly_usage": 3, "monthly_limit": 5, "remaining": 2},
+    )
+
+    assert agents.get_phone_provisioning_usage() == {
+        "monthly_usage": 3,
+        "monthly_limit": 5,
+        "remaining": 2,
+    }
+
+
 def test_list_agent_versions_drops_config(api: Api) -> None:
     api.on(
         "GET",

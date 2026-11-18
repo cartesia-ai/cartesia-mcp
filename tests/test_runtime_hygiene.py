@@ -3,7 +3,6 @@ import re
 
 import cartesia_mcp.agents as agents
 import cartesia_mcp.server as server
-from cartesia_mcp.branding import SERVER_INSTRUCTIONS
 from cartesia_mcp.sdk_setup import create_cartesia_client, shared_http_client
 
 
@@ -31,15 +30,14 @@ TOOL_LIKE = re.compile(r"`((?:list|get|create|update|delete)_[a-z_]+)`")
 def test_agent_guidance_only_names_registered_tools() -> None:
     tool_names = {tool.name for tool in server.mcp._tool_manager.list_tools()}
     texts = [
-        SERVER_INSTRUCTIONS,
         agents.create_voice_agent("a pizza ordering line"),
         agents.debug_agent_call("agent_1"),
         agents.debug_agent_call("agent_1", call_id="ac_1"),
     ]
     for text in texts:
         assert set(TOOL_LIKE.findall(text)) <= tool_names
-    assert "'a pizza ordering line'" in texts[1]
-    assert "'ac_1'" in texts[3]
+    assert "'a pizza ordering line'" in texts[0]
+    assert "'ac_1'" in texts[2]
 
 
 def test_generate_and_transcribe_prompt_mentions_tools() -> None:

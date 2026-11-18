@@ -104,6 +104,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `list_agent_models` | List Managed Agents LLM ids. Not Sonic or Ink ids from `list_models` |
 | `list_agent_calls` | List a Managed Agent's calls with status, end reason, error, and config version |
 | `get_agent_call` | Debug one call: outcome, variables, and turns with timing and tool calls (`detail=full` for raw JSON) |
+| `get_agent_call_logs` | Runtime log lines for one call (read only; check first when a call fails) |
 | `list_agent_versions` | List a Managed Agent's config versions |
 | `get_agent_version` | Get the config a version (or a call's `agent_version_id`) ran with |
 | `list_phone_numbers` | List phone numbers and the agent each routes inbound calls to (read only) |
@@ -116,6 +117,7 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `create_call_batch` | Start a batch that dials many recipients, now or scheduled (confirm first) |
 | `cancel_call_batch` | Stop dialing a batch |
 | `retry_call_batch` | Dial a batch's failed recipients again (confirm first) |
+| `get_phone_provisioning_usage` | This month's phone number provisioning usage and remaining quota (read only) |
 | `provision_phone_number` | Buy a Cartesia-managed phone number (confirm first) |
 | `import_phone_number` | Link a number you own through a provider |
 | `update_phone_number` | Change a number's label, inbound agent, or provider |

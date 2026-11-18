@@ -516,9 +516,15 @@ def condense_agent_call(call: dict[str, typing.Any]) -> dict[str, typing.Any]:
     return condensed
 
 
-def agent_call_list_to_result(payload: dict[str, typing.Any]) -> dict[str, typing.Any]:
+def agent_call_list_to_result(
+    payload: dict[str, typing.Any],
+    *,
+    condensed: bool = False,
+) -> dict[str, typing.Any]:
     rows = [
-        {field: call.get(field) for field in _CALL_SUMMARY_FIELDS}
+        condense_agent_call(call)
+        if condensed
+        else {field: call.get(field) for field in _CALL_SUMMARY_FIELDS}
         for call in payload.get("data", [])
         if isinstance(call, dict)
     ]

@@ -50,8 +50,7 @@ from cartesia_mcp.utils import (
 
         Use these `id` values for an agent's `model.id` (and explicit fallback
         model ids). Do not invent model ids, and do not use ids from
-        `list_models` (`sonic-*`, `ink-*`). Those are speech models. Each row
-        includes provider, display name, latency, and token pricing. Returns
+        `list_models` (`sonic-*`, `ink-*`). Those are speech models. Returns
         the full catalog (pagination is followed server-side).
         """)
 def list_agent_models() -> dict[str, typing.Any]:
@@ -62,6 +61,8 @@ def list_agent_models() -> dict[str, typing.Any]:
 
 AgentCallDetail = typing.Literal["condensed", "full"]
 PhoneNumberProviderType = typing.Literal["twilio", "cartesia", "sip_trunk"]
+AGENT_CALL_LOGS_MAX_CHARS = 100_000
+AGENT_CALLS_WITH_TRANSCRIPTS_MAX_LIMIT = 20
 
 
 def _or_omit(value: typing.Any) -> typing.Any:
@@ -77,10 +78,8 @@ def _agent_with_playground_url(agent: typing.Any) -> dict[str, typing.Any]:
 @mcp.tool(
     annotations=_read_only_tool("List agents"),
     description="""
-        List the account's Managed Agents, newest first.
-
-        Rows have `id`, `name`, `description`, `version_id` (the current
-        config version), and timestamps. Call `get_agent` for the config.
+        List the account's Managed Agents, newest first. Call `get_agent` for
+        the config.
         """)
 def list_agents(
     q: typing.Annotated[
@@ -113,10 +112,13 @@ def list_agents(
 @mcp.tool(
     annotations=_read_only_tool("Get agent"),
     description="""
-        Get a Managed Agent: name, description, the current `config`
-        (instructions, initial message, model, voice, tools, system tools,
-        turn-taking, variables), the current `version`, and `playground_url`
-        for trying the agent in the browser.
+        Get a Managed Agent: the current `config`, the current `version`, and
+        `playground_url` for trying the agent in the browser.
+
+        `config.tools`, `config.knowledge_base_folders`, and
+        `config.knowledge_base_documents` are `{id}` references, not
+        definitions. Fetch each one with `get_agent_tool`, `get_knowledge_folder`,
+        or `get_knowledge_document`.
         """)
 def get_agent(
     agent_id: typing.Annotated[
@@ -245,11 +247,13 @@ def delete_agent(
 @mcp.tool(
     annotations=_read_only_tool("List agent calls"),
     description="""
-        List a Managed Agent's calls, newest first, to debug them.
+        List a Managed Agent's calls, newest first, to debug them. Pass a call
+        `id` to `get_agent_call` for one call's transcript.
 
-        Each row has the call `id`, `status`, `end_reason`, `error_message`,
-        start and end times, `summary`, and `agent_version_id` (the config that
-        ran). Pass a call `id` to `get_agent_call` for the transcript.
+        For a complaint with no call ID, set `include_transcripts` to get each
+        call's condensed transcript in one request (same view as
+        `get_agent_call`). Narrow with `start_time_gte`, `start_time_lte`, and
+        `batch_id` first. With transcripts, `limit` is capped at 20.
 
         Apps should not poll this for new calls; configure an event webhook
         on the agent instead.
@@ -271,7 +275,39 @@ def list_agent_calls(
         typing.Optional[str],
         Field(description="Cursor: call ID to end before (previous page)."),
     ] = None,
+    include_transcripts: typing.Annotated[
+        bool,
+        Field(
+            description="Include each call's condensed transcript (same view as `get_agent_call`)."
+        ),
+    ] = False,
+    start_time_gte: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Only calls that started at or after this RFC 3339 time."),
+    ] = None,
+    start_time_lte: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Only calls that started at or before this RFC 3339 time."),
+    ] = None,
+    batch_id: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Only calls from this call batch ID."),
+    ] = None,
 ) -> dict[str, typing.Any]:
+    if include_transcripts and limit is not None and limit > AGENT_CALLS_WITH_TRANSCRIPTS_MAX_LIMIT:
+        raise ValueError(
+            f"Use `limit` of {AGENT_CALLS_WITH_TRANSCRIPTS_MAX_LIMIT} or less "
+            "with `include_transcripts`."
+        )
+    time_and_batch = {
+        key: value
+        for key, value in {
+            "start_time_gte": start_time_gte,
+            "start_time_lte": start_time_lte,
+            "batch_id": batch_id,
+        }.items()
+        if value is not None
+    }
     return agent_call_list_to_result(
         sdk_page_to_result(
             _api_client().agents.calls.list(
@@ -279,8 +315,11 @@ def list_agent_calls(
                 limit=_or_omit(limit),
                 starting_after=_or_omit(starting_after),
                 ending_before=_or_omit(ending_before),
+                expand=_or_omit("transcript" if include_transcripts else None),
+                extra_query=time_and_batch or None,
             )
-        )
+        ),
+        condensed=include_transcripts,
     )
 
 
@@ -295,7 +334,8 @@ def list_agent_calls(
         per metric, such as `llm_first_text_ms` and `agent_turn_ms`), and each
         turn's role, text, timing in seconds, interruption, TTS time to first
         byte, and tool calls with arguments and results (long results are
-        truncated; `result_chars` is the full length). Pass `detail="full"` for the raw API payload.
+        truncated; `result_chars` is the full length). Pass `detail="full"` for
+        the raw API payload. Runtime log lines are in `get_agent_call_logs`.
 
         The agent's current config may have changed since the call. To read
         the config that actually ran, pass `agent_id` and `agent_version_id`
@@ -315,6 +355,37 @@ def get_agent_call(
     if detail == "full":
         return call
     return condense_agent_call(call)
+
+
+@mcp.tool(
+    annotations=_read_only_tool("Get agent call logs"),
+    description="""
+        Get the runtime log lines for one Managed Agent call. The transcript
+        does not include them. Check these first when a call failed or a tool
+        did not run.
+
+        Returns up to about 100,000 characters of lines; `truncated` is true
+        when later lines were dropped.
+        """)
+def get_agent_call_logs(
+    call_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Call ID (`ac_...`) from `list_agent_calls`."),
+    ],
+) -> dict[str, typing.Any]:
+    response = _api_client().agents.calls.logs(call_id)
+    kept: list[str] = []
+    size = 0
+    for line in response.logs:
+        if size + len(line) > AGENT_CALL_LOGS_MAX_CHARS:
+            break
+        kept.append(line)
+        size += len(line)
+    return {
+        **response.to_dict(mode="json"),
+        "logs": kept,
+        "truncated": len(kept) < len(response.logs),
+    }
 
 
 @mcp.tool(
@@ -837,9 +908,7 @@ def get_knowledge_document(
     description="""
         Upload 1 to 100 text documents agents can search during calls. Each needs
         `content` (up to 1 MB) and may set `name`, `folder_id`, and `metadata`
-        (string values, used to filter retrieval). Use `file_id` instead of
-        `content` only for a file already uploaded with purpose
-        `knowledge_base_document`.
+        (string values, used to filter retrieval).
 
         Documents start as `processing`. Check `status` with
         `get_knowledge_document`, and use `retry_knowledge_document` on a
@@ -1195,8 +1264,7 @@ def detach_agent_metric(
 @mcp.tool(
     annotations=_read_only_tool("List agent metric results"),
     description="""
-        List evaluation scores for finished calls, newest first. Each result has
-        `metricName`, `status`, `result`, `summary`, and `value`. Filter by agent,
+        List evaluation scores for finished calls, newest first. Filter by agent,
         call, metric, or `start_date` and `end_date` (ISO 8601). Use
         `export_agent_metric_results` for a CSV of many rows.
         """,
@@ -1301,12 +1369,26 @@ def export_agent_metric_results(
 
 
 @mcp.tool(
+    annotations=_read_only_tool("Get phone provisioning usage"),
+    description="""
+        Get this month's Cartesia-managed phone number provisioning usage:
+        `monthly_usage`, `monthly_limit`, and `remaining`. Numbers deleted this
+        month still count. A null limit means the plan has none.
+        """)
+def get_phone_provisioning_usage() -> dict[str, typing.Any]:
+    return _api_client().agents.phone_numbers.provisioning_usage().to_dict(mode="json")
+
+
+@mcp.tool(
     annotations=_real_world_tool("Provision phone number"),
     description="""
         Buy a new Cartesia-managed phone number. This can incur charges and cannot
         be undone from here. Only call it after the user has confirmed, in this
         conversation, that they want a new number, plus its label and the agent
         that should answer it.
+
+        Check `remaining` from `get_phone_provisioning_usage` first. If it is 0,
+        tell the user the monthly limit is reached instead of buying.
 
         Cartesia numbers take inbound calls and outbound calls to US numbers. Pass
         `agent_id` to answer inbound calls with that agent; omit it to keep the
@@ -1836,8 +1918,8 @@ def retry_call_batch(
 @mcp.tool(
     annotations=_read_only_tool("Get agent usage"),
     description="""
-        Returns Managed Agents usage over time (`GET /usage/agents`): `cents`
-        spent, `minutes` of calls, and number of `calls` per bucket.
+        Returns Managed Agents usage over time (`GET /usage/agents`): spend,
+        minutes, and calls per bucket.
 
         Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes, at most 366 days
@@ -1859,8 +1941,14 @@ def get_agent_usage(
         Field(description="Bucket size for the returned usage time series."),
     ] = None,
 ) -> dict[str, typing.Any]:
-    return extra_api.get_usage_agents(
-        _require_admin_client(), start_ts=start_ts, end_ts=end_ts, interval=interval
+    return (
+        _require_admin_client()
+        .usage.agents.retrieve(
+            start_ts=_or_omit(start_ts),
+            end_ts=_or_omit(end_ts),
+            interval=_or_omit(interval),
+        )
+        .to_dict(mode="json")
     )
 
 
@@ -1917,16 +2005,19 @@ def create_voice_agent(description: str) -> str:
     description="Find why a Managed Agent call went wrong and propose a config fix.",
 )
 def debug_agent_call(agent_id: str, call_id: str = "") -> str:
-    call_step = (
-        f"Call `get_agent_call` with call_id={call_id!r}."
+    find_step = (
+        f"The call ID is {call_id!r}."
         if call_id
-        else f"Call `list_agent_calls` with agent_id={agent_id!r}, pick the call the user "
-        "means (or the latest failed one), and call `get_agent_call` on it."
+        else f"Call `list_agent_calls` with agent_id={agent_id!r} and pick the call the "
+        "user means (or the latest failed one)."
     )
     return (
-        f"{call_step}\n"
-        "Check `status`, `end_reason`, and `error_message`, then read the turns for "
-        "misunderstandings, interruptions, failed tool calls, and slow `latency_ms`.\n"
+        f"{find_step}\n"
+        "Call `get_agent_call_logs` for that call first: the runtime logs show errors "
+        "and failed tool calls the transcript may not.\n"
+        "Then call `get_agent_call` and check `status`, `end_reason`, and "
+        "`error_message`, and read the turns for misunderstandings, interruptions, "
+        "failed tool calls, and slow `latency_ms`.\n"
         f"Call `get_agent_version` with agent_id={agent_id!r} and the call's "
         "`agent_version_id` to read the config that ran.\n"
         "Explain the cause, then propose the smallest config change. Apply it with "

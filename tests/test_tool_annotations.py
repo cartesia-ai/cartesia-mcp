@@ -9,7 +9,7 @@ import cartesia_mcp.server as server
 
 def test_all_tools_have_annotation_title_and_hint():
     tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 78
+    assert len(tools) == 80
 
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"

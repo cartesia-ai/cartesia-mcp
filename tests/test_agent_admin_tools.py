@@ -1,13 +1,11 @@
 """Knowledge base, webhooks, metrics, phone numbers, outbound calls, and batches."""
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 from conftest import Api
 
 import cartesia_mcp.agents as agents
-import cartesia_mcp.extra_api as extra_api
 
 DOCUMENT = {
     "id": "kbdoc_1",
@@ -433,19 +431,17 @@ def test_cancel_and_retry_call_batch_post_to_their_routes(api: Api) -> None:
 # Agent usage
 
 
-def test_get_usage_agents_calls_the_agents_route_with_filters() -> None:
-    client = MagicMock()
-    client.get.return_value = {"data": []}
+def test_get_agent_usage_calls_the_usage_route_with_filters(api: Api) -> None:
+    api.on("GET", "/usage/agents", {"data": []})
 
-    extra_api.get_usage_agents(
-        client,
+    agents.get_agent_usage(
         start_ts="2026-11-01T00:00:00Z",
         end_ts="2026-11-08T00:00:00Z",
         interval="day",
     )
 
-    assert client.get.call_args.args == ("/usage/agents",)
-    assert client.get.call_args.kwargs["options"]["params"] == {
+    assert api.last.url.path == "/usage/agents"
+    assert _query(api) == {
         "start_ts": "2026-11-01T00:00:00Z",
         "end_ts": "2026-11-08T00:00:00Z",
         "interval": "day",
