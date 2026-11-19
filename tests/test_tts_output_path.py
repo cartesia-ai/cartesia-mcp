@@ -33,7 +33,9 @@ def test_text_to_speech_output_path_writes_file(
     )
 
     assert dest.read_bytes() == b"audio-bytes"
-    assert result == {"file_path": str(dest.resolve())}
+    assert result["file_path"] == str(dest.resolve())
+    assert result["transcript"] == "Hello"
+    assert result["voice_id"] == "voice_abc"
 
 
 @patch("cartesia_mcp.mcp_app.client")
@@ -57,7 +59,9 @@ def test_text_to_speech_output_path_relative_to_cwd(
 
     dest = (tmp_path / "out" / "hello.wav").resolve()
     assert dest.read_bytes() == b"rel-audio"
-    assert result == {"file_path": str(dest)}
+    assert result["file_path"] == str(dest)
+    assert result["transcript"] == "Hello"
+    assert result["voice_id"] == "voice_abc"
 
 
 @patch("cartesia_mcp.mcp_app.client")
