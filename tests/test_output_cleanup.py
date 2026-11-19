@@ -112,7 +112,9 @@ def test_cleanup_output_directory_logs_and_metrics(
     assert stats["bytes_after"] == len(b"fresh!!")
     assert metrics == [(1, len(b"fresh!!"), 1)]
 
-    events = [json.loads(r.message) for r in caplog.records if r.message.startswith("{")]
+    events = [
+        json.loads(r.message) for r in caplog.records if r.message.startswith("{")
+    ]
     assert any(e.get("event") == "mcp_output_cleanup" for e in events)
     warn = next(e for e in events if e.get("event") == "mcp_output_disk_warn")
     assert warn["bytes"] == len(b"fresh!!")
@@ -148,10 +150,10 @@ def test_hosted_text_to_speech_save_skips_local_write(
         )
 
     mock_write.assert_not_called()
-    assert result == {
-        "file_id": "file_new",
-        "download_url": "https://files.cartesia.ai/link/link_new",
-    }
+    assert result["file_id"] == "file_new"
+    assert result["download_url"] == "https://files.cartesia.ai/link/link_new"
+    assert result["transcript"] == "Hello"
+    assert result["voice_id"] == "voice_abc"
     assert "file_path" not in result
     assert list(tmp_path.iterdir()) == []
 
