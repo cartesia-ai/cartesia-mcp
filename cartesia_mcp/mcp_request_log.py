@@ -15,8 +15,12 @@ from cartesia_mcp.credentials import looks_like_cartesia_api_key
 from cartesia_mcp.mcp_http import (
     bearer_token,
     is_mcp_path,
+    jsonrpc_client_info_from_body,
     jsonrpc_method_from_body,
     jsonrpc_tool_name_from_body,
+    redirect_fingerprint,
+    request_protocol_version,
+    request_user_agent,
 )
 from cartesia_mcp.mcp_session_guard import bound_session_count, report_tool_call
 from cartesia_mcp.oauth_store import oauth_store
@@ -29,6 +33,7 @@ class McpRequestIdentity:
     owner_id: str | None = None
     user_id: str | None = None
     client_name: str | None = None
+    oauth_redirect: str | None = None
     auth: str | None = None
 
 
@@ -39,10 +44,17 @@ def mcp_request_identity(request: Request) -> McpRequestIdentity:
     stored = oauth_store.resolve_mcp_access_token(token)
     if stored is not None:
         client = oauth_store.get_client(stored.client_id)
+        oauth_redirect = None
+        client_name = None
+        if client is not None:
+            client_name = client.client_name
+            if client.redirect_uris:
+                oauth_redirect = redirect_fingerprint(client.redirect_uris[0])
         return McpRequestIdentity(
             owner_id=stored.owner_id,
             user_id=stored.user_id,
-            client_name=client.client_name if client is not None else None,
+            client_name=client_name,
+            oauth_redirect=oauth_redirect,
             auth="oauth",
         )
     if looks_like_cartesia_api_key(token):
@@ -94,7 +106,11 @@ async def _json_body_and_response(response: Response) -> tuple[bytes | None, Res
         return None, response
     existing = getattr(response, "body", None)
     iterator = getattr(response, "body_iterator", None)
-    if isinstance(existing, (bytes, bytearray, memoryview)) and existing and iterator is None:
+    if (
+        isinstance(existing, (bytes, bytearray, memoryview))
+        and existing
+        and iterator is None
+    ):
         return bytes(existing), response
     if iterator is None:
         return None, response
@@ -126,11 +142,18 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
 
         rpc_method: str | None = None
         tool_name: str | None = None
+        mcp_client: str | None = None
+        mcp_client_version: str | None = None
         if request.method == "POST":
             body = await request.body()
             rpc_method = jsonrpc_method_from_body(body)
             if rpc_method == "tools/call":
                 tool_name = jsonrpc_tool_name_from_body(body) or "other"
+            elif rpc_method == "initialize":
+                client_info = jsonrpc_client_info_from_body(body)
+                if client_info is not None:
+                    mcp_client = client_info.name
+                    mcp_client_version = client_info.version
         identity = mcp_request_identity(request)
         response = await call_next(request)
         outcome: str | None = None
@@ -145,6 +168,11 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
             "owner_id": identity.owner_id,
             "user_id": identity.user_id,
             "client_name": identity.client_name,
+            "oauth_redirect": identity.oauth_redirect,
+            "mcp_client": mcp_client,
+            "mcp_client_version": mcp_client_version,
+            "user_agent": request_user_agent(request),
+            "protocol_version": request_protocol_version(request),
             "auth": identity.auth,
             "status": response.status_code,
             "sessions": bound_session_count(),

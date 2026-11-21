@@ -5,6 +5,7 @@ import logging
 
 from mcp.server.auth.provider import AuthorizationParams
 from mcp.shared.auth import OAuthClientInformationFull
+from mcp.shared.inbound import MCP_PROTOCOL_VERSION_HEADER
 from pydantic import AnyUrl
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -12,7 +13,12 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from cartesia_mcp.mcp_http import jsonrpc_method_from_body, jsonrpc_tool_name_from_body
+from cartesia_mcp.mcp_http import (
+    jsonrpc_client_info_from_body,
+    jsonrpc_method_from_body,
+    jsonrpc_tool_name_from_body,
+    redirect_fingerprint,
+)
 from cartesia_mcp.mcp_request_log import McpRequestLogMiddleware, tool_call_outcome
 from cartesia_mcp.oauth_provider import CartesiaOAuthProvider
 from cartesia_mcp.oauth_store import MemoryBackend, oauth_store
@@ -110,6 +116,35 @@ def test_jsonrpc_tool_name_from_body_reads_tools_call():
     assert jsonrpc_tool_name_from_body(weird) is None
 
 
+def test_jsonrpc_client_info_from_body_reads_initialize():
+    body = (
+        b'{"jsonrpc":"2.0","method":"initialize","id":1,'
+        b'"params":{"clientInfo":{"name":"cursor-vscode","version":"1.2.3"}}}'
+    )
+    info = jsonrpc_client_info_from_body(body)
+    assert info is not None
+    assert info.name == "cursor-vscode"
+    assert info.version == "1.2.3"
+    assert jsonrpc_client_info_from_body(b'{"method":"tools/list"}') is None
+    missing_name = (
+        b'{"method":"initialize","params":{"clientInfo":{"version":"1.0.0"}}}'
+    )
+    assert jsonrpc_client_info_from_body(missing_name) is None
+
+
+def test_redirect_fingerprint_keeps_scheme_and_host():
+    assert redirect_fingerprint("https://claude.ai/api/mcp/auth_callback") == (
+        "https://claude.ai"
+    )
+    assert redirect_fingerprint("cursor://anysphere.cursor-mcp/oauth/callback") == (
+        "cursor://anysphere.cursor-mcp"
+    )
+    assert redirect_fingerprint("http://127.0.0.1:8742/callback") == (
+        "http://127.0.0.1:8742"
+    )
+    assert redirect_fingerprint("") is None
+
+
 def test_tool_call_outcome_classifies_json_results():
     ok = b'{"jsonrpc":"2.0","result":{"content":[]}}'
     assert tool_call_outcome(200, ok) == "ok"
@@ -139,12 +174,44 @@ def test_mcp_request_log_includes_owner_and_rpc(caplog):
     assert payload["owner_id"] == "org_logged"
     assert payload["user_id"] == "user_logged"
     assert payload["client_name"] == "Cursor"
+    assert payload["oauth_redirect"] == "cursor://callback"
+    assert payload["mcp_client"] is None
     assert payload["auth"] == "oauth"
     assert payload["status"] == 200
     assert isinstance(payload["sessions"], int)
     message = json.dumps(payload)
     assert access not in message
     assert "sk_car_oauth_test_key" not in message
+
+
+def test_mcp_request_log_records_initialize_client_info(caplog):
+    _reset_store()
+    client = _client_app()
+    with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
+        response = client.post(
+            "/mcp",
+            headers={
+                "user-agent": "Claude-Code/2.0",
+                MCP_PROTOCOL_VERSION_HEADER: "2025-03-26",
+            },
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "id": 1,
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "claude-code", "version": "2.0.0"},
+                },
+            },
+        )
+    assert response.status_code == 200
+    payload = _mcp_request_payloads(caplog)[-1]
+    assert payload["rpc"] == "initialize"
+    assert payload["mcp_client"] == "claude-code"
+    assert payload["mcp_client_version"] == "2.0.0"
+    assert payload["user_agent"] == "Claude-Code/2.0"
+    assert payload["protocol_version"] == "2025-03-26"
 
 
 def test_mcp_request_log_records_tool_call(caplog):
@@ -180,7 +247,11 @@ def test_mcp_request_log_marks_tool_errors(caplog):
     with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
         client.post(
             "/mcp",
-            json={"jsonrpc": "2.0", "method": "tools/call", "params": {"name": "get_voice"}},
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "params": {"name": "get_voice"},
+            },
         )
     payload = _mcp_request_payloads(caplog)[-1]
     assert payload["tool"] == "get_voice"
