@@ -69,6 +69,7 @@ from cartesia_mcp.mcp_app import (
     _require_admin_client,
     mcp,
 )
+from cartesia_mcp.tts_player import text_to_speech_ui_meta
 from cartesia_mcp.utils import (
     coerce_null_voice_locales,
     create_output_file,
@@ -402,14 +403,17 @@ def _deliver_cloud_file(
 
 @mcp.tool(
     annotations=_additive_tool("Convert text to speech"),
+    meta=text_to_speech_ui_meta(),
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
-        (24-hour public link). Pass that `file_id` to `speech_to_text` or `clone_voice`
-        — including from a hosted client whose disk is not this server.
-        `download_url` is a browser link. On the local server, `file_path` is a copy under
-        `OUTPUT_DIRECTORY` (or `output_path`). On hosted MCP with `save=true` (the default),
-        `file_path` is omitted — use `file_id` / `download_url` instead.
+        (24-hour public link). In GUI hosts that support MCP Apps, an inline player
+        auditions the take (play, scrub, copy a curl command, and download). Pass that
+        `file_id` to `speech_to_text` or `clone_voice` — including from a hosted client
+        whose disk is not this server. `download_url` is a browser link. On the local
+        server, `file_path` is a copy under `OUTPUT_DIRECTORY` (or `output_path`). On
+        hosted MCP with `save=true` (the default), `file_path` is omitted — use
+        `file_id` / `download_url` instead.
         """)
 def text_to_speech(
     transcript: typing.Annotated[
@@ -497,8 +501,22 @@ def text_to_speech(
         else None
     )
 
+    def with_audition(base: GeneratedAudioResult) -> GeneratedAudioResult:
+        base["transcript"] = transcript
+        base["voice_id"] = voice_id
+        base["output_format"] = dict(output_format)
+        if model_id is not None:
+            base["model_id"] = model_id
+        if language is not None:
+            base["language"] = language
+        if emotion is not None:
+            base["emotion"] = emotion
+        if speed is not None:
+            base["speed"] = speed
+        return base
+
     if not save:
-        return GeneratedAudioResult(file_path=file_path)
+        return with_audition(GeneratedAudioResult(file_path=file_path))
 
     file_id = extra_api.file_id_from_response_headers(result.headers)
     if not file_id:
@@ -514,7 +532,7 @@ def text_to_speech(
     download_url = _try_create_download_link(file_id)
     if download_url is not None:
         saved["download_url"] = download_url
-    return saved
+    return with_audition(saved)
 
 
 @mcp.tool(

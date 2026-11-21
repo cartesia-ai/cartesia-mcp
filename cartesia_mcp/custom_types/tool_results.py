@@ -10,11 +10,20 @@ class GeneratedAudioResult(typing.TypedDict, total=False):
 
     Fields are optional because `save=false` is local-only. Optional string
     fields must be nullable: FastMCP dumps unset TypedDict keys as ``None``.
+
+    Audition fields (`transcript`, `voice_id`, …) feed the MCP App player UI.
     """
 
     file_id: str | None
     download_url: str | None
     file_path: str | None
+    transcript: str | None
+    voice_id: str | None
+    model_id: str | None
+    emotion: str | None
+    speed: float | None
+    language: str | None
+    output_format: dict[str, typing.Any] | None
 
 
 class DownloadedFileResult(typing.TypedDict):

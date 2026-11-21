@@ -28,6 +28,7 @@ from cartesia_mcp.hosted import (
     server_public_url,
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
+from cartesia_mcp.tts_player import create_tts_player_apps
 from cartesia_mcp.utils import (
     default_output_directory,
 )
@@ -59,8 +60,10 @@ mcp = CartesiaMCP(
     website_url=WEBSITE_URL,
     icons=server_icons(origin=server_public_url() if _is_hosted else None),
     version=__version__,
+    extensions=[create_tts_player_apps()],
     **(hosted_server_kwargs() if _is_hosted else {}),
 )
+
 
 # Tools only touch the caller's Cartesia account, so they are not open-world, except the
 # few that reach a real phone network or spend money (`_real_world_tool`).
@@ -99,6 +102,3 @@ def _require_admin_client() -> Cartesia:
 
 def _api_client() -> Cartesia:
     return typing.cast(Cartesia, client)
-
-
-
