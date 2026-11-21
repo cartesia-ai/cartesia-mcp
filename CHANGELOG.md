@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.0.0...cartesia-mcp-v1.1.0) (2026-11-21)
+
+
+### Features
+
+* log MCP host clientInfo on hosted /mcp requests ([#166](https://github.com/cartesia-ai/cartesia-mcp/issues/166)) ([1f76b7c](https://github.com/cartesia-ai/cartesia-mcp/commit/1f76b7ca57003b470964565239f99103ca04bbd9))
+
 ## [1.0.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.34.1...cartesia-mcp-v1.0.0) (2026-11-18)
 
 
