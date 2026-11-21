@@ -13,14 +13,17 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from cartesia_mcp.credentials import looks_like_cartesia_api_key
-from cartesia_mcp.mcp_host_client import remember_host_client, resolve_host_client
+from cartesia_mcp.mcp_host_client import (
+    durable_host_client_key,
+    remember_host_client,
+    resolve_host_client,
+)
 from cartesia_mcp.mcp_http import (
     bearer_token,
     is_mcp_path,
     jsonrpc_client_info_from_body,
     jsonrpc_method_from_body,
     jsonrpc_tool_name_from_body,
-    mcp_credential_key,
     redirect_fingerprint,
     request_protocol_version,
     request_user_agent,
@@ -155,7 +158,7 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
                 init_client = jsonrpc_client_info_from_body(body)
 
         request_session = request.headers.get(MCP_SESSION_ID_HEADER)
-        credential_key = mcp_credential_key(request)
+        credential_key = durable_host_client_key(request)
         bound = resolve_host_client(
             session_id=request_session,
             credential_key=credential_key,

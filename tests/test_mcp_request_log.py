@@ -13,7 +13,6 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from cartesia_mcp.mcp_host_client import clear_host_clients
 from cartesia_mcp.mcp_http import (
     jsonrpc_client_info_from_body,
     jsonrpc_method_from_body,
@@ -40,7 +39,6 @@ def _mcp_request_payloads(caplog) -> list[dict]:
 def _reset_store() -> None:
     oauth_store.use_backend(MemoryBackend())
     oauth_store.clear()
-    clear_host_clients()
 
 
 async def _ok_mcp(_: Request) -> JSONResponse:
@@ -214,6 +212,41 @@ def test_mcp_request_log_records_initialize_client_info(caplog):
     assert payload["mcp_client_version"] == "2.0.0"
     assert payload["user_agent"] == "Claude-Code/2.0"
     assert payload["protocol_version"] == "2025-03-26"
+
+
+def test_mcp_request_log_binds_oauth_client_across_calls(caplog):
+    """OAuth attribution is keyed by DCR client_id, not the rotating access token."""
+    _reset_store()
+    access = _mint_oauth_token()
+    client = _client_app()
+    headers = {"authorization": f"Bearer {access}"}
+    with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
+        client.post(
+            "/mcp",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "id": 1,
+                "params": {"clientInfo": {"name": "cursor-vscode", "version": "1.2.3"}},
+            },
+        )
+        client.post(
+            "/mcp",
+            headers=headers,
+            json={
+                "jsonrpc": "2.0",
+                "method": "tools/call",
+                "id": 2,
+                "params": {"name": "list_voices"},
+            },
+        )
+    payload = _mcp_request_payloads(caplog)[-1]
+    assert payload["mcp_client"] == "cursor-vscode"
+    assert oauth_store.get_host_client("oauth-client:log-client") == (
+        "cursor-vscode",
+        "1.2.3",
+    )
 
 
 def test_mcp_request_log_binds_client_info_onto_later_tool_calls(caplog):

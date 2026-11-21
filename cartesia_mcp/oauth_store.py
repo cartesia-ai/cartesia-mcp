@@ -37,6 +37,9 @@ _KEY_REFRESH = "mcp:oauth:refresh:"
 _KEY_REGISTER_RL = "mcp:oauth:register-rl:"
 _KEY_MCP_RL = "mcp:http:rl:"
 _KEY_CLIENT_CREDENTIAL = "mcp:oauth:client-cred:"
+_KEY_HOST_CLIENT = "mcp:host-client:"
+# Last initialize clientInfo for a credential. Refreshed on read.
+HOST_CLIENT_TTL_SECONDS = ACCESS_TOKEN_TTL_SECONDS
 
 
 @dataclass
@@ -362,6 +365,28 @@ class OAuthStore:
             ttl_seconds=CLIENT_TTL_SECONDS,
         )
 
+    def put_host_client(self, key: str, name: str, version: str | None) -> None:
+        self._backend.set_json(
+            f"{_KEY_HOST_CLIENT}{key}",
+            {"name": name, "version": version},
+            ttl_seconds=HOST_CLIENT_TTL_SECONDS,
+        )
+
+    def get_host_client(self, key: str) -> tuple[str, str | None] | None:
+        redis_key = f"{_KEY_HOST_CLIENT}{key}"
+        data = self._backend.get_json(redis_key)
+        if not isinstance(data, dict):
+            return None
+        name = data.get("name")
+        if not isinstance(name, str) or not name:
+            return None
+        self._backend.expire(redis_key, HOST_CLIENT_TTL_SECONDS)
+        version = data.get("version")
+        return name, version if isinstance(version, str) else None
+
+    def delete_host_client(self, key: str) -> None:
+        self._backend.delete(f"{_KEY_HOST_CLIENT}{key}")
+
     def get_client(self, client_id: str) -> OAuthClientInformationFull | None:
         key = f"{_KEY_CLIENT}{client_id}"
         data = self._backend.get_json(key)
@@ -549,7 +574,9 @@ class OAuthStore:
         completing_owner_id: str,
         completing_user_id: str,
     ) -> str:
-        return f"{session_id}:{connect_token}:{completing_owner_id}:{completing_user_id}"
+        return (
+            f"{session_id}:{connect_token}:{completing_owner_id}:{completing_user_id}"
+        )
 
     def pop_pending(self, session_id: str) -> PendingConnectSession:
         data = self._backend.get_json(f"{_KEY_PENDING}{session_id}")
@@ -675,7 +702,9 @@ class OAuthStore:
         authorization_code: AuthorizationCode,
     ) -> OAuthToken:
         # Atomic pop so concurrent exchanges cannot both mint token pairs.
-        creds = self._backend.pop_json(f"{_KEY_CODE_CREDENTIALS}{authorization_code.code}")
+        creds = self._backend.pop_json(
+            f"{_KEY_CODE_CREDENTIALS}{authorization_code.code}"
+        )
         self._backend.delete(f"{_KEY_AUTH_CODE}{authorization_code.code}")
         if creds is None:
             raise ValueError("Authorization code not found")
