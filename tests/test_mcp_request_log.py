@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
+from cartesia_mcp.mcp_host_client import clear_host_clients
 from cartesia_mcp.mcp_http import (
     jsonrpc_client_info_from_body,
     jsonrpc_method_from_body,
@@ -39,6 +40,7 @@ def _mcp_request_payloads(caplog) -> list[dict]:
 def _reset_store() -> None:
     oauth_store.use_backend(MemoryBackend())
     oauth_store.clear()
+    clear_host_clients()
 
 
 async def _ok_mcp(_: Request) -> JSONResponse:
@@ -212,6 +214,48 @@ def test_mcp_request_log_records_initialize_client_info(caplog):
     assert payload["mcp_client_version"] == "2.0.0"
     assert payload["user_agent"] == "Claude-Code/2.0"
     assert payload["protocol_version"] == "2025-03-26"
+
+
+def test_mcp_request_log_binds_client_info_onto_later_tool_calls(caplog):
+    _reset_store()
+    client = _client_app()
+    headers = {"authorization": "Bearer sk_car_host_bind_test"}
+    with caplog.at_level(logging.INFO, logger="cartesia_mcp.mcp"):
+        assert (
+            client.post(
+                "/mcp",
+                headers=headers,
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "initialize",
+                    "id": 1,
+                    "params": {
+                        "protocolVersion": "2025-03-26",
+                        "capabilities": {},
+                        "clientInfo": {"name": "cursor-vscode", "version": "1.2.3"},
+                    },
+                },
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/mcp",
+                headers=headers,
+                json={
+                    "jsonrpc": "2.0",
+                    "method": "tools/call",
+                    "id": 2,
+                    "params": {"name": "text_to_speech", "arguments": {}},
+                },
+            ).status_code
+            == 200
+        )
+    payloads = _mcp_request_payloads(caplog)
+    assert payloads[-1]["rpc"] == "tools/call"
+    assert payloads[-1]["tool"] == "text_to_speech"
+    assert payloads[-1]["mcp_client"] == "cursor-vscode"
+    assert payloads[-1]["mcp_client_version"] == "1.2.3"
 
 
 def test_mcp_request_log_records_tool_call(caplog):

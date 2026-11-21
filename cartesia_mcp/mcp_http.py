@@ -157,12 +157,20 @@ def request_protocol_version(request: Request) -> str | None:
     return cleaned
 
 
-def mcp_rate_limit_bucket(request: Request) -> str:
-    """Prefer a hashed bearer so shared egress IPs do not share one bucket."""
+def mcp_credential_key(request: Request) -> str | None:
+    """Stable hashed bearer key for per-credential maps. None when unauthenticated."""
     import hashlib
 
     token = bearer_token(request)
-    if token is not None:
-        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
-        return f"tok:{digest}"
+    if token is None:
+        return None
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+    return f"tok:{digest}"
+
+
+def mcp_rate_limit_bucket(request: Request) -> str:
+    """Prefer a hashed bearer so shared egress IPs do not share one bucket."""
+    key = mcp_credential_key(request)
+    if key is not None:
+        return key
     return f"ip:{client_ip(request)}"

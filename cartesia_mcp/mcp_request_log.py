@@ -6,18 +6,21 @@ import json
 import logging
 from dataclasses import dataclass
 
+from mcp.server.streamable_http import MCP_SESSION_ID_HEADER
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from cartesia_mcp.credentials import looks_like_cartesia_api_key
+from cartesia_mcp.mcp_host_client import remember_host_client, resolve_host_client
 from cartesia_mcp.mcp_http import (
     bearer_token,
     is_mcp_path,
     jsonrpc_client_info_from_body,
     jsonrpc_method_from_body,
     jsonrpc_tool_name_from_body,
+    mcp_credential_key,
     redirect_fingerprint,
     request_protocol_version,
     request_user_agent,
@@ -142,25 +145,47 @@ class McpRequestLogMiddleware(BaseHTTPMiddleware):
 
         rpc_method: str | None = None
         tool_name: str | None = None
-        mcp_client: str | None = None
-        mcp_client_version: str | None = None
+        init_client = None
         if request.method == "POST":
             body = await request.body()
             rpc_method = jsonrpc_method_from_body(body)
             if rpc_method == "tools/call":
                 tool_name = jsonrpc_tool_name_from_body(body) or "other"
             elif rpc_method == "initialize":
-                client_info = jsonrpc_client_info_from_body(body)
-                if client_info is not None:
-                    mcp_client = client_info.name
-                    mcp_client_version = client_info.version
+                init_client = jsonrpc_client_info_from_body(body)
+
+        request_session = request.headers.get(MCP_SESSION_ID_HEADER)
+        credential_key = mcp_credential_key(request)
+        bound = resolve_host_client(
+            session_id=request_session,
+            credential_key=credential_key,
+        )
         identity = mcp_request_identity(request)
         response = await call_next(request)
+
+        if init_client is not None:
+            created_session = response.headers.get(MCP_SESSION_ID_HEADER)
+            remember_host_client(
+                init_client,
+                session_id=created_session or request_session,
+                credential_key=credential_key,
+            )
+            host = init_client
+        else:
+            host = bound or resolve_host_client(
+                session_id=response.headers.get(MCP_SESSION_ID_HEADER)
+                or request_session,
+                credential_key=credential_key,
+            )
+
+        mcp_client = host.name if host is not None else None
+        mcp_client_version = host.version if host is not None else None
+
         outcome: str | None = None
         if tool_name is not None:
             body, response = await _json_body_and_response(response)
             outcome = tool_call_outcome(response.status_code, body)
-            report_tool_call(tool_name, outcome)
+            report_tool_call(tool_name, outcome, mcp_client=mcp_client)
         fields: dict[str, object] = {
             "event": "mcp_request",
             "method": request.method,
