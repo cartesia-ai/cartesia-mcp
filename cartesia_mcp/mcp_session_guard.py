@@ -19,6 +19,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
+from cartesia_mcp.mcp_host_client import (
+    dogstatsd_mcp_client_tag,
+    forget_session_host_client,
+)
 from cartesia_mcp.mcp_http import (
     is_mcp_path,
     mcp_rate_limit_bucket,
@@ -104,14 +108,23 @@ _TOOL_CALL_OUTCOMES = frozenset(
 _TOOL_TAG = re.compile(r"^[A-Za-z0-9_]{1,64}$")
 
 
-def report_tool_call(tool: str, outcome: str) -> None:
+def report_tool_call(
+    tool: str,
+    outcome: str,
+    *,
+    mcp_client: str | None = None,
+) -> None:
     safe_tool = tool if _TOOL_TAG.fullmatch(tool) else "other"
     safe_outcome = outcome if outcome in _TOOL_CALL_OUTCOMES else "unknown"
     _dogstatsd_send(
         "mcp.tool.calls",
         1,
         "c",
-        extra_tags=[f"tool:{safe_tool}", f"outcome:{safe_outcome}"],
+        extra_tags=[
+            f"tool:{safe_tool}",
+            f"outcome:{safe_outcome}",
+            f"mcp_client:{dogstatsd_mcp_client_tag(mcp_client)}",
+        ],
     )
 
 
@@ -168,6 +181,7 @@ async def _terminate_session(
         meta = getattr(session_manager, attr, None)
         if isinstance(meta, dict):
             meta.pop(session_id, None)
+    forget_session_host_client(session_id)
     terminate = getattr(transport, "terminate", None)
     if callable(terminate):
         await typing.cast(Callable[[], Awaitable[object]], terminate)()
@@ -187,7 +201,9 @@ async def _replace_owned_session(
     ]
     if not owned:
         return None
-    victim = min(owned, key=lambda session_id: _last_seen_at(session_manager, session_id))
+    victim = min(
+        owned, key=lambda session_id: _last_seen_at(session_manager, session_id)
+    )
     return await _terminate_session(session_manager, victim)
 
 
@@ -202,7 +218,9 @@ async def _evict_idle_session(
     ]
     if not idle:
         return None
-    victim = min(idle, key=lambda session_id: _last_seen_at(session_manager, session_id))
+    victim = min(
+        idle, key=lambda session_id: _last_seen_at(session_manager, session_id)
+    )
     return await _terminate_session(session_manager, victim)
 
 
@@ -223,9 +241,9 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
         session_id = request.headers.get(MCP_SESSION_ID_HEADER)
         if session_id is not None:
             if session_id in self._session_manager._server_instances:
-                _ensure_dict(self._session_manager, "_session_last_seen")[session_id] = (
-                    time.monotonic()
-                )
+                _ensure_dict(self._session_manager, "_session_last_seen")[
+                    session_id
+                ] = time.monotonic()
             return await call_next(request)
 
         if request.method not in _NEW_SESSION_METHODS or not opens_legacy_mcp_session(
@@ -274,5 +292,7 @@ class McpSessionCapMiddleware(BaseHTTPMiddleware):
         created = response.headers.get(MCP_SESSION_ID_HEADER)
         if created:
             _ensure_dict(self._session_manager, "_session_buckets")[created] = bucket
-            _ensure_dict(self._session_manager, "_session_last_seen")[created] = time.monotonic()
+            _ensure_dict(self._session_manager, "_session_last_seen")[created] = (
+                time.monotonic()
+            )
         return response
