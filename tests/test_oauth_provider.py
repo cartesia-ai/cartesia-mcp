@@ -43,8 +43,29 @@ def _reset_store() -> None:
         ("https://vscode.dev/redirect", True),
         ("https://insiders.vscode.dev/redirect", True),
         ("https://api.devin.ai/mcp/oauth/callback", True),
+        (
+            "https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-abc",
+            True,
+        ),
+        ("https://oauth-redirect.googleusercontent.com/a/app-callback", True),
+        (
+            "https://oauth-redirect-sandbox.googleusercontent.com/r/user_bound_custom-mcp-x",
+            True,
+        ),
+        ("https://oauth-redirect-test.googleusercontent.com/a/test", True),
+        ("https://vertexaisearch.cloud.google.com/oauth-redirect", True),
+        ("https://www.make.com/oauth/cb/mcp", True),
+        ("https://oauth.n8n.cloud/oauth2/callback", True),
+        ("https://replit.com/connectors/oauth/callback", True),
+        ("https://identity.snowflake.com/oauth2/callback", True),
+        ("zed://oauth/callback", True),
+        ("raycast://extensions/oauth/callback", True),
         ("https://evil.attacker.com/steal", False),
         ("https://api.devin.ai/other", False),
+        ("https://oauth-redirect.googleusercontent.com/other", False),
+        ("https://vertexaisearch.cloud.google.com/other", False),
+        ("https://make.com/oauth/cb/mcp", False),
+        ("https://www.make.com/oauth/cb/other", False),
         ("https://example.com/callback", False),
         ("https://claude.ai/evil", False),
         ("https://chatgpt.com/other", False),
@@ -52,7 +73,11 @@ def _reset_store() -> None:
         ("javascript:alert(1)", False),
         ("data:text/html,hi", False),
         ("file:///etc/passwd", False),
+        ("vbscript:msgbox", False),
+        ("blob:https://evil.example/x", False),
+        ("about:blank", False),
         ("http://evil.com/callback", False),
+        ("http://evil.localhost/callback", False),
         ("https://user:pass@claude.ai/api/mcp/auth_callback", False),
         ("cursor:", False),
     ],
@@ -82,22 +107,29 @@ def test_register_client_rejects_arbitrary_https_redirect():
         playground_url="https://play.cartesia.ai",
         mcp_server_url="https://mcp.cartesia.ai",
     )
+    rejected = "https://evil.attacker.com/steal"
     client = OAuthClientInformationFull(
         client_id="evil-client",
         client_secret=None,
-        redirect_uris=[AnyUrl("https://evil.attacker.com/steal")],
+        redirect_uris=[AnyUrl(rejected)],
         client_name="Evil",
         token_endpoint_auth_method="none",
     )
-    with pytest.raises(RegistrationError):
+    with pytest.raises(RegistrationError) as exc_info:
         asyncio.run(provider.register_client(client))
+    assert exc_info.value.error == "invalid_redirect_uri"
+    assert rejected in (exc_info.value.error_description or "")
+    assert "MCP_OAUTH_EXTRA_HTTPS_REDIRECTS" in (exc_info.value.error_description or "")
+    assert "Bearer" in (exc_info.value.error_description or "")
+    assert "issues/new" in (exc_info.value.error_description or "")
 
 
 def test_authorize_rejects_disallowed_redirect_with_authorize_error():
     _reset_store()
     client = _client()
     # Client registered before allowlisting; authorize must still reject cleanly.
-    client.redirect_uris = [AnyUrl("https://evil.attacker.com/steal")]
+    rejected = "https://evil.attacker.com/steal"
+    client.redirect_uris = [AnyUrl(rejected)]
     oauth_store.register_client(client)
     provider = CartesiaOAuthProvider(
         playground_url="https://play.cartesia.ai",
@@ -111,20 +143,22 @@ def test_authorize_rejects_disallowed_redirect_with_authorize_error():
                     state="s",
                     scopes=["mcp"],
                     code_challenge="challenge",
-                    redirect_uri=AnyUrl("https://evil.attacker.com/steal"),
+                    redirect_uri=AnyUrl(rejected),
                     redirect_uri_provided_explicitly=True,
                     resource=None,
                 ),
             )
         )
     assert exc_info.value.error == "invalid_request"
+    assert rejected in (exc_info.value.error_description or "")
 
 
 def test_build_resume_redirect_rejects_disallowed_uri():
     _reset_store()
     client = _client()
     # Simulate a client registered before the allowlist existed.
-    client.redirect_uris = [AnyUrl("https://evil.attacker.com/steal")]
+    rejected = "https://evil.attacker.com/steal"
+    client.redirect_uris = [AnyUrl(rejected)]
     oauth_store.register_client(client)
     provider = CartesiaOAuthProvider(
         playground_url="https://play.cartesia.ai",
@@ -136,7 +170,7 @@ def test_build_resume_redirect_rejects_disallowed_uri():
             state="s",
             scopes=["mcp"],
             code_challenge="challenge",
-            redirect_uri=AnyUrl("https://evil.attacker.com/steal"),
+            redirect_uri=AnyUrl(rejected),
             redirect_uri_provided_explicitly=True,
             resource=None,
         ),
@@ -151,7 +185,6 @@ def test_build_resume_redirect_rejects_disallowed_uri():
     pending = oauth_store.pop_pending(session_id)
     with pytest.raises(ValueError, match="redirect_uri is not allowed"):
         provider.build_resume_redirect(session_id, pending)
-
 
 
 def _client() -> OAuthClientInformationFull:

@@ -294,19 +294,32 @@ New sessions are limited to **5 per minute per access token** and **15 per minut
 
 ### Hosted OAuth redirect URIs
 
-Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy:
+Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy (open DCR; the redirect URI is the security boundary). Authorization uses PKCE (`S256`).
 
-- **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`
-- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path)
-- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, VS Code Web, and Devin
+- **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`, `windsurf://…`, `zed://…`, `raycast://…` (dangerous browser schemes such as `javascript:` / `data:` are rejected)
+- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path; not `*.localhost`)
+- **Allowlisted HTTPS** — exact host + path (or documented path prefix) for:
+  - Claude — `claude.ai` / `claude.com` `/api/mcp/auth_callback`
+  - ChatGPT — `chatgpt.com` `/connector_platform_oauth_redirect` and `/connector/oauth/…`
+  - Cursor web / Agents — `www.cursor.com` / `cursor.com` `/agents/mcp/oauth/callback`
+  - VS Code Web — `vscode.dev` / `insiders.vscode.dev` `/redirect`
+  - Devin — `api.devin.ai` `/mcp/oauth/callback`
+  - Google Gemini Connected Apps — `oauth-redirect*.googleusercontent.com` `/r/` and `/a/`
+  - Gemini Enterprise / Vertex AI Search — `vertexaisearch.cloud.google.com` `/oauth-redirect`
+  - Make — `www.make.com` `/oauth/cb/mcp`
+  - n8n Cloud — `oauth.n8n.cloud` `/oauth2/callback`
+  - Replit Connectors — `replit.com` `/connectors/oauth/callback`
+  - Snowflake Cortex AI — `identity.snowflake.com` `/oauth2/callback`
 
-To temporarily allow another exact HTTPS callback without a code change, set:
+Rejected `redirect_uri` values return an actionable OAuth error. Self-hosted operators can add exact HTTPS callbacks without a code change:
 
 ```text
 MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
 ```
 
 (comma-separated `host|/path` pairs). Prefer adding durable hosts in code for known products.
+
+**Unlisted / custom clients:** use a [Cartesia API key](https://play.cartesia.ai/keys) with `Authorization: Bearer <CARTESIA_API_KEY>` (local `uvx` / stdio or HTTP clients that support bearer auth). To request an official HTTPS callback allowlist entry, [open a GitHub issue](https://github.com/cartesia-ai/cartesia-mcp/issues/new).
 
 ### API version
 
