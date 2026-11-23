@@ -156,6 +156,18 @@ async def health(_: Request) -> Response:
     )
 
 
+async def openai_apps_challenge(_: Request) -> Response:
+    """Plain-text OpenAI Plugins domain-verification challenge.
+
+    Portal Connect MCP shows a token; set OPENAI_APPS_CHALLENGE to that exact
+    string (no JSON / quotes). Returns 404 until configured.
+    """
+    token = env_or_none("OPENAI_APPS_CHALLENGE")
+    if not token:
+        return Response("Not Found", status_code=404, media_type="text/plain")
+    return Response(token, media_type="text/plain; charset=utf-8")
+
+
 async def icon_png(_: Request) -> Response:
     return FileResponse(
         ICON_PNG_PATH,
@@ -318,6 +330,11 @@ def attach_hosted_routes(mcp: MCPServer) -> None:
     mcp._custom_starlette_routes.extend(
         [
             Route("/health", endpoint=health, methods=["GET"]),
+            Route(
+                "/.well-known/openai-apps-challenge",
+                endpoint=openai_apps_challenge,
+                methods=["GET"],
+            ),
             Route("/icon.png", endpoint=icon_png, methods=["GET"]),
             Route("/favicon.ico", endpoint=icon_png, methods=["GET"]),
             Route("/icon.svg", endpoint=icon_svg, methods=["GET"]),
