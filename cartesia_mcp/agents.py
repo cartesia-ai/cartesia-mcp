@@ -197,7 +197,7 @@ def create_agent(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update agent"),
+    annotations=_destructive_tool("Update agent", idempotent=False),
     description="""
         Update a Managed Agent. Send only the fields to change.
 
@@ -804,7 +804,7 @@ def get_agent_tool(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Create agent tool"),
+    annotations=_additive_tool("Create agent tool", open_world=True),
     description="""
         Create a tool an agent can call, then attach the returned `id` in
         `config.tools` on `create_agent` or `update_agent`.
@@ -833,7 +833,7 @@ def create_agent_tool(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update agent tool"),
+    annotations=_destructive_tool("Update agent tool", open_world=True),
     description="""
         Change an agent tool. Send only the fields to change.
 
@@ -1325,7 +1325,7 @@ def get_event_webhook(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Create event webhook"),
+    annotations=_additive_tool("Create event webhook", open_world=True),
     description="""
         Create an event webhook. Cartesia POSTs call events to `url` and sends
         `secret` back in the `X-Webhook-Secret` header so your endpoint can verify
@@ -1357,7 +1357,7 @@ def create_event_webhook(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update event webhook"),
+    annotations=_destructive_tool("Update event webhook", open_world=True),
     description="""
         Change an event webhook. `url` is required even when unchanged. Omit
         `secret` to keep the stored one. Agents using this webhook start sending

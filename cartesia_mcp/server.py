@@ -999,7 +999,7 @@ def _speech_to_text_stream(
 
 
 @mcp.tool(
-    annotations=_read_only_tool("Transcribe audio"),
+    annotations=_additive_tool("Transcribe audio"),
     description="""
         Transcribe a pre-recorded audio file to text.
         
@@ -1075,7 +1075,7 @@ def speech_to_text(
 
 
 @mcp.tool(
-    annotations=_read_only_tool("Download file"),
+    annotations=_additive_tool("Download file"),
     description="""
         Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
         hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP

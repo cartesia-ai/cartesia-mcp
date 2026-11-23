@@ -62,34 +62,44 @@ mcp = CartesiaMCP(
     **(hosted_server_kwargs() if _is_hosted else {}),
 )
 
-# Tools only touch the caller's Cartesia account, so they are not open-world, except the
-# few that reach a real phone network or spend money (`_real_world_tool`).
+# Account-scoped tools are closed-world; arbitrary webhook destinations and
+# real phone network actions are open-world.
 def _read_only_tool(title: str) -> ToolAnnotations:
     return ToolAnnotations(
-        title=title, read_only_hint=True, idempotent_hint=True, open_world_hint=False
+        title=title,
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+        open_world_hint=False,
     )
 
 
-def _additive_tool(title: str) -> ToolAnnotations:
+def _additive_tool(title: str, *, open_world: bool = False) -> ToolAnnotations:
     return ToolAnnotations(
-        title=title, read_only_hint=False, destructive_hint=False, open_world_hint=False
+        title=title, read_only_hint=False, destructive_hint=False, open_world_hint=open_world
     )
 
 
 def _real_world_tool(title: str) -> ToolAnnotations:
     """Dials real phone numbers or buys one. Not undoable, so clients should ask first."""
     return ToolAnnotations(
-        title=title, read_only_hint=False, destructive_hint=False, open_world_hint=True
+        title=title,
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=False,
+        open_world_hint=True,
     )
 
 
-def _destructive_tool(title: str, *, idempotent: bool = True) -> ToolAnnotations:
+def _destructive_tool(
+    title: str, *, idempotent: bool = True, open_world: bool = False
+) -> ToolAnnotations:
     return ToolAnnotations(
         title=title,
         read_only_hint=False,
         destructive_hint=True,
         idempotent_hint=idempotent,
-        open_world_hint=False,
+        open_world_hint=open_world,
     )
 
 
