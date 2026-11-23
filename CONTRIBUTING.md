@@ -36,7 +36,7 @@ If commits on `main` are not conventional, release-please will not create a rele
 
 ## `text_to_speech` player (MCP App)
 
-The inline player lives in `ui/` (plain JS, bundled with Vite) and ships as one self-contained file, `cartesia_mcp/static/tts-player.html`. It is deliberately independent of Cartesia's internal React UIs, so the two can drift.
+The inline player lives in `ui/` (plain JS, bundled with Vite) and ships as one self-contained file, `cartesia_mcp/static/tts-player.html`. It is a standalone component that other Cartesia UIs do not share code with, so it may drift from them.
 
 After editing anything in `ui/`:
 

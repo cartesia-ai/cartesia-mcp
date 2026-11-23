@@ -42,6 +42,9 @@ venv = ".venv"
 [tool.uv]
 constraint-dependencies = ["python-multipart>=0.0.22"]
 
+[tool.setuptools.packages.find]
+include = ["cartesia_mcp*"]
+
 [tool.setuptools.package-data]
 cartesia_mcp = ["static/*"]
 
