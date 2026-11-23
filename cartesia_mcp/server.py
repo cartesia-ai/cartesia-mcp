@@ -29,6 +29,8 @@ from cartesia.types import (
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
+from mcp.server.apps import client_supports_apps
+from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from cartesia_mcp import (
@@ -36,6 +38,7 @@ from cartesia_mcp import (
     extra_api,
     mcp_app,
 )
+from cartesia_mcp.api_version import CARTESIA_VERSION
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp.credentials import (
     resolve_api_credential,
@@ -408,7 +411,8 @@ def _deliver_cloud_file(
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
         (24-hour public link). In GUI hosts that support MCP Apps, an inline player
-        auditions the take (play, scrub, copy a curl command, and download). Pass that
+        plays the clip and can copy a curl command or download it; for those hosts the
+        response also echoes the request fields the player needs. Pass that
         `file_id` to `speech_to_text` or `clone_voice` — including from a hosted client
         whose disk is not this server. `download_url` is a browser link. On the local
         server, `file_path` is a copy under `OUTPUT_DIRECTORY` (or `output_path`). On
@@ -430,7 +434,7 @@ def text_to_speech(
     ],
     model_id: typing.Annotated[
         typing.Optional[str],
-        Field(description="The ID of the model to use for the generation. Call `list_models` with `capability=\"tts\"` for valid ids."),
+        Field(description="The ID of the model to use for the generation. Defaults to `sonic-latest`, an alias for the newest Sonic model. Call `list_models` with `capability=\"tts\"` for pinned ids."),
     ] = DEFAULT_MODEL_ID,
     language: typing.Annotated[
         typing.Optional[SupportedLanguage],
@@ -464,6 +468,7 @@ def text_to_speech(
         bool,
         Field(description="When true (default), persist the generation to cloud storage and return `file_id` plus `download_url`. Pass `download_file` with that `file_id` to refresh the link or write another local copy."),
     ] = True,
+    ctx: typing.Optional[Context] = None,
 ) -> GeneratedAudioResult:
     dest = _resolve_tts_output_dest(output_path, output_format["container"])
     generation_config = _build_generation_config(
@@ -501,22 +506,30 @@ def text_to_speech(
         else None
     )
 
-    def with_audition(base: GeneratedAudioResult) -> GeneratedAudioResult:
+    def with_player_fields(base: GeneratedAudioResult) -> GeneratedAudioResult:
+        # Only MCP Apps clients render the player; everyone else keeps the lean response.
+        if ctx is None or not client_supports_apps(ctx):
+            return base
         base["transcript"] = transcript
         base["voice_id"] = voice_id
         base["output_format"] = dict(output_format)
-        if model_id is not None:
-            base["model_id"] = model_id
-        if language is not None:
-            base["language"] = language
-        if emotion is not None:
-            base["emotion"] = emotion
-        if speed is not None:
-            base["speed"] = speed
+        base["cartesia_version"] = CARTESIA_VERSION
+        optional_fields = {
+            "model_id": model_id,
+            "language": language,
+            "emotion": emotion,
+            "speed": speed,
+            "volume": volume,
+            "duration": duration,
+            "pronunciation_dict_id": pronunciation_dict_id,
+        }
+        for key, value in optional_fields.items():
+            if value is not None:
+                base[key] = value
         return base
 
     if not save:
-        return with_audition(GeneratedAudioResult(file_path=file_path))
+        return with_player_fields(GeneratedAudioResult(file_path=file_path))
 
     file_id = extra_api.file_id_from_response_headers(result.headers)
     if not file_id:
@@ -532,7 +545,7 @@ def text_to_speech(
     download_url = _try_create_download_link(file_id)
     if download_url is not None:
         saved["download_url"] = download_url
-    return with_audition(saved)
+    return with_player_fields(saved)
 
 
 @mcp.tool(

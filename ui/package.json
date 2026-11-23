@@ -1,0 +1,20 @@
+{
+  "name": "cartesia-mcp-tts-player",
+  "private": true,
+  "type": "module",
+  "description": "Source for the inline text_to_speech player (MCP App). `npm run build` writes ../cartesia_mcp/static/tts-player.html.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "vite build",
+    "test": "node --test \"src/**/*.test.js\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "2.0.4"
+  },
+  "devDependencies": {
+    "vite": "8.3.8",
+    "vite-plugin-singlefile": "2.3.4"
+  }
+}

@@ -13,10 +13,6 @@ TTS_PLAYER_URI = "ui://cartesia/tts-player.html"
 _AUDIO_ORIGINS = [
     "https://files.cartesia.ai",
 ]
-# App bridge loaded from unpkg in the HTML module script (spike).
-_SCRIPT_ORIGINS = [
-    "https://unpkg.com",
-]
 
 
 def load_tts_player_html() -> str:
@@ -40,9 +36,9 @@ def create_tts_player_apps() -> Apps:
         load_tts_player_html(),
         name="cartesia-tts-player",
         title="Cartesia TTS Player",
-        description="Inline audition player for text_to_speech results.",
+        description="Inline player for text_to_speech results.",
         csp=ResourceCsp(
-            resource_domains=[*_AUDIO_ORIGINS, *_SCRIPT_ORIGINS],
+            resource_domains=[*_AUDIO_ORIGINS],
             connect_domains=[*_AUDIO_ORIGINS],
         ),
         permissions=ResourcePermissions(clipboard_write={}),

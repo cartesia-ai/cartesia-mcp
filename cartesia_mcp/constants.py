@@ -1,3 +1,4 @@
 """Shared defaults for Cartesia MCP tools."""
 
-DEFAULT_MODEL_ID = "sonic-3.5"
+# Alias that always resolves to the newest Sonic model; avoids pinning a snapshot.
+DEFAULT_MODEL_ID = "sonic-latest"

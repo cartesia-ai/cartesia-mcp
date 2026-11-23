@@ -83,14 +83,6 @@ def test_text_to_speech_save_returns_cloud_ids(
         "file_id": "file_new",
         "download_url": "https://files.cartesia.ai/link/link_new",
         "file_path": "/tmp/out.wav",
-        "transcript": "Hello",
-        "voice_id": "voice_abc",
-        "model_id": "sonic-3.5",
-        "output_format": {
-            "container": "wav",
-            "encoding": "pcm_s16le",
-            "sample_rate": 44100,
-        },
     }
 
 
@@ -112,18 +104,7 @@ def test_text_to_speech_save_returns_file_id_when_link_fails(
             save=True,
         )
 
-    assert result == {
-        "file_id": "file_new",
-        "file_path": "/tmp/out.wav",
-        "transcript": "Hello",
-        "voice_id": "voice_abc",
-        "model_id": "sonic-3.5",
-        "output_format": {
-            "container": "wav",
-            "encoding": "pcm_s16le",
-            "sample_rate": 44100,
-        },
-    }
+    assert result == {"file_id": "file_new", "file_path": "/tmp/out.wav"}
     assert "download_url" not in result
 
 
@@ -172,17 +153,7 @@ def test_text_to_speech_without_save_returns_local_path_only(
         )
 
     assert mock_client.tts.generate.call_args.kwargs["save"] is False
-    assert result == {
-        "file_path": "/tmp/out.wav",
-        "transcript": "Hello",
-        "voice_id": "voice_abc",
-        "model_id": "sonic-3.5",
-        "output_format": {
-            "container": "wav",
-            "encoding": "pcm_s16le",
-            "sample_rate": 44100,
-        },
-    }
+    assert result == {"file_path": "/tmp/out.wav"}
 
 
 def test_files_base_url_defaults_to_prod(monkeypatch: pytest.MonkeyPatch) -> None:

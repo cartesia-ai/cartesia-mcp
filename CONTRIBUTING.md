@@ -33,3 +33,18 @@ fix: skip blank admin env in smoke test
 4. After merge, release-please opens a `release: x.y.z` PR; merge that to tag and publish.
 
 If commits on `main` are not conventional, release-please will not create a release PR. You can still cut a release manually with a `release: x.y.z` PR that updates `pyproject.toml`, `cartesia_mcp/__init__.py`, `.release-please-manifest.json`, and `CHANGELOG.md`.
+
+## `text_to_speech` player (MCP App)
+
+The inline player lives in `ui/` (plain JS, bundled with Vite) and ships as one self-contained file, `cartesia_mcp/static/tts-player.html`. It is deliberately independent of Cartesia's internal React UIs, so the two can drift.
+
+After editing anything in `ui/`:
+
+```bash
+cd ui
+npm ci
+npm test
+npm run build   # rewrites cartesia_mcp/static/tts-player.html
+```
+
+Commit the rebuilt HTML with your change. The `tts player ui` CI job fails if it is stale.
