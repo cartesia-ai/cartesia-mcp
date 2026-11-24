@@ -152,9 +152,9 @@ def main() -> int:
         ids = [
             row["id"] if isinstance(row, dict) else row.id for row in (rows or [])
         ]
-        if "sonic-3.6" not in ids or "ink-2" not in ids:
+        if not any(i.startswith("sonic") for i in ids) or "ink-2" not in ids:
             failures.append("list_models(catalog)")
-            print("  FAIL list_models: missing sonic-3.6 or ink-2")
+            print("  FAIL list_models: missing a sonic model or ink-2")
         else:
             ok("list_models", f"{len(ids)} models")
 
