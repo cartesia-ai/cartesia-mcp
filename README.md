@@ -294,19 +294,23 @@ New sessions are limited to **5 per minute per access token** and **15 per minut
 
 ### Hosted OAuth redirect URIs
 
-Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy:
+Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy (open DCR; the redirect URI is the security boundary). Authorization uses PKCE (`S256`).
 
-- **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`
-- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path)
-- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, VS Code Web, and Devin
+Allowed redirects:
 
-To temporarily allow another exact HTTPS callback without a code change, set:
+- **Custom schemes** for desktop apps (e.g. `cursor://…`) — dangerous browser schemes such as `javascript:` / `data:` are rejected
+- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path; not `*.localhost`)
+- **Allowlisted HTTPS** — first-party callbacks for known MCP hosts (exact host + path, or a documented path prefix). The living list is in code (`_HTTPS_REDIRECT_EXACT` / `_HTTPS_REDIRECT_PREFIXES` in `cartesia_mcp/oauth_provider.py`).
+
+Rejected `redirect_uri` values return an actionable OAuth error. Self-hosted operators can add exact HTTPS callbacks without a code change:
 
 ```text
 MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
 ```
 
 (comma-separated `host|/path` pairs). Prefer adding durable hosts in code for known products.
+
+**Unlisted / custom clients:** use a [Cartesia API key](https://play.cartesia.ai/keys) with `Authorization: Bearer <CARTESIA_API_KEY>` (local `uvx` / stdio or HTTP clients that support bearer auth). To request an official HTTPS callback allowlist entry, [open a GitHub issue](https://github.com/cartesia-ai/cartesia-mcp/issues/new).
 
 ### API version
 
