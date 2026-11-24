@@ -337,7 +337,7 @@ def detach_agent_tool(
         Let an agent search one more knowledge folder, and keep the folders
         already attached. Prefer this over `update_agent`, which replaces
         `config.knowledge_base_folders`. Publishes a new version when the
-        folder was not already attached.
+        folder was not already attached. Live calls use that version right away.
         """,
 )
 def attach_knowledge_folder(
@@ -360,7 +360,7 @@ def attach_knowledge_folder(
     description="""
         Stop an agent searching one knowledge folder, and keep the others.
         Confirm the folder and the agent with the user first. Does not delete
-        the folder. Publishes a new version when the folder was attached.
+        the folder. Publishes a new version when the folder was attached; live calls use it right away.
         """,
 )
 def detach_knowledge_folder(
@@ -384,7 +384,7 @@ def detach_knowledge_folder(
         Let an agent search one more knowledge document, and keep the documents
         already attached. Prefer this over `update_agent`, which replaces
         `config.knowledge_base_documents`. Publishes a new version when the
-        document was not already attached.
+        document was not already attached. Live calls use that version right away.
         """,
 )
 def attach_knowledge_document(
@@ -407,7 +407,7 @@ def attach_knowledge_document(
     description="""
         Stop an agent searching one knowledge document, and keep the others.
         Confirm the document and the agent with the user first. Does not delete
-        the document. Publishes a new version when the document was attached.
+        the document. Publishes a new version when the document was attached; live calls use it right away.
         """,
 )
 def detach_knowledge_document(
@@ -2187,7 +2187,8 @@ def retry_call_batch(
         Returns Managed Agents usage over time (`GET /usage/agents`): spend,
         minutes, and calls per bucket.
 
-        Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
+        Hosted MCP: an organization admin must enable admin tools when connecting.
+        Local MCP: configure `CARTESIA_ADMIN_API_KEY` in the server environment, not in chat.
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes, at most 366 days
         apart; `interval` buckets results by `day`, `week`, or `month`. Without
         `interval` the result is one total for the window.

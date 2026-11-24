@@ -418,7 +418,7 @@ def text_to_speech(
     ],
     voice_id: typing.Annotated[
         str,
-        Field(description="Cartesia voice ID (e.g. from `list_voices`)."),
+        Field(min_length=1, description="Cartesia voice ID (e.g. from `list_voices`)."),
     ],
     output_format: typing.Annotated[
         OutputFormat,
@@ -525,7 +525,7 @@ def text_to_speech(
 def localize_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to localize."),
+        Field(min_length=1, description="The ID of the voice to localize."),
     ],
     name: typing.Annotated[
         str,
@@ -566,12 +566,13 @@ def localize_voice(
 @mcp.tool(
     annotations=_destructive_tool("Delete voice"),
     description="""
-        Permanently delete a voice you own.
+        Permanently delete a voice you own. Fetch it with `get_voice` and confirm
+        the voice's name with the user before deleting it.
         """)
 def delete_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to delete."),
+        Field(min_length=1, description="The ID of the voice to delete."),
     ],
 ) -> DeleteVoiceResult:
     _api_client().voices.delete(
@@ -587,7 +588,7 @@ def delete_voice(
 def get_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to get."),
+        Field(min_length=1, description="The ID of the voice to get."),
     ],
 ) -> Voice:
     voice = _api_client().voices.get(
@@ -599,12 +600,13 @@ def get_voice(
 @mcp.tool(
     annotations=_destructive_tool("Update voice"),
     description="""
-        Update a voice's name and description.
+        Replace a voice's name and description. Fetch it with `get_voice` first
+        and preserve the current value of either field the user did not ask to change.
         """)
 def update_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to update."),
+        Field(min_length=1, description="The ID of the voice to update."),
     ],
     name: typing.Annotated[
         str,
@@ -676,7 +678,7 @@ def list_models(
 def add_voice_accents(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice."),
+        Field(min_length=1, description="The ID of the voice."),
     ],
     accents: typing.Annotated[
         list[AttachVoiceAccent],
@@ -693,12 +695,13 @@ def add_voice_accents(
 @mcp.tool(
     annotations=_destructive_tool("Delete voice accent"),
     description="""
-        Remove an accent an instant voice clone supports.
+        Remove an accent from an instant voice clone. Fetch it with `get_voice`
+        and confirm the voice and accent with the user first.
         """)
 def delete_voice_accent(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice."),
+        Field(min_length=1, description="The ID of the voice."),
     ],
     accent: typing.Annotated[
         VoiceAccent,
@@ -778,7 +781,7 @@ def clone_voice(
 def list_voices(
     limit: typing.Annotated[
         typing.Optional[int],
-        Field(description="The number of Voices to return per page, ranging between 1 and 100."),
+        Field(ge=1, le=100, description="The number of Voices to return per page, ranging between 1 and 100."),
     ] = 10,
     starting_after: typing.Annotated[
         typing.Optional[str],
@@ -1088,7 +1091,7 @@ def speech_to_text(
 def download_file(
     file_id: typing.Annotated[
         str,
-        Field(description="Cloud file ID (e.g. from `text_to_speech`)."),
+        Field(min_length=1, description="Cloud file ID (e.g. from `text_to_speech`)."),
     ],
     format: typing.Annotated[
         typing.Optional[DownloadFormat],
@@ -1103,7 +1106,8 @@ def download_file(
     description="""
         Returns credit usage over time (`GET /usage/credits`).
         
-        Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
+        Hosted MCP: an organization admin must enable admin tools when connecting.
+        Local MCP: configure `CARTESIA_ADMIN_API_KEY` in the server environment, not in chat.
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
         `interval` buckets results by `day`, `week`, or `month`.
         """)
@@ -1147,7 +1151,7 @@ def get_credit_usage(
 def list_pronunciation_dicts(
     limit: typing.Annotated[
         typing.Optional[int],
-        Field(description="Number of dictionaries per page (1–100)."),
+        Field(ge=1, le=100, description="Number of dictionaries per page (1–100)."),
     ] = 10,
     starting_after: typing.Annotated[
         typing.Optional[str],
@@ -1208,7 +1212,7 @@ def create_pronunciation_dict(
 def get_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="Pronunciation dictionary ID."),
+        Field(min_length=1, description="Pronunciation dictionary ID."),
     ],
 ) -> dict[str, typing.Any]:
     return mcp_app.client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
@@ -1217,12 +1221,13 @@ def get_pronunciation_dict(
 @mcp.tool(
     annotations=_destructive_tool("Update pronunciation dictionary"),
     description="""
-        Update a pronunciation dictionary.
+        Update a pronunciation dictionary; omitted fields stay unchanged.
+        Fetch it with `get_pronunciation_dict` before replacing its items.
         """)
 def update_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="The ID of the pronunciation dictionary to update."),
+        Field(min_length=1, description="The ID of the pronunciation dictionary to update."),
     ],
     name: typing.Annotated[
         typing.Optional[str],
@@ -1230,7 +1235,7 @@ def update_pronunciation_dict(
     ] = None,
     items: typing.Annotated[
         typing.Optional[typing.Sequence[PronunciationDictItemParams]],
-        Field(description="Optional `case_sensitive` (default false) on each item."),
+        Field(description="Complete replacement list of mappings; [] clears all items. Omit to preserve them. Optional `case_sensitive` defaults to false on each item."),
     ] = None,
 ) -> dict[str, typing.Any]:
     if name is None and items is None:
@@ -1246,12 +1251,13 @@ def update_pronunciation_dict(
 @mcp.tool(
     annotations=_destructive_tool("Delete pronunciation dictionary"),
     description="""
-        Permanently delete a pronunciation dictionary.
+        Permanently delete a pronunciation dictionary and its mappings. Fetch it
+        with `get_pronunciation_dict` and confirm its name with the user first.
         """)
 def delete_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="Pronunciation dictionary ID to delete."),
+        Field(min_length=1, description="Pronunciation dictionary ID to delete."),
     ],
 ) -> DeletePronunciationDictResult:
     mcp_app.client.pronunciation_dicts.delete(dict_id)
