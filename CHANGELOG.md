@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.1.0...cartesia-mcp-v1.2.0) (2026-11-24)
+
+
+### Features
+
+* add an inline player for text_to_speech ([#164](https://github.com/cartesia-ai/cartesia-mcp/issues/164)) ([a6d626c](https://github.com/cartesia-ai/cartesia-mcp/commit/a6d626c6a572eb5b15dcceba11858ca097a25eb7))
+* expand MCP OAuth redirect allowlist for major clients ([#169](https://github.com/cartesia-ai/cartesia-mcp/issues/169)) ([2344be5](https://github.com/cartesia-ai/cartesia-mcp/commit/2344be5d038bd63e42254f51706ed718ddb45769))
+* serve OpenAI Apps domain-verification challenge ([#170](https://github.com/cartesia-ai/cartesia-mcp/issues/170)) ([b76bb24](https://github.com/cartesia-ai/cartesia-mcp/commit/b76bb24b307f89493edc699c792eb04c599f483d))
+
+
+### Bug Fixes
+
+* correct tool safety annotations and clarify metadata ([#172](https://github.com/cartesia-ai/cartesia-mcp/issues/172)) ([95fb93c](https://github.com/cartesia-ai/cartesia-mcp/commit/95fb93ccbb91ab66aa6eeefd733640a95385db7a))
+
 ## [1.1.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.0.0...cartesia-mcp-v1.1.0) (2026-11-21)
 
 
