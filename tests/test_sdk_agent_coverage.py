@@ -67,11 +67,9 @@ SDK_TO_TOOL = {
     "agents.update": "update_agent",
     "agents.versions.list": "list_agent_versions",
     "agents.versions.retrieve": "get_agent_version",
-    "agents.webhooks.create": "create_event_webhook",
     "agents.webhooks.delete": "delete_event_webhook",
     "agents.webhooks.list": "list_event_webhooks",
     "agents.webhooks.retrieve": "get_event_webhook",
-    "agents.webhooks.update": "update_event_webhook",
     "usage.agents.retrieve": "get_agent_usage",
 }
 
@@ -81,6 +79,8 @@ OUT_OF_SCOPE = {
     "agents.models.retrieve": "Single-model lookup; `list_agent_models` returns the catalog.",
     "agents.sessions.create_webrtc": "A coding agent cannot join a live WebRTC session.",
     "agents.sessions.create_websocket": "A coding agent cannot join a live WebSocket session.",
+    "agents.webhooks.create": "Takes a shared secret; users create event webhooks in the Playground.",
+    "agents.webhooks.update": "Takes a shared secret; users update event webhooks in the Playground.",
 }
 
 

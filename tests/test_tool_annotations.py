@@ -87,7 +87,6 @@ def test_additive_tools():
         "attach_knowledge_folder",
         "attach_knowledge_document",
         "retry_knowledge_document",
-        "create_event_webhook",
         "create_agent_metric",
         "attach_agent_metric",
         "import_phone_number",
@@ -116,7 +115,6 @@ def test_destructive_tools():
         "delete_knowledge_folder",
         "update_knowledge_document",
         "delete_knowledge_document",
-        "update_event_webhook",
         "delete_event_webhook",
         "delete_agent_metric",
         "detach_agent_metric",
@@ -182,8 +180,6 @@ def test_all_tools_set_idempotent_and_open_world_hints():
     open_world_tools = REAL_WORLD_TOOLS | {
         "create_agent_tool",
         "update_agent_tool",
-        "create_event_webhook",
-        "update_event_webhook",
     }
     non_idempotent_tools = REAL_WORLD_TOOLS | {"update_agent"}
     for tool in asyncio.run(server.mcp.list_tools()):

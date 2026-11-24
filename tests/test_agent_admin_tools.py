@@ -244,42 +244,6 @@ def test_delete_knowledge_document_only_forces_when_asked(api: Api) -> None:
     assert _query(api)["force"] == "true"
 
 
-# Event webhooks
-
-
-WEBHOOK = {
-    "id": "agent_webhook_1",
-    "created_at": "2026-11-01T00:00:00Z",
-    "updated_at": "2026-11-01T00:00:00Z",
-    "url": "https://example.com/hook",
-    "display_name": "prod",
-    "secret": "s3cret",
-}
-
-
-def test_create_event_webhook_sends_secret_but_does_not_return_it(api: Api) -> None:
-    api.on("POST", "/agents/webhooks", WEBHOOK)
-
-    result = agents.create_event_webhook("https://example.com/hook", "s3cret", display_name="prod")
-
-    assert _body(api) == {
-        "url": "https://example.com/hook",
-        "secret": "s3cret",
-        "display_name": "prod",
-    }
-    assert result["id"] == "agent_webhook_1"
-    assert "secret" not in result
-
-
-def test_update_event_webhook_keeps_secret_unless_given(api: Api) -> None:
-    api.on("PATCH", "/agents/webhooks/agent_webhook_1", WEBHOOK)
-
-    assert agents.update_event_webhook("agent_webhook_1", "https://example.com/new") == {
-        "success": True
-    }
-    assert _body(api) == {"url": "https://example.com/new"}
-
-
 # Evaluation metrics
 
 

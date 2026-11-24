@@ -146,8 +146,6 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `retry_knowledge_document` | Reprocess a failed document |
 | `list_event_webhooks` | List call event webhooks |
 | `get_event_webhook` | Get one event webhook (secret never returned) |
-| `create_event_webhook` | Create an event webhook, then set `config.event_webhook_id` |
-| `update_event_webhook` | Change a webhook's URL, name, or secret |
 | `delete_event_webhook` | Delete an event webhook |
 | `list_agent_metrics` | List evaluation metrics |
 | `get_agent_metric` | Get one metric and its scoring prompt |
@@ -176,8 +174,6 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 | --- | --- |
 | `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
 | `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
-| `create_voice_agent` | Build a Managed Agent from a plain-language description and share a Playground link |
-| `debug_agent_call` | Find why an agent call went wrong and propose a config fix |
 
 ## Releases
 
