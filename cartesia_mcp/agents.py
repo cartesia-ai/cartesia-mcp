@@ -1325,6 +1325,72 @@ def get_event_webhook(
 
 
 @mcp.tool(
+    annotations=_additive_tool("Create event webhook", open_world=True),
+    description="""
+        Create an event webhook. Cartesia POSTs call events to `url` and sends
+        `secret` back in the `X-Webhook-Secret` header so your endpoint can verify
+        the request. The user chooses the secret and keeps their own copy. Ask
+        them for it before calling. The result does not include it, and neither
+        do `get_event_webhook` or `list_event_webhooks`.
+        Attach the returned `id` to an agent with `config.event_webhook_id`.
+        """,
+)
+def create_event_webhook(
+    url: typing.Annotated[
+        str, Field(min_length=1, description="HTTPS endpoint to receive events.")
+    ],
+    secret: typing.Annotated[
+        str,
+        Field(min_length=1, description="Shared secret sent in `X-Webhook-Secret`."),
+    ],
+    display_name: typing.Annotated[
+        typing.Optional[str],
+        Field(description="Name to identify the webhook."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    created = _api_client().agents.webhooks.create(
+        url=url, secret=secret, display_name=_or_omit(display_name)
+    )
+    result = created.to_dict(mode="json")
+    result.pop("secret", None)
+    return result
+
+
+@mcp.tool(
+    annotations=_destructive_tool("Update event webhook", open_world=True),
+    description="""
+        Change an event webhook. `url` is required even when unchanged. Omit
+        `secret` to keep the stored one. Agents using this webhook start sending
+        events to the new URL right away, so confirm the change with the user.
+        """,
+)
+def update_event_webhook(
+    webhook_id: typing.Annotated[
+        str,
+        Field(min_length=1, description="Webhook ID from `list_event_webhooks`."),
+    ],
+    url: typing.Annotated[
+        str, Field(min_length=1, description="HTTPS endpoint to receive events.")
+    ],
+    display_name: typing.Annotated[
+        typing.Optional[str],
+        Field(description="New name."),
+    ] = None,
+    secret: typing.Annotated[
+        typing.Optional[str],
+        Field(description="New shared secret. Omit to keep the current one."),
+    ] = None,
+) -> dict[str, typing.Any]:
+    _api_client().agents.webhooks.update(
+        webhook_id,
+        url=url,
+        display_name=_or_omit(display_name),
+        secret=_or_omit(secret),
+    )
+    return {"success": True}
+
+
+@mcp.tool(
     annotations=_destructive_tool("Delete event webhook"),
     description="""
         Permanently delete an event webhook. Confirm its name and URL with the

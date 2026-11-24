@@ -146,6 +146,8 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `retry_knowledge_document` | Reprocess a failed document |
 | `list_event_webhooks` | List call event webhooks |
 | `get_event_webhook` | Get one event webhook (secret never returned) |
+| `create_event_webhook` | Create an event webhook, then set `config.event_webhook_id` |
+| `update_event_webhook` | Change a webhook's URL, name, or secret |
 | `delete_event_webhook` | Delete an event webhook |
 | `list_agent_metrics` | List evaluation metrics |
 | `get_agent_metric` | Get one metric and its scoring prompt |
