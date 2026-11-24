@@ -25,6 +25,11 @@ def env_or_none(
     return value.strip()
 
 
+def agents_only() -> bool:
+    """MCP_TOOLSET=agents serves only Managed Agents tools (the Claude directory listing)."""
+    return env_or_none("MCP_TOOLSET") == "agents"
+
+
 def validate_api_keys(
     api_key: str | None,
     admin_api_key: str | None,

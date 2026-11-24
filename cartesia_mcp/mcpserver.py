@@ -6,6 +6,7 @@ import inspect
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.prompts.base import Prompt
 from mcp.types import Icon, ToolAnnotations
 from mcp.types import Tool as MCPTool
 
@@ -52,7 +53,24 @@ def compact_output_schema(schema: Any, *, keep_enums: bool = False) -> Any:
     return out
 
 
+# Voice lookups let an agent pick its voice; speech generation and voice editing stay out.
+_AGENTS_SHARED_TOOLS = frozenset({"list_voices", "get_voice"})
+
+
+def _from_agents_module(fn: Any) -> bool:
+    return fn.__module__ == "cartesia_mcp.agents"
+
+
 class CartesiaMCP(MCPServer):
+    def __init__(self, *args: Any, agents_only: bool = False, **kwargs: Any) -> None:
+        self._agents_only = agents_only
+        super().__init__(*args, **kwargs)
+
+    def add_prompt(self, prompt: Prompt) -> None:
+        if self._agents_only and not _from_agents_module(prompt.fn):
+            return
+        super().add_prompt(prompt)
+
     def add_tool(
         self,
         fn: Any,
@@ -64,6 +82,10 @@ class CartesiaMCP(MCPServer):
         meta: dict[str, Any] | None = None,
         structured_output: bool | None = None,
     ) -> None:
+        if self._agents_only and not (
+            _from_agents_module(fn) or (name or fn.__name__) in _AGENTS_SHARED_TOOLS
+        ):
+            return
         # Sync SDK tools must not block uvicorn's event loop (Render /health).
         super().add_tool(
             offload_sync_callable(fn),

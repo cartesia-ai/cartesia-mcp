@@ -16,7 +16,7 @@ from cartesia_mcp.branding import (
     server_icons,
 )
 from cartesia_mcp.clients import client, require_admin_client
-from cartesia_mcp.config import env_or_none, validate_api_keys
+from cartesia_mcp.config import agents_only, env_or_none, validate_api_keys
 from cartesia_mcp.credentials import (
     configure_hosted_mode,
     configure_stdio_credentials,
@@ -59,6 +59,7 @@ mcp = CartesiaMCP(
     website_url=WEBSITE_URL,
     icons=server_icons(origin=server_public_url() if _is_hosted else None),
     version=__version__,
+    agents_only=agents_only(),
     **(hosted_server_kwargs() if _is_hosted else {}),
 )
 

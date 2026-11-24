@@ -7,8 +7,15 @@ from urllib.parse import quote
 
 from mcp.types import Icon
 
-SERVER_NAME = "Cartesia"
-SERVER_DESCRIPTION = "The official Cartesia MCP server"
+from cartesia_mcp.config import agents_only
+
+AGENTS_ONLY = agents_only()
+SERVER_NAME = "Cartesia Agents" if AGENTS_ONLY else "Cartesia"
+SERVER_DESCRIPTION = (
+    "The official Cartesia Managed Agents MCP server"
+    if AGENTS_ONLY
+    else "The official Cartesia MCP server"
+)
 WEBSITE_URL = "https://cartesia.ai"
 PRODUCTION_MCP_ORIGIN = "https://mcp.cartesia.ai"
 ICON_PATH = "/icon.png"
@@ -17,9 +24,14 @@ ICON_SIZES = ["512x512"]
 DOCS_URL = "https://docs.cartesia.ai/tools/ai/mcp"
 PLAYGROUND_URL = "https://play.cartesia.ai"
 
-SERVER_INSTRUCTIONS = """\
-Cartesia speech (text to speech, speech to text, voices) and Managed Agents \
-(hosted voice agents).
+_INSTRUCTIONS_INTRO = (
+    "Cartesia Managed Agents (hosted voice agents)."
+    if AGENTS_ONLY
+    else "Cartesia speech (text to speech, speech to text, voices) and Managed Agents "
+    "(hosted voice agents)."
+)
+
+SERVER_INSTRUCTIONS = _INSTRUCTIONS_INTRO + """
 
 To build an agent from a description, write its instructions, pick a model \
 from `list_agent_models` and a voice from `list_voices`, call `create_agent`, \

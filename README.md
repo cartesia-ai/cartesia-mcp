@@ -308,6 +308,12 @@ MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
 
 (comma-separated `host|/path` pairs). Prefer adding durable hosts in code for known products.
 
+### Agents-only server
+
+Set `MCP_TOOLSET=agents` to serve only the Managed Agents tools and prompts, plus `list_voices` and `get_voice` for choosing an agent's voice. This is the server listed in the Claude Connectors Directory. The TTS, STT, voice cloning and editing, pronunciation dictionary, model, file download and credit usage tools are not registered, so they can't be listed or called. Unset, the server serves every tool.
+
+A hosted agents-only deployment needs the same `REDIS_URL` and `MCP_INTERNAL_SECRET` as the main hosted server. The Playground's sign-in page completes OAuth on the main server, and the agents-only server reads that state from the shared Redis.
+
 ### API version
 
 All tools send `Cartesia-Version` (default `2026-08-14`, the latest in [Cartesia docs](https://docs.cartesia.ai/use-the-api/api-conventions)). Override with `CARTESIA_VERSION` in `env` if you pin an older integration date.
