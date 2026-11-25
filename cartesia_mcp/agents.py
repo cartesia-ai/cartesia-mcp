@@ -172,6 +172,8 @@ def get_agent(
           take ids from `list_knowledge_folders` and `list_knowledge_documents`.
         - `config.event_webhook_id` takes an id from `list_event_webhooks`.
 
+        Credentials for `config.model.custom_llm` can't be sent through this tool. If the endpoint requires credentials, get the user's OK before creating the agent without them. Its calls will fail until the user adds the credentials with `PATCH /v1/agents/{agent_id}` and their API key.
+
         Open the returned `playground_url` to talk to the agent.
         """)
 def create_agent(
@@ -213,6 +215,8 @@ def create_agent(
         Each `config` change publishes a new version, which live calls use
         right away. Describe it with `version_description`. Name and
         description changes do not create a version.
+
+        Credentials for `config.model.custom_llm` can't be sent through this tool. `get_agent` returns each stored credential without its value. Send it back in that form and Cartesia keeps the stored value. To set or change a credential, have the user call `PATCH /v1/agents/{agent_id}` with their API key.
         """)
 def update_agent(
     agent_id: typing.Annotated[
