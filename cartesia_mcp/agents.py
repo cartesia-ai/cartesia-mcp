@@ -20,6 +20,7 @@ from pydantic import Field
 
 from cartesia_mcp import extra_api
 from cartesia_mcp.branding import (
+    PLAYGROUND_URL,
     playground_agent_url,
 )
 from cartesia_mcp.extra_api import (
@@ -803,9 +804,12 @@ def get_agent_tool(
     )
 
 
+_PLAYGROUND_TOOLS_URL = f"{PLAYGROUND_URL}/tools"
+
+
 @mcp.tool(
     annotations=_additive_tool("Create agent tool", open_world=True),
-    description="""
+    description=f"""
         Create a tool an agent can call, then attach the returned `id` in
         `config.tools` on `create_agent` or `update_agent`.
 
@@ -814,8 +818,7 @@ def get_agent_tool(
         call; describe the arguments in `parameters`). `name` is what the agent
         says when it calls the tool, and `description` says when to use it.
 
-        Credentials go in `secret_value` and are never returned. Do not put a
-        secret in `secret_description`.
+        Credentials can't be sent through this tool. Create a webhook tool without `authentication` or secret headers, and never put a credential in a plain header value. Then have the user add the credential at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def create_agent_tool(
@@ -834,12 +837,14 @@ def create_agent_tool(
 
 @mcp.tool(
     annotations=_destructive_tool("Update agent tool", open_world=True),
-    description="""
+    description=f"""
         Change an agent tool. Send only the fields to change.
 
         `api_schema`, `parameters`, and `assignments` replace the stored value,
         so send the whole object when editing one part. Call `get_agent_tool`
         first.
+
+        Stored credentials come back from `get_agent_tool` as secret objects without their value. Send them back unchanged to keep them. To add or change a credential, have the user edit the tool at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def update_agent_tool(
