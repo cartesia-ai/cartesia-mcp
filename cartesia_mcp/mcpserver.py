@@ -12,6 +12,9 @@ from mcp.types import Tool as MCPTool
 from cartesia_mcp.offload_sync import offload_sync_callable
 from cartesia_mcp.tool_visibility import is_tool_visible
 
+# A basic auth `password` is an object holding a `secret_value`, so only strings are dropped.
+_SECRET_FIELDS = frozenset({"secret_value", "password"})
+
 
 def compact_output_schema(schema: Any, *, keep_enums: bool = False) -> Any:
     """Drop titles and string enums from a schema; output clients only need the shape.
@@ -21,7 +24,7 @@ def compact_output_schema(schema: Any, *, keep_enums: bool = False) -> Any:
     Output enums (accent ids, language codes) add kilobytes to every tool listing and
     reject values the API adds before the SDK catches up.
 
-    `secret_value` is dropped too: credentials are added in the Playground, not tool calls.
+    Secret string fields are dropped too: credentials are added in the Playground, not tool calls.
     """
     if isinstance(schema, list):
         return [compact_output_schema(item, keep_enums=keep_enums) for item in schema]
@@ -37,7 +40,7 @@ def compact_output_schema(schema: Any, *, keep_enums: bool = False) -> Any:
             out[key] = {
                 name: compact_output_schema(sub, keep_enums=keep_enums)
                 for name, sub in value.items()
-                if name != "secret_value"
+                if not (name in _SECRET_FIELDS and sub.get("type") == "string")
             }
         else:
             out[key] = compact_output_schema(value, keep_enums=keep_enums)
