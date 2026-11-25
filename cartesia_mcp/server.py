@@ -405,7 +405,7 @@ def _deliver_cloud_file(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Convert text to speech"),
+    annotations=_additive_tool("Convert text to speech", open_world=True),
     meta=text_to_speech_ui_meta(),
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted

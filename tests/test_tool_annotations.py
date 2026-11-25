@@ -184,6 +184,7 @@ def test_all_tools_set_idempotent_and_open_world_hints():
         "update_agent_tool",
         "create_event_webhook",
         "update_event_webhook",
+        "text_to_speech",
     }
     non_idempotent_tools = REAL_WORLD_TOOLS | {"update_agent"}
     for tool in asyncio.run(server.mcp.list_tools()):
