@@ -405,7 +405,7 @@ def _deliver_cloud_file(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Convert text to speech"),
+    annotations=_additive_tool("Convert text to speech", open_world=True),
     meta=text_to_speech_ui_meta(),
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
@@ -750,16 +750,14 @@ def delete_voice_accent(
     annotations=_additive_tool("Clone voice"),
     description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
-        
+
+        Only clone the user's own voice or one whose speaker consented. Confirm this with the user before cloning, and never clone a voice to impersonate someone.
+
         Similarity mode clones are more similar to the source clip, but may reproduce background noise. For these, use an audio clip about 5 seconds long.
         
         Stability mode clones are more stable, but may not sound as similar to the source clip. For these, use an audio clip 10-20 seconds long.
         
-        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
-        from `text_to_speech` or `download_file`. `file_path` is an absolute path on
-        this MCP server (local `uvx`, or a path returned in this same session). A path
-        on the agent machine is not visible to hosted MCP and returns a validation
-        error — use `file_id` instead.
+        Pass `file_id` or `file_path`, not both. `file_path` is an absolute path on the machine running this server, so it only reaches the user's files with a local server (`uvx`), or files this server wrote earlier in the session. Hosted MCP cannot read files on the user's computer. Instead, pass the `file_id` of a clip already in their Cartesia account, or send them to https://play.cartesia.ai/voices/create/clone to clone from a recording.
         """)
 def clone_voice(
     name: typing.Annotated[

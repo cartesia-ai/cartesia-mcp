@@ -1,11 +1,13 @@
 """Knowledge base, webhooks, metrics, phone numbers, outbound calls, and batches."""
 
+import asyncio
 import json
 
 import pytest
 from conftest import Api
 
 import cartesia_mcp.agents as agents
+import cartesia_mcp.server as server
 
 DOCUMENT = {
     "id": "kbdoc_1",
@@ -411,28 +413,25 @@ def test_list_phone_providers_returns_data_list(api: Api) -> None:
     assert _query(api)["type"] == "twilio"
 
 
-def test_create_twilio_provider_and_update_sip_provider(api: Api) -> None:
-    provider = {
-        "id": "prov_1",
-        "type": "twilio",
-        "account_sid": "AC1",
-        "api_key_sid": "SK1",
-        "region": "us1",
-    }
-    api.on("POST", "/agents/phone-numbers/providers", provider)
-    api.on("PATCH", "/agents/phone-numbers/providers/prov_1", provider)
+def test_update_sip_provider_keeps_stored_password(api: Api) -> None:
+    api.on(
+        "PATCH",
+        "/agents/phone-numbers/providers/prov_1",
+        {"id": "prov_1", "type": "sip_trunk"},
+    )
+    change = {"type": "sip_trunk", "inbound": {"credentials": {"username": "trunk"}}}
 
-    agents.create_twilio_provider("AC1", "SK1", "secret", region="ie1")
-    assert _body(api) == {
-        "type": "twilio",
-        "account_sid": "AC1",
-        "api_key_sid": "SK1",
-        "api_key_secret": "secret",
-        "region": "ie1",
-    }
+    agents.update_phone_provider("prov_1", change)
 
-    agents.update_phone_provider("prov_1", {"type": "sip_trunk", "label": "new"})
-    assert _body(api) == {"type": "sip_trunk", "label": "new"}
+    assert _body(api) == change
+
+
+def test_provider_schemas_do_not_ask_for_credentials() -> None:
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+    schema = json.dumps(tools["update_phone_provider"].input_schema)
+    for field in ('"password":', '"api_key_secret":', '"twilio"'):
+        assert field not in schema
+    assert "create_twilio_provider" not in tools
 
 
 def test_update_phone_provider_requires_a_change(api: Api) -> None:

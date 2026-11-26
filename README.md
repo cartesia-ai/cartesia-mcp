@@ -121,13 +121,12 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `retry_call_batch` | Dial a batch's failed recipients again (confirm first) |
 | `get_phone_provisioning_usage` | This month's phone number provisioning usage and remaining quota (read only) |
 | `provision_phone_number` | Buy a Cartesia-managed phone number, unassigned until the user confirms it |
-| `import_phone_number` | Link a number you own through a provider |
+| `import_phone_number` | Link a number you own through a provider linked in the Playground |
 | `update_phone_number` | Change a number's label, inbound agent, or provider |
 | `delete_phone_number` | Remove a phone number |
 | `list_phone_providers` | List linked Twilio and SIP trunk providers (secrets never returned) |
 | `get_phone_provider` | Get one provider |
-| `create_twilio_provider` | Link a Twilio account |
-| `update_phone_provider` | Change a Twilio or SIP trunk provider |
+| `update_phone_provider` | Change a SIP trunk provider's label or routing (credentials are changed in the Playground) |
 | `delete_phone_provider` | Unlink a provider |
 | `list_knowledge_folders` | List knowledge base folders, their documents, and the agents that can search them |
 | `get_knowledge_folder` | Get one folder |

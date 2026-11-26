@@ -49,7 +49,6 @@ SDK_TO_TOOL = {
     "agents.phone_numbers.delete": "delete_phone_number",
     "agents.phone_numbers.import_": "import_phone_number",
     "agents.phone_numbers.list": "list_phone_numbers",
-    "agents.phone_numbers.providers.create": "create_twilio_provider",
     "agents.phone_numbers.providers.delete": "delete_phone_provider",
     "agents.phone_numbers.providers.list": "list_phone_providers",
     "agents.phone_numbers.providers.retrieve": "get_phone_provider",
@@ -78,6 +77,7 @@ SDK_TO_TOOL = {
 OUT_OF_SCOPE = {
     "agents.calls.download_audio": "Call audio is binary WAV; this server does not proxy recordings.",
     "agents.knowledge_base.documents.create": "Single-document create; `create_knowledge_documents` covers one or many.",
+    "agents.phone_numbers.providers.create": "Linking needs the provider's credentials, which belong in the Playground, not a tool call.",
     "agents.models.retrieve": "Single-model lookup; `list_agent_models` returns the catalog.",
     "agents.sessions.create_webrtc": "A coding agent cannot join a live WebRTC session.",
     "agents.sessions.create_websocket": "A coding agent cannot join a live WebSocket session.",

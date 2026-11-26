@@ -10,7 +10,7 @@ import cartesia_mcp.server as server
 def test_all_tools_have_annotation_title_and_hint(monkeypatch):
     monkeypatch.setattr("cartesia_mcp.tool_visibility.admin_tools_available", lambda: True)
     tools = asyncio.run(server.mcp.list_tools())
-    assert len(tools) == 86
+    assert len(tools) == 85
 
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"
@@ -91,7 +91,6 @@ def test_additive_tools():
         "create_agent_metric",
         "attach_agent_metric",
         "import_phone_number",
-        "create_twilio_provider",
     }
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in additive_tools:
@@ -184,6 +183,7 @@ def test_all_tools_set_idempotent_and_open_world_hints():
         "update_agent_tool",
         "create_event_webhook",
         "update_event_webhook",
+        "text_to_speech",
     }
     non_idempotent_tools = REAL_WORLD_TOOLS | {"update_agent"}
     for tool in asyncio.run(server.mcp.list_tools()):

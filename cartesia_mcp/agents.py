@@ -12,7 +12,7 @@ from cartesia.types.agents.knowledge_base.document_create_bulk_params import (
 )
 from cartesia.types.agents.phone_number_import_params import Provider as ImportProvider
 from cartesia.types.agents.phone_numbers.provider_update_params import (
-    ProviderUpdateParams,
+    UpdateSipTrunkProviderBody,
 )
 from cartesia.types.agents.tool_create_params import ToolCreateParams
 from cartesia.types.agents.tool_update_params import ToolUpdateParams
@@ -20,6 +20,7 @@ from pydantic import Field
 
 from cartesia_mcp import extra_api
 from cartesia_mcp.branding import (
+    PLAYGROUND_URL,
     playground_agent_url,
 )
 from cartesia_mcp.extra_api import (
@@ -171,6 +172,8 @@ def get_agent(
           take ids from `list_knowledge_folders` and `list_knowledge_documents`.
         - `config.event_webhook_id` takes an id from `list_event_webhooks`.
 
+        Credentials for `config.model.custom_llm` can't be sent through this tool. If the endpoint requires credentials, get the user's OK before creating the agent without them. Its calls will fail until the user adds the credentials with `PATCH /v1/agents/{agent_id}` and their API key.
+
         Open the returned `playground_url` to talk to the agent.
         """)
 def create_agent(
@@ -212,6 +215,8 @@ def create_agent(
         Each `config` change publishes a new version, which live calls use
         right away. Describe it with `version_description`. Name and
         description changes do not create a version.
+
+        Credentials for `config.model.custom_llm` can't be sent through this tool. `get_agent` returns each stored credential without its value. Send it back in that form and Cartesia keeps the stored value. To set or change a credential, have the user call `PATCH /v1/agents/{agent_id}` with their API key.
         """)
 def update_agent(
     agent_id: typing.Annotated[
@@ -712,7 +717,6 @@ def get_phone_number(
 
 
 AgentToolType = typing.Literal["webhook", "client"]
-TwilioRegion = typing.Literal["us1", "ie1", "au1"]
 
 
 def _agent_tool_page(page: typing.Any) -> dict[str, typing.Any]:
@@ -803,9 +807,12 @@ def get_agent_tool(
     )
 
 
+_PLAYGROUND_TOOLS_URL = f"{PLAYGROUND_URL}/tools"
+
+
 @mcp.tool(
     annotations=_additive_tool("Create agent tool", open_world=True),
-    description="""
+    description=f"""
         Create a tool an agent can call, then attach the returned `id` in
         `config.tools` on `create_agent` or `update_agent`.
 
@@ -814,8 +821,7 @@ def get_agent_tool(
         call; describe the arguments in `parameters`). `name` is what the agent
         says when it calls the tool, and `description` says when to use it.
 
-        Credentials go in `secret_value` and are never returned. Do not put a
-        secret in `secret_description`.
+        Credentials can't be sent through this tool. Create a webhook tool without `authentication` or secret headers, and never put a credential in a plain header value. Then have the user add the credential at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def create_agent_tool(
@@ -834,12 +840,14 @@ def create_agent_tool(
 
 @mcp.tool(
     annotations=_destructive_tool("Update agent tool", open_world=True),
-    description="""
+    description=f"""
         Change an agent tool. Send only the fields to change.
 
         `api_schema`, `parameters`, and `assignments` replace the stored value,
         so send the whole object when editing one part. Call `get_agent_tool`
         first.
+
+        Stored credentials come back from `get_agent_tool` as secret objects without their value. Send them back unchanged to keep them. To add or change a credential, have the user edit the tool at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def update_agent_tool(
@@ -1638,6 +1646,7 @@ def export_agent_metric_results(
 # Phone numbers and telephony providers
 # ---------------------------------------------------------------------------
 
+_PLAYGROUND_PHONE_NUMBERS_URL = f"{PLAYGROUND_URL}/phone-numbers"
 
 @mcp.tool(
     annotations=_read_only_tool("Get phone provisioning usage"),
@@ -1678,11 +1687,13 @@ def provision_phone_number(
 
 @mcp.tool(
     annotations=_additive_tool("Import phone number"),
-    description="""
+    description=f"""
         Link a number you already own to Cartesia through a provider from
-        `list_phone_providers`. `provider` is `{"id": "<provider id>"}`, or
-        `{"type": "twilio", "account_sid": "...", "region": "us1"}` to look the
+        `list_phone_providers`. `provider` is `{{"id": "<provider id>"}}`, or
+        `{{"type": "twilio", "account_sid": "...", "region": "us1"}}` to look the
         provider up by Twilio account. The number must be in that account.
+
+        To link a new Twilio account or SIP trunk, have the user add it at {_PLAYGROUND_PHONE_NUMBERS_URL}.
 
         With `agent_id`, inbound calls to the number start answering with that
         agent, so confirm the number and agent with the user first.
@@ -1836,56 +1847,11 @@ def get_phone_provider(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Create Twilio provider"),
-    description="""
-        Link a Twilio account so its numbers can be imported with
-        `import_phone_number`. Cartesia checks the credentials with Twilio first.
-        Each account SID and region can be linked once. `api_key_secret` is
-        write-only. SIP trunk providers are not supported here yet.
-        """,
-)
-def create_twilio_provider(
-    account_sid: typing.Annotated[
-        str, Field(min_length=1, description="Twilio account SID.")
-    ],
-    api_key_sid: typing.Annotated[
-        str, Field(min_length=1, description="Twilio API key SID.")
-    ],
-    api_key_secret: typing.Annotated[
-        str,
-        Field(min_length=1, description="Twilio API key secret."),
-    ],
-    region: typing.Annotated[
-        typing.Optional[TwilioRegion],
-        Field(description="Twilio region: `us1` (default), `ie1`, or `au1`."),
-    ] = None,
-    label: typing.Annotated[
-        typing.Optional[str],
-        Field(description="Human-readable name for the provider."),
-    ] = None,
-) -> dict[str, typing.Any]:
-    return (
-        _api_client()
-        .agents.phone_numbers.providers.create(
-            type="twilio",
-            account_sid=account_sid,
-            api_key_sid=api_key_sid,
-            api_key_secret=api_key_secret,
-            region=_or_omit(region),
-            label=_or_omit(label),
-        )
-        .to_dict(mode="json")
-    )
-
-
-@mcp.tool(
     annotations=_destructive_tool("Update phone provider"),
-    description="""
-        Change a telephony provider. `provider.type` is required: `twilio` takes
-        new `api_key_sid` and `api_key_secret`; `sip_trunk` takes optional `label`,
-        `inbound`, and `outbound` settings, and omitted fields stay as they are.
-        Numbers on the provider use the new settings immediately, so confirm the
-        provider with the user first. Call `get_phone_provider` beforehand.
+    description=f"""
+        Change a SIP trunk provider's `label`, `inbound`, or `outbound` settings. Omitted fields stay as they are. Numbers on the provider use the new settings immediately, so call `get_phone_provider` and confirm the provider with the user first.
+
+        Credentials can't be sent through this tool. Sending `credentials` with only a `username` keeps the stored password. To change a SIP password or Twilio API key, have the user edit the provider at {_PLAYGROUND_PHONE_NUMBERS_URL}/settings.
         """,
 )
 def update_phone_provider(
@@ -1894,8 +1860,8 @@ def update_phone_provider(
         Field(min_length=1, description="Provider ID from `list_phone_providers`."),
     ],
     provider: typing.Annotated[
-        ProviderUpdateParams,
-        Field(description="Twilio or SIP trunk fields to change."),
+        UpdateSipTrunkProviderBody,
+        Field(description="SIP trunk fields to change."),
     ],
 ) -> dict[str, typing.Any]:
     if not any(key != "type" for key in provider):
