@@ -29,6 +29,8 @@ from cartesia.types import (
 from cartesia.types.shared.word_timestamps import WordTimestamps
 from cartesia.types.stt_transcribe_response import Word as SttWord
 from cartesia.types.tts_generate_params import OutputFormat
+from mcp.server.apps import client_supports_apps
+from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from cartesia_mcp import (
@@ -36,6 +38,7 @@ from cartesia_mcp import (
     extra_api,
     mcp_app,
 )
+from cartesia_mcp.api_version import CARTESIA_VERSION
 from cartesia_mcp.constants import DEFAULT_MODEL_ID
 from cartesia_mcp.credentials import (
     resolve_api_credential,
@@ -69,6 +72,7 @@ from cartesia_mcp.mcp_app import (
     _require_admin_client,
     mcp,
 )
+from cartesia_mcp.tts_player import text_to_speech_ui_meta
 from cartesia_mcp.utils import (
     coerce_null_voice_locales,
     create_output_file,
@@ -401,15 +405,19 @@ def _deliver_cloud_file(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Convert text to speech"),
+    annotations=_additive_tool("Convert text to speech", open_world=True),
+    meta=text_to_speech_ui_meta(),
     description="""
         Generate speech audio from text. By default (`save=true`) the audio is persisted
         in Cartesia cloud storage and the response includes `file_id` and `download_url`
-        (24-hour public link). Pass that `file_id` to `speech_to_text` or `clone_voice`
-        — including from a hosted client whose disk is not this server.
-        `download_url` is a browser link. On the local server, `file_path` is a copy under
-        `OUTPUT_DIRECTORY` (or `output_path`). On hosted MCP with `save=true` (the default),
-        `file_path` is omitted — use `file_id` / `download_url` instead.
+        (24-hour public link). In GUI hosts that support MCP Apps, an inline player
+        plays the clip and can copy a curl command or download it; for those hosts the
+        response also echoes the request fields the player needs. Pass that
+        `file_id` to `speech_to_text` or `clone_voice` — including from a hosted client
+        whose disk is not this server. `download_url` is a browser link. On the local
+        server, `file_path` is a copy under `OUTPUT_DIRECTORY` (or `output_path`). On
+        hosted MCP with `save=true` (the default), `file_path` is omitted — use
+        `file_id` / `download_url` instead.
         """)
 def text_to_speech(
     transcript: typing.Annotated[
@@ -418,7 +426,7 @@ def text_to_speech(
     ],
     voice_id: typing.Annotated[
         str,
-        Field(description="Cartesia voice ID (e.g. from `list_voices`)."),
+        Field(min_length=1, description="Cartesia voice ID (e.g. from `list_voices`)."),
     ],
     output_format: typing.Annotated[
         OutputFormat,
@@ -426,7 +434,7 @@ def text_to_speech(
     ],
     model_id: typing.Annotated[
         typing.Optional[str],
-        Field(description="The ID of the model to use for the generation. Call `list_models` with `capability=\"tts\"` for valid ids."),
+        Field(description="The ID of the model to use for the generation. Defaults to `sonic-latest`, an alias for the newest Sonic model. Call `list_models` with `capability=\"tts\"` for pinned ids."),
     ] = DEFAULT_MODEL_ID,
     language: typing.Annotated[
         typing.Optional[SupportedLanguage],
@@ -460,6 +468,7 @@ def text_to_speech(
         bool,
         Field(description="When true (default), persist the generation to cloud storage and return `file_id` plus `download_url`. Pass `download_file` with that `file_id` to refresh the link or write another local copy."),
     ] = True,
+    ctx: typing.Optional[Context] = None,
 ) -> GeneratedAudioResult:
     dest = _resolve_tts_output_dest(output_path, output_format["container"])
     generation_config = _build_generation_config(
@@ -497,8 +506,30 @@ def text_to_speech(
         else None
     )
 
+    def with_player_fields(base: GeneratedAudioResult) -> GeneratedAudioResult:
+        # Only MCP Apps clients render the player; everyone else keeps the lean response.
+        if ctx is None or not client_supports_apps(ctx):
+            return base
+        base["transcript"] = transcript
+        base["voice_id"] = voice_id
+        base["output_format"] = dict(output_format)
+        base["cartesia_version"] = CARTESIA_VERSION
+        optional_fields = {
+            "model_id": model_id,
+            "language": language,
+            "emotion": emotion,
+            "speed": speed,
+            "volume": volume,
+            "duration": duration,
+            "pronunciation_dict_id": pronunciation_dict_id,
+        }
+        for key, value in optional_fields.items():
+            if value is not None:
+                base[key] = value
+        return base
+
     if not save:
-        return GeneratedAudioResult(file_path=file_path)
+        return with_player_fields(GeneratedAudioResult(file_path=file_path))
 
     file_id = extra_api.file_id_from_response_headers(result.headers)
     if not file_id:
@@ -514,7 +545,7 @@ def text_to_speech(
     download_url = _try_create_download_link(file_id)
     if download_url is not None:
         saved["download_url"] = download_url
-    return saved
+    return with_player_fields(saved)
 
 
 @mcp.tool(
@@ -525,7 +556,7 @@ def text_to_speech(
 def localize_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to localize."),
+        Field(min_length=1, description="The ID of the voice to localize."),
     ],
     name: typing.Annotated[
         str,
@@ -566,12 +597,13 @@ def localize_voice(
 @mcp.tool(
     annotations=_destructive_tool("Delete voice"),
     description="""
-        Permanently delete a voice you own.
+        Permanently delete a voice you own. Fetch it with `get_voice` and confirm
+        the voice's name with the user before deleting it.
         """)
 def delete_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to delete."),
+        Field(min_length=1, description="The ID of the voice to delete."),
     ],
 ) -> DeleteVoiceResult:
     _api_client().voices.delete(
@@ -587,7 +619,7 @@ def delete_voice(
 def get_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to get."),
+        Field(min_length=1, description="The ID of the voice to get."),
     ],
 ) -> Voice:
     voice = _api_client().voices.get(
@@ -599,12 +631,13 @@ def get_voice(
 @mcp.tool(
     annotations=_destructive_tool("Update voice"),
     description="""
-        Update a voice's name and description.
+        Replace a voice's name and description. Fetch it with `get_voice` first
+        and preserve the current value of either field the user did not ask to change.
         """)
 def update_voice(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice to update."),
+        Field(min_length=1, description="The ID of the voice to update."),
     ],
     name: typing.Annotated[
         str,
@@ -676,7 +709,7 @@ def list_models(
 def add_voice_accents(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice."),
+        Field(min_length=1, description="The ID of the voice."),
     ],
     accents: typing.Annotated[
         list[AttachVoiceAccent],
@@ -693,12 +726,13 @@ def add_voice_accents(
 @mcp.tool(
     annotations=_destructive_tool("Delete voice accent"),
     description="""
-        Remove an accent an instant voice clone supports.
+        Remove an accent from an instant voice clone. Fetch it with `get_voice`
+        and confirm the voice and accent with the user first.
         """)
 def delete_voice_accent(
     voice_id: typing.Annotated[
         str,
-        Field(description="The ID of the voice."),
+        Field(min_length=1, description="The ID of the voice."),
     ],
     accent: typing.Annotated[
         VoiceAccent,
@@ -716,16 +750,14 @@ def delete_voice_accent(
     annotations=_additive_tool("Clone voice"),
     description="""
         Clone a voice from an audio clip. This endpoint has two modes, stability and similarity.
-        
+
+        Only clone the user's own voice or one whose speaker consented. Confirm this with the user before cloning, and never clone a voice to impersonate someone.
+
         Similarity mode clones are more similar to the source clip, but may reproduce background noise. For these, use an audio clip about 5 seconds long.
         
         Stability mode clones are more stable, but may not sound as similar to the source clip. For these, use an audio clip 10-20 seconds long.
         
-        Pass `file_id` or `file_path`, not both. On hosted MCP, pass the `file_id`
-        from `text_to_speech` or `download_file`. `file_path` is an absolute path on
-        this MCP server (local `uvx`, or a path returned in this same session). A path
-        on the agent machine is not visible to hosted MCP and returns a validation
-        error — use `file_id` instead.
+        Pass `file_id` or `file_path`, not both. `file_path` is an absolute path on the machine running this server, so it only reaches the user's files with a local server (`uvx`), or files this server wrote earlier in the session. Hosted MCP cannot read files on the user's computer. Instead, pass the `file_id` of a clip already in their Cartesia account, or send them to https://play.cartesia.ai/voices/create/clone to clone from a recording.
         """)
 def clone_voice(
     name: typing.Annotated[
@@ -778,7 +810,7 @@ def clone_voice(
 def list_voices(
     limit: typing.Annotated[
         typing.Optional[int],
-        Field(description="The number of Voices to return per page, ranging between 1 and 100."),
+        Field(ge=1, le=100, description="The number of Voices to return per page, ranging between 1 and 100."),
     ] = 10,
     starting_after: typing.Annotated[
         typing.Optional[str],
@@ -999,7 +1031,7 @@ def _speech_to_text_stream(
 
 
 @mcp.tool(
-    annotations=_read_only_tool("Transcribe audio"),
+    annotations=_additive_tool("Transcribe audio"),
     description="""
         Transcribe a pre-recorded audio file to text.
         
@@ -1075,7 +1107,7 @@ def speech_to_text(
 
 
 @mcp.tool(
-    annotations=_read_only_tool("Download file"),
+    annotations=_additive_tool("Download file"),
     description="""
         Fetch a Cartesia cloud-stored file by ID. Returns a 24-hour `download_url` for
         hosted and remote clients. Also writes a copy to `OUTPUT_DIRECTORY` on the MCP
@@ -1088,7 +1120,7 @@ def speech_to_text(
 def download_file(
     file_id: typing.Annotated[
         str,
-        Field(description="Cloud file ID (e.g. from `text_to_speech`)."),
+        Field(min_length=1, description="Cloud file ID (e.g. from `text_to_speech`)."),
     ],
     format: typing.Annotated[
         typing.Optional[DownloadFormat],
@@ -1103,7 +1135,8 @@ def download_file(
     description="""
         Returns credit usage over time (`GET /usage/credits`).
         
-        Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
+        Hosted MCP: an organization admin must enable admin tools when connecting.
+        Local MCP: configure `CARTESIA_ADMIN_API_KEY` in the server environment, not in chat.
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes;
         `interval` buckets results by `day`, `week`, or `month`.
         """)
@@ -1147,7 +1180,7 @@ def get_credit_usage(
 def list_pronunciation_dicts(
     limit: typing.Annotated[
         typing.Optional[int],
-        Field(description="Number of dictionaries per page (1–100)."),
+        Field(ge=1, le=100, description="Number of dictionaries per page (1–100)."),
     ] = 10,
     starting_after: typing.Annotated[
         typing.Optional[str],
@@ -1208,7 +1241,7 @@ def create_pronunciation_dict(
 def get_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="Pronunciation dictionary ID."),
+        Field(min_length=1, description="Pronunciation dictionary ID."),
     ],
 ) -> dict[str, typing.Any]:
     return mcp_app.client.pronunciation_dicts.retrieve(dict_id).model_dump(mode="json")
@@ -1217,12 +1250,13 @@ def get_pronunciation_dict(
 @mcp.tool(
     annotations=_destructive_tool("Update pronunciation dictionary"),
     description="""
-        Update a pronunciation dictionary.
+        Update a pronunciation dictionary; omitted fields stay unchanged.
+        Fetch it with `get_pronunciation_dict` before replacing its items.
         """)
 def update_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="The ID of the pronunciation dictionary to update."),
+        Field(min_length=1, description="The ID of the pronunciation dictionary to update."),
     ],
     name: typing.Annotated[
         typing.Optional[str],
@@ -1230,7 +1264,7 @@ def update_pronunciation_dict(
     ] = None,
     items: typing.Annotated[
         typing.Optional[typing.Sequence[PronunciationDictItemParams]],
-        Field(description="Optional `case_sensitive` (default false) on each item."),
+        Field(description="Complete replacement list of mappings; [] clears all items. Omit to preserve them. Optional `case_sensitive` defaults to false on each item."),
     ] = None,
 ) -> dict[str, typing.Any]:
     if name is None and items is None:
@@ -1246,12 +1280,13 @@ def update_pronunciation_dict(
 @mcp.tool(
     annotations=_destructive_tool("Delete pronunciation dictionary"),
     description="""
-        Permanently delete a pronunciation dictionary.
+        Permanently delete a pronunciation dictionary and its mappings. Fetch it
+        with `get_pronunciation_dict` and confirm its name with the user first.
         """)
 def delete_pronunciation_dict(
     dict_id: typing.Annotated[
         str,
-        Field(description="Pronunciation dictionary ID to delete."),
+        Field(min_length=1, description="Pronunciation dictionary ID to delete."),
     ],
 ) -> DeletePronunciationDictResult:
     mcp_app.client.pronunciation_dicts.delete(dict_id)

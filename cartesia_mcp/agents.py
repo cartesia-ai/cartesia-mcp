@@ -1,4 +1,4 @@
-"""Managed Agents tools and prompts: agents, calls, versions, knowledge base, webhooks, metrics, phone numbers, and batches."""
+"""Managed Agents tools: agents, calls, versions, knowledge base, webhooks, metrics, phone numbers, and batches."""
 
 import typing
 from pathlib import Path
@@ -12,7 +12,7 @@ from cartesia.types.agents.knowledge_base.document_create_bulk_params import (
 )
 from cartesia.types.agents.phone_number_import_params import Provider as ImportProvider
 from cartesia.types.agents.phone_numbers.provider_update_params import (
-    ProviderUpdateParams,
+    UpdateSipTrunkProviderBody,
 )
 from cartesia.types.agents.tool_create_params import ToolCreateParams
 from cartesia.types.agents.tool_update_params import ToolUpdateParams
@@ -20,6 +20,7 @@ from pydantic import Field
 
 from cartesia_mcp import extra_api
 from cartesia_mcp.branding import (
+    PLAYGROUND_URL,
     playground_agent_url,
 )
 from cartesia_mcp.extra_api import (
@@ -171,6 +172,8 @@ def get_agent(
           take ids from `list_knowledge_folders` and `list_knowledge_documents`.
         - `config.event_webhook_id` takes an id from `list_event_webhooks`.
 
+        Credentials for `config.model.custom_llm` can't be sent through this tool. If the endpoint requires credentials, get the user's OK before creating the agent without them. Its calls will fail until the user adds the credentials with `PATCH /v1/agents/{agent_id}` and their API key.
+
         Open the returned `playground_url` to talk to the agent.
         """)
 def create_agent(
@@ -197,7 +200,7 @@ def create_agent(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update agent"),
+    annotations=_destructive_tool("Update agent", idempotent=False),
     description="""
         Update a Managed Agent. Send only the fields to change.
 
@@ -212,6 +215,8 @@ def create_agent(
         Each `config` change publishes a new version, which live calls use
         right away. Describe it with `version_description`. Name and
         description changes do not create a version.
+
+        Credentials for `config.model.custom_llm` can't be sent through this tool. `get_agent` returns each stored credential without its value. Send it back in that form and Cartesia keeps the stored value. To set or change a credential, have the user call `PATCH /v1/agents/{agent_id}` with their API key.
         """)
 def update_agent(
     agent_id: typing.Annotated[
@@ -337,7 +342,7 @@ def detach_agent_tool(
         Let an agent search one more knowledge folder, and keep the folders
         already attached. Prefer this over `update_agent`, which replaces
         `config.knowledge_base_folders`. Publishes a new version when the
-        folder was not already attached.
+        folder was not already attached. Live calls use that version right away.
         """,
 )
 def attach_knowledge_folder(
@@ -360,7 +365,7 @@ def attach_knowledge_folder(
     description="""
         Stop an agent searching one knowledge folder, and keep the others.
         Confirm the folder and the agent with the user first. Does not delete
-        the folder. Publishes a new version when the folder was attached.
+        the folder. Publishes a new version when the folder was attached; live calls use it right away.
         """,
 )
 def detach_knowledge_folder(
@@ -384,7 +389,7 @@ def detach_knowledge_folder(
         Let an agent search one more knowledge document, and keep the documents
         already attached. Prefer this over `update_agent`, which replaces
         `config.knowledge_base_documents`. Publishes a new version when the
-        document was not already attached.
+        document was not already attached. Live calls use that version right away.
         """,
 )
 def attach_knowledge_document(
@@ -407,7 +412,7 @@ def attach_knowledge_document(
     description="""
         Stop an agent searching one knowledge document, and keep the others.
         Confirm the document and the agent with the user first. Does not delete
-        the document. Publishes a new version when the document was attached.
+        the document. Publishes a new version when the document was attached; live calls use it right away.
         """,
 )
 def detach_knowledge_document(
@@ -712,7 +717,6 @@ def get_phone_number(
 
 
 AgentToolType = typing.Literal["webhook", "client"]
-TwilioRegion = typing.Literal["us1", "ie1", "au1"]
 
 
 def _agent_tool_page(page: typing.Any) -> dict[str, typing.Any]:
@@ -803,9 +807,12 @@ def get_agent_tool(
     )
 
 
+_PLAYGROUND_TOOLS_URL = f"{PLAYGROUND_URL}/tools"
+
+
 @mcp.tool(
-    annotations=_additive_tool("Create agent tool"),
-    description="""
+    annotations=_additive_tool("Create agent tool", open_world=True),
+    description=f"""
         Create a tool an agent can call, then attach the returned `id` in
         `config.tools` on `create_agent` or `update_agent`.
 
@@ -814,8 +821,7 @@ def get_agent_tool(
         call; describe the arguments in `parameters`). `name` is what the agent
         says when it calls the tool, and `description` says when to use it.
 
-        Credentials go in `secret_value` and are never returned. Do not put a
-        secret in `secret_description`.
+        Credentials can't be sent through this tool. Create a webhook tool without `authentication` or secret headers, and never put a credential in a plain header value. Then have the user add the credential at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def create_agent_tool(
@@ -833,13 +839,15 @@ def create_agent_tool(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update agent tool"),
-    description="""
+    annotations=_destructive_tool("Update agent tool", open_world=True),
+    description=f"""
         Change an agent tool. Send only the fields to change.
 
         `api_schema`, `parameters`, and `assignments` replace the stored value,
         so send the whole object when editing one part. Call `get_agent_tool`
         first.
+
+        Stored credentials come back from `get_agent_tool` as secret objects without their value. Send them back unchanged to keep them. To add or change a credential, have the user edit the tool at {_PLAYGROUND_TOOLS_URL}.
         """,
 )
 def update_agent_tool(
@@ -1325,7 +1333,7 @@ def get_event_webhook(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Create event webhook"),
+    annotations=_additive_tool("Create event webhook", open_world=True),
     description="""
         Create an event webhook. Cartesia POSTs call events to `url` and sends
         `secret` back in the `X-Webhook-Secret` header so your endpoint can verify
@@ -1357,7 +1365,7 @@ def create_event_webhook(
 
 
 @mcp.tool(
-    annotations=_destructive_tool("Update event webhook"),
+    annotations=_destructive_tool("Update event webhook", open_world=True),
     description="""
         Change an event webhook. `url` is required even when unchanged. Omit
         `secret` to keep the stored one. Agents using this webhook start sending
@@ -1638,6 +1646,7 @@ def export_agent_metric_results(
 # Phone numbers and telephony providers
 # ---------------------------------------------------------------------------
 
+_PLAYGROUND_PHONE_NUMBERS_URL = f"{PLAYGROUND_URL}/phone-numbers"
 
 @mcp.tool(
     annotations=_read_only_tool("Get phone provisioning usage"),
@@ -1678,11 +1687,13 @@ def provision_phone_number(
 
 @mcp.tool(
     annotations=_additive_tool("Import phone number"),
-    description="""
+    description=f"""
         Link a number you already own to Cartesia through a provider from
-        `list_phone_providers`. `provider` is `{"id": "<provider id>"}`, or
-        `{"type": "twilio", "account_sid": "...", "region": "us1"}` to look the
+        `list_phone_providers`. `provider` is `{{"id": "<provider id>"}}`, or
+        `{{"type": "twilio", "account_sid": "...", "region": "us1"}}` to look the
         provider up by Twilio account. The number must be in that account.
+
+        To link a new Twilio account or SIP trunk, have the user add it at {_PLAYGROUND_PHONE_NUMBERS_URL}.
 
         With `agent_id`, inbound calls to the number start answering with that
         agent, so confirm the number and agent with the user first.
@@ -1836,56 +1847,11 @@ def get_phone_provider(
 
 
 @mcp.tool(
-    annotations=_additive_tool("Create Twilio provider"),
-    description="""
-        Link a Twilio account so its numbers can be imported with
-        `import_phone_number`. Cartesia checks the credentials with Twilio first.
-        Each account SID and region can be linked once. `api_key_secret` is
-        write-only. SIP trunk providers are not supported here yet.
-        """,
-)
-def create_twilio_provider(
-    account_sid: typing.Annotated[
-        str, Field(min_length=1, description="Twilio account SID.")
-    ],
-    api_key_sid: typing.Annotated[
-        str, Field(min_length=1, description="Twilio API key SID.")
-    ],
-    api_key_secret: typing.Annotated[
-        str,
-        Field(min_length=1, description="Twilio API key secret."),
-    ],
-    region: typing.Annotated[
-        typing.Optional[TwilioRegion],
-        Field(description="Twilio region: `us1` (default), `ie1`, or `au1`."),
-    ] = None,
-    label: typing.Annotated[
-        typing.Optional[str],
-        Field(description="Human-readable name for the provider."),
-    ] = None,
-) -> dict[str, typing.Any]:
-    return (
-        _api_client()
-        .agents.phone_numbers.providers.create(
-            type="twilio",
-            account_sid=account_sid,
-            api_key_sid=api_key_sid,
-            api_key_secret=api_key_secret,
-            region=_or_omit(region),
-            label=_or_omit(label),
-        )
-        .to_dict(mode="json")
-    )
-
-
-@mcp.tool(
     annotations=_destructive_tool("Update phone provider"),
-    description="""
-        Change a telephony provider. `provider.type` is required: `twilio` takes
-        new `api_key_sid` and `api_key_secret`; `sip_trunk` takes optional `label`,
-        `inbound`, and `outbound` settings, and omitted fields stay as they are.
-        Numbers on the provider use the new settings immediately, so confirm the
-        provider with the user first. Call `get_phone_provider` beforehand.
+    description=f"""
+        Change a SIP trunk provider's `label`, `inbound`, or `outbound` settings. Omitted fields stay as they are. Numbers on the provider use the new settings immediately, so call `get_phone_provider` and confirm the provider with the user first.
+
+        Credentials can't be sent through this tool. Sending `credentials` with only a `username` keeps the stored password. To change a SIP password or Twilio API key, have the user edit the provider at {_PLAYGROUND_PHONE_NUMBERS_URL}/settings.
         """,
 )
 def update_phone_provider(
@@ -1894,8 +1860,8 @@ def update_phone_provider(
         Field(min_length=1, description="Provider ID from `list_phone_providers`."),
     ],
     provider: typing.Annotated[
-        ProviderUpdateParams,
-        Field(description="Twilio or SIP trunk fields to change."),
+        UpdateSipTrunkProviderBody,
+        Field(description="SIP trunk fields to change."),
     ],
 ) -> dict[str, typing.Any]:
     if not any(key != "type" for key in provider):
@@ -2187,7 +2153,8 @@ def retry_call_batch(
         Returns Managed Agents usage over time (`GET /usage/agents`): spend,
         minutes, and calls per bucket.
 
-        Requires **CARTESIA_ADMIN_API_KEY** (admin API keys cannot be used as CARTESIA_API_KEY).
+        Hosted MCP: an organization admin must enable admin tools when connecting.
+        Local MCP: configure `CARTESIA_ADMIN_API_KEY` in the server environment, not in chat.
         Optional `start_ts` and `end_ts` are RFC 3339 datetimes, at most 366 days
         apart; `interval` buckets results by `day`, `week`, or `month`. Without
         `interval` the result is one total for the window.
@@ -2216,68 +2183,3 @@ def get_agent_usage(
         )
         .to_dict(mode="json")
     )
-
-
-@mcp.prompt(
-    title="Create a voice agent",
-    description="Build a Managed Agent from a plain-language description and share a link to try it.",
-)
-def create_voice_agent(description: str) -> str:
-    return (
-        f"Build a Cartesia Managed Agent for: {description!r}.\n"
-        "1. Ask at most two questions if a key detail is missing, such as the business "
-        "name, the facts the agent must know, or when it should transfer or hang up.\n"
-        "2. Call `list_agent_models` and pick a model id. Call `list_voices` with a query "
-        "that matches the persona and language, and pick a voice.\n"
-        "3. Write `config.instructions` for the role, goal, steps, what to collect, and "
-        "when to end or transfer. Set `config.initial_message` to what the agent says "
-        "first, or leave it unset to wait.\n"
-        "4. Use `{{variable}}` placeholders for anything that changes per caller and set "
-        "test values in `config.dynamic_variable_placeholders`.\n"
-        "5. Call `create_agent`, then give the user the `playground_url`. A config "
-        "change is live immediately. Try it there before assigning a phone number.\n"
-        "6. If the agent must look something up or take an action, call "
-        "`create_agent_tool`, then `attach_agent_tool`. Ending, transferring, "
-        "DTMF, and voicemail detection are `config.system_tools`.\n"
-        "If it must answer from the user's documents, call `create_knowledge_folder` "
-        "and `create_knowledge_documents`, then `attach_knowledge_folder` or "
-        "`attach_knowledge_document`.\n"
-        "7. After a test call, use `list_agent_calls`, `get_agent_call_logs`, and "
-        "`get_agent_call` to review it. Change instructions with `update_agent`. "
-        "Add or remove one tool or document with the attach and detach tools.\n"
-    )
-
-
-@mcp.prompt(
-    title="Debug a voice agent call",
-    description="Find why a Managed Agent call went wrong and propose a config fix.",
-)
-def debug_agent_call(agent_id: str = "", call_id: str = "") -> str:
-    if call_id and agent_id:
-        find_step = f"The call ID is {call_id!r} on agent {agent_id!r}."
-    elif call_id:
-        find_step = f"The call ID is {call_id!r}."
-    elif agent_id:
-        find_step = (
-            f"Call `list_agent_calls` with agent_id={agent_id!r} and pick the call the "
-            "user means (or the latest failed one)."
-        )
-    else:
-        find_step = (
-            "Call `list_agents` and pick the agent the user means. Then call "
-            "`list_agent_calls` for it and pick the call they mean (or the latest failed one)."
-        )
-    return (
-        f"{find_step}\n"
-        "Call `get_agent_call_logs` for that call first: the runtime logs show errors "
-        "and failed tool calls the transcript may not.\n"
-        "Then call `get_agent_call` and check `status`, `end_reason`, and "
-        "`error_message`, and read the turns for misunderstandings, interruptions, "
-        "failed tool calls, and slow `latency_ms`.\n"
-        "Call `get_agent_version` with the call's `agent_id` and "
-        "`agent_version_id` to read the config that ran.\n"
-        "Explain the cause, then propose the smallest config change. Apply it with "
-        "`update_agent` only after the user agrees."
-    )
-
-

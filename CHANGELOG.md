@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.3.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.2.0...cartesia-mcp-v1.3.0) (2026-11-26)
+
+
+### Features
+
+* remove the agent prompts that the agent skills replace ([#174](https://github.com/cartesia-ai/cartesia-mcp/issues/174)) ([d9a2d31](https://github.com/cartesia-ai/cartesia-mcp/commit/d9a2d31b78975ad1d8a91fa972a865757f3bf502))
+
+
+### Bug Fixes
+
+* address Codex plugin review findings ([#175](https://github.com/cartesia-ai/cartesia-mcp/issues/175)) ([4eee800](https://github.com/cartesia-ai/cartesia-mcp/commit/4eee800ff31a1d7522ea2f9d48e699f244723fce))
+
+## [1.2.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.1.0...cartesia-mcp-v1.2.0) (2026-11-24)
+
+
+### Features
+
+* add an inline player for text_to_speech ([#164](https://github.com/cartesia-ai/cartesia-mcp/issues/164)) ([a6d626c](https://github.com/cartesia-ai/cartesia-mcp/commit/a6d626c6a572eb5b15dcceba11858ca097a25eb7))
+* expand MCP OAuth redirect allowlist for major clients ([#169](https://github.com/cartesia-ai/cartesia-mcp/issues/169)) ([2344be5](https://github.com/cartesia-ai/cartesia-mcp/commit/2344be5d038bd63e42254f51706ed718ddb45769))
+* serve OpenAI Apps domain-verification challenge ([#170](https://github.com/cartesia-ai/cartesia-mcp/issues/170)) ([b76bb24](https://github.com/cartesia-ai/cartesia-mcp/commit/b76bb24b307f89493edc699c792eb04c599f483d))
+
+
+### Bug Fixes
+
+* correct tool safety annotations and clarify metadata ([#172](https://github.com/cartesia-ai/cartesia-mcp/issues/172)) ([95fb93c](https://github.com/cartesia-ai/cartesia-mcp/commit/95fb93ccbb91ab66aa6eeefd733640a95385db7a))
+
+## [1.1.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.0.0...cartesia-mcp-v1.1.0) (2026-11-21)
+
+
+### Features
+
+* log MCP host clientInfo on hosted /mcp requests ([#166](https://github.com/cartesia-ai/cartesia-mcp/issues/166)) ([1f76b7c](https://github.com/cartesia-ai/cartesia-mcp/commit/1f76b7ca57003b470964565239f99103ca04bbd9))
+
 ## [1.0.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v0.34.1...cartesia-mcp-v1.0.0) (2026-11-18)
 
 

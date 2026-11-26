@@ -1,4 +1,4 @@
-"""Anthropic Connectors Directory requires annotations.title and read/destructive hints."""
+"""Directory clients receive explicit tool safety hints and annotation titles."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import asyncio
 import cartesia_mcp.server as server
 
 
-def test_all_tools_have_annotation_title_and_hint():
-    tools = server.mcp._tool_manager.list_tools()
-    assert len(tools) == 86
+def test_all_tools_have_annotation_title_and_hint(monkeypatch):
+    monkeypatch.setattr("cartesia_mcp.tool_visibility.admin_tools_available", lambda: True)
+    tools = asyncio.run(server.mcp.list_tools())
+    assert len(tools) == 85
 
     for tool in tools:
         assert tool.annotations is not None, f"{tool.name} is missing annotations"
@@ -17,19 +18,16 @@ def test_all_tools_have_annotation_title_and_hint():
         assert tool.annotations.read_only_hint is not None, (
             f"{tool.name} must set read_only_hint explicitly"
         )
+        assert tool.annotations.destructive_hint is not None, tool.name
+        assert tool.annotations.open_world_hint is not None, tool.name
         if tool.annotations.read_only_hint:
-            assert tool.annotations.destructive_hint in (None, False), (
+            assert tool.annotations.destructive_hint is False, (
                 f"{tool.name} is read-only but sets destructive_hint"
-            )
-        else:
-            assert tool.annotations.destructive_hint is not None, (
-                f"{tool.name} must set destructive_hint when read_only_hint is false"
             )
 
 
 def test_read_only_tools():
     read_only = {
-        "download_file",
         "get_voice",
         "list_accents",
         "list_agent_models",
@@ -45,7 +43,6 @@ def test_read_only_tools():
         "get_agent_tool",
         "list_models",
         "list_voices",
-        "speech_to_text",
         "get_credit_usage",
         "list_pronunciation_dicts",
         "get_pronunciation_dict",
@@ -70,11 +67,13 @@ def test_read_only_tools():
         annotations = tools[name].annotations
         assert annotations is not None
         assert annotations.read_only_hint is True
-        assert annotations.destructive_hint in (None, False)
+        assert annotations.destructive_hint is False
 
 
 def test_additive_tools():
     additive_tools = {
+        "download_file",
+        "speech_to_text",
         "text_to_speech",
         "localize_voice",
         "clone_voice",
@@ -92,7 +91,6 @@ def test_additive_tools():
         "create_agent_metric",
         "attach_agent_metric",
         "import_phone_number",
-        "create_twilio_provider",
     }
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in additive_tools:
@@ -148,13 +146,14 @@ REAL_WORLD_TOOLS = {
 }
 
 
-def test_real_world_tools_are_open_world_and_not_read_only():
+def test_real_world_tools_are_destructive_and_not_safe_to_retry():
     tools = {tool.name: tool for tool in server.mcp._tool_manager.list_tools()}
     for name in REAL_WORLD_TOOLS:
         annotations = tools[name].annotations
         assert annotations is not None
         assert annotations.read_only_hint is False
-        assert annotations.destructive_hint is False
+        assert annotations.destructive_hint is True
+        assert annotations.idempotent_hint is False
         assert annotations.open_world_hint is True
 
 
@@ -179,11 +178,21 @@ def test_text_to_speech_voice_id_has_string_type():
 
 
 def test_all_tools_set_idempotent_and_open_world_hints():
-    for tool in server.mcp._tool_manager.list_tools():
+    open_world_tools = REAL_WORLD_TOOLS | {
+        "create_agent_tool",
+        "update_agent_tool",
+        "create_event_webhook",
+        "update_event_webhook",
+        "text_to_speech",
+    }
+    non_idempotent_tools = REAL_WORLD_TOOLS | {"update_agent"}
+    for tool in asyncio.run(server.mcp.list_tools()):
         annotations = tool.annotations
         assert annotations is not None
-        assert annotations.open_world_hint is (tool.name in REAL_WORLD_TOOLS), tool.name
-        if annotations.read_only_hint or annotations.destructive_hint:
+        assert annotations.open_world_hint is (tool.name in open_world_tools), tool.name
+        if tool.name in non_idempotent_tools:
+            assert annotations.idempotent_hint is False, tool.name
+        elif annotations.read_only_hint or annotations.destructive_hint:
             assert annotations.idempotent_hint is True, tool.name
 
 

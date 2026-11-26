@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -5,6 +6,7 @@ import pytest
 from conftest import Api
 
 import cartesia_mcp.agents as agents
+import cartesia_mcp.server as server
 from cartesia_mcp.utils import CONDENSED_TOOL_RESULT_CHARS, condense_agent_call
 
 CALL = {
@@ -444,6 +446,21 @@ def test_update_agent_tool_requires_a_change(api: Api) -> None:
     with pytest.raises(ValueError, match="at least one"):
         agents.update_agent_tool("tool_1", {})
     assert api.requests == []
+
+
+def test_update_agent_tool_keeps_stored_credentials(api: Api) -> None:
+    api.on("PATCH", "/v1/agents/tools/tool_1", WEBHOOK_TOOL)
+    headers = {"X-Key": {"type": "secret", "secret_description": "Orders API key"}}
+
+    agents.update_agent_tool("tool_1", {"api_schema": {"request_headers": headers}})
+
+    assert json.loads(api.last.content)["api_schema"]["request_headers"] == headers
+
+
+def test_agent_tool_schemas_do_not_ask_for_credentials() -> None:
+    tools = {tool.name: tool for tool in asyncio.run(server.mcp.list_tools())}
+    for name in ("create_agent_tool", "update_agent_tool"):
+        assert '"secret_value":' not in json.dumps(tools[name].input_schema), name
 
 
 def test_delete_agent_tool(api: Api) -> None:

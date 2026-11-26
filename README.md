@@ -121,13 +121,12 @@ Keep this table in sync with `@mcp.tool` registrations in `cartesia_mcp/server.p
 | `retry_call_batch` | Dial a batch's failed recipients again (confirm first) |
 | `get_phone_provisioning_usage` | This month's phone number provisioning usage and remaining quota (read only) |
 | `provision_phone_number` | Buy a Cartesia-managed phone number, unassigned until the user confirms it |
-| `import_phone_number` | Link a number you own through a provider |
+| `import_phone_number` | Link a number you own through a provider linked in the Playground |
 | `update_phone_number` | Change a number's label, inbound agent, or provider |
 | `delete_phone_number` | Remove a phone number |
 | `list_phone_providers` | List linked Twilio and SIP trunk providers (secrets never returned) |
 | `get_phone_provider` | Get one provider |
-| `create_twilio_provider` | Link a Twilio account |
-| `update_phone_provider` | Change a Twilio or SIP trunk provider |
+| `update_phone_provider` | Change a SIP trunk provider's label or routing (credentials are changed in the Playground) |
 | `delete_phone_provider` | Unlink a provider |
 | `list_knowledge_folders` | List knowledge base folders, their documents, and the agents that can search them |
 | `get_knowledge_folder` | Get one folder |
@@ -176,8 +175,6 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 | --- | --- |
 | `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
 | `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
-| `create_voice_agent` | Build a Managed Agent from a plain-language description and share a Playground link |
-| `debug_agent_call` | Find why an agent call went wrong and propose a config fix |
 
 ## Releases
 
@@ -294,19 +291,23 @@ New sessions are limited to **5 per minute per access token** and **15 per minut
 
 ### Hosted OAuth redirect URIs
 
-Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy:
+Hosted MCP (`mcp.cartesia.ai`) accepts Dynamic Client Registration with a restricted redirect-URI policy (open DCR; the redirect URI is the security boundary). Authorization uses PKCE (`S256`).
 
-- **Custom schemes** (desktop apps) — e.g. `cursor://…`, `vscode://…`
-- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path)
-- **Allowlisted HTTPS** — first-party callbacks for Claude, ChatGPT, Cursor web/Agents, VS Code Web, and Devin
+Allowed redirects:
 
-To temporarily allow another exact HTTPS callback without a code change, set:
+- **Custom schemes** for desktop apps (e.g. `cursor://…`) — dangerous browser schemes such as `javascript:` / `data:` are rejected
+- **Loopback HTTP** — `http://localhost|127.0.0.1|::1` (any port/path; not `*.localhost`)
+- **Allowlisted HTTPS** — first-party callbacks for known MCP hosts (exact host + path, or a documented path prefix). The living list is in code (`_HTTPS_REDIRECT_EXACT` / `_HTTPS_REDIRECT_PREFIXES` in `cartesia_mcp/oauth_provider.py`).
+
+Rejected `redirect_uri` values return an actionable OAuth error. Self-hosted operators can add exact HTTPS callbacks without a code change:
 
 ```text
 MCP_OAUTH_EXTRA_HTTPS_REDIRECTS=partner.example|/mcp/oauth/callback
 ```
 
 (comma-separated `host|/path` pairs). Prefer adding durable hosts in code for known products.
+
+**Unlisted / custom clients:** use a [Cartesia API key](https://play.cartesia.ai/keys) with `Authorization: Bearer <CARTESIA_API_KEY>` (local `uvx` / stdio or HTTP clients that support bearer auth). To request an official HTTPS callback allowlist entry, [open a GitHub issue](https://github.com/cartesia-ai/cartesia-mcp/issues/new).
 
 ### API version
 

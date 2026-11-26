@@ -1,11 +1,16 @@
 """Tests for hosted mode configuration."""
 
+from starlette.applications import Starlette
+from starlette.routing import Route
+from starlette.testclient import TestClient
+
 from cartesia_mcp.hosted import (
     attach_hosted_routes,
     hosted_enabled,
     hosted_server_kwargs,
     hosted_streamable_http_kwargs,
     mcp_resource_url,
+    openai_apps_challenge,
     server_public_url,
 )
 from cartesia_mcp.mcpserver import CartesiaMCP
@@ -51,8 +56,40 @@ def test_attach_hosted_routes_includes_icon():
     attach_hosted_routes(mcp)
     paths = {route.path for route in mcp._custom_starlette_routes}
     assert "/health" in paths
+    assert "/.well-known/openai-apps-challenge" in paths
     assert "/icon.png" in paths
     assert "/favicon.ico" in paths
     assert "/icon.svg" in paths
     assert "/apple-touch-icon.png" in paths
     assert "/" in paths
+
+
+def test_openai_apps_challenge_requires_env(monkeypatch):
+    monkeypatch.delenv("OPENAI_APPS_CHALLENGE", raising=False)
+    app = Starlette(
+        routes=[
+            Route(
+                "/.well-known/openai-apps-challenge",
+                endpoint=openai_apps_challenge,
+                methods=["GET"],
+            )
+        ]
+    )
+    assert TestClient(app).get("/.well-known/openai-apps-challenge").status_code == 404
+
+
+def test_openai_apps_challenge_returns_plain_token(monkeypatch):
+    monkeypatch.setenv("OPENAI_APPS_CHALLENGE", "challenge-token-abc")
+    app = Starlette(
+        routes=[
+            Route(
+                "/.well-known/openai-apps-challenge",
+                endpoint=openai_apps_challenge,
+                methods=["GET"],
+            )
+        ]
+    )
+    response = TestClient(app).get("/.well-known/openai-apps-challenge")
+    assert response.status_code == 200
+    assert response.text == "challenge-token-abc"
+    assert "text/plain" in response.headers["content-type"]

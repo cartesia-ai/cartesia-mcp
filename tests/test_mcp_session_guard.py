@@ -56,9 +56,7 @@ def _client(session_manager: StreamableHTTPSessionManager) -> TestClient:
         session_manager._server_instances[new_id] = _FakeTransport()
         return JSONResponse({"ok": True}, headers={MCP_SESSION_ID_HEADER: new_id})
 
-    app = Starlette(
-        routes=[Route("/mcp", endpoint=_ok_mcp, methods=["GET", "POST"])]
-    )
+    app = Starlette(routes=[Route("/mcp", endpoint=_ok_mcp, methods=["GET", "POST"])])
     app.add_middleware(
         McpSessionCapMiddleware,
         session_manager=session_manager,
@@ -82,9 +80,7 @@ def _session_manager(
         else {f"s{i}": f"tok:other-{i}" for i in range(active)}
     )
     manager._session_last_seen = (
-        last_seen
-        if last_seen is not None
-        else {f"s{i}": now for i in range(active)}
+        last_seen if last_seen is not None else {f"s{i}": now for i in range(active)}
     )
     return manager
 
@@ -328,7 +324,9 @@ def test_session_buckets_written_on_create_and_cleaned_on_evict(caplog):
     manager._server_instances = {
         f"s{i}": _FakeTransport() for i in range(MCP_MAX_CONCURRENT_SESSIONS)
     }
-    manager._session_owners = {f"s{i}": object() for i in range(MCP_MAX_CONCURRENT_SESSIONS)}
+    manager._session_owners = {
+        f"s{i}": object() for i in range(MCP_MAX_CONCURRENT_SESSIONS)
+    }
     manager._session_buckets = {
         f"s{i}": f"tok:other-{i}" for i in range(MCP_MAX_CONCURRENT_SESSIONS)
     }
@@ -383,15 +381,17 @@ def test_report_tool_call_emits_dogstatsd_count(monkeypatch):
         "cartesia_mcp.mcp_session_guard.socket.socket",
         lambda *_args, **_kwargs: _Sock(),
     )
-    report_tool_call("text_to_speech", "ok")
+    report_tool_call("text_to_speech", "ok", mcp_client="cursor-vscode")
     report_tool_call("bad tool", "nope")
     assert len(sent) == 2
     assert b"mcp.tool.calls:1|c|" in sent[0]
     assert b"tool:text_to_speech" in sent[0]
     assert b"outcome:ok" in sent[0]
+    assert b"mcp_client:cursor-vscode" in sent[0]
     assert b"env:test" in sent[0]
     assert b"tool:other" in sent[1]
     assert b"outcome:unknown" in sent[1]
+    assert b"mcp_client:other" in sent[1]
 
 
 def test_report_output_directory_metrics_emits_dogstatsd(monkeypatch):

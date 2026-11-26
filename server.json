@@ -8,13 +8,13 @@
     "url": "https://github.com/cartesia-ai/cartesia-mcp",
     "source": "github"
   },
-  "version": "1.0.0",
+  "version": "1.3.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "cartesia-mcp",
-      "version": "1.0.0",
+      "version": "1.3.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

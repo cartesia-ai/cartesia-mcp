@@ -55,10 +55,33 @@ _HTTPS_REDIRECT_EXACT = frozenset(
         ("insiders.vscode.dev", "/redirect"),
         # Devin / Devin Enterprise (all tenants share this callback host).
         ("api.devin.ai", "/mcp/oauth/callback"),
+        ("vertexaisearch.cloud.google.com", "/oauth-redirect"),
+        ("www.make.com", "/oauth/cb/mcp"),
+        ("oauth.n8n.cloud", "/oauth2/callback"),
+        ("replit.com", "/connectors/oauth/callback"),
+        ("identity.snowflake.com", "/oauth2/callback"),
     }
 )
 _HTTPS_REDIRECT_PREFIXES = (
     ("chatgpt.com", "/connector/oauth/"),
+    # Google Gemini Connected Apps (user-bound + app callbacks).
+    # https://developers.google.com/connected-apps/mcp/oauth
+    ("oauth-redirect.googleusercontent.com", "/r/"),
+    ("oauth-redirect.googleusercontent.com", "/a/"),
+    ("oauth-redirect-sandbox.googleusercontent.com", "/r/"),
+    ("oauth-redirect-sandbox.googleusercontent.com", "/a/"),
+    ("oauth-redirect-test.googleusercontent.com", "/r/"),
+    ("oauth-redirect-test.googleusercontent.com", "/a/"),
+)
+
+_REDIRECT_ALLOWLIST_ISSUE_URL = "https://github.com/cartesia-ai/cartesia-mcp/issues/new"
+_DISALLOWED_REDIRECT_GUIDANCE = (
+    "Allowed: custom app URI schemes, loopback http "
+    "(localhost / 127.0.0.1 / ::1), or an allowlisted https callback. "
+    "Self-hosted operators can add exact host|/path pairs via "
+    "MCP_OAUTH_EXTRA_HTTPS_REDIRECTS. "
+    "Alternatively authenticate with Authorization: Bearer <CARTESIA_API_KEY>. "
+    f"To request an official allowlist entry: {_REDIRECT_ALLOWLIST_ISSUE_URL}"
 )
 
 
@@ -84,6 +107,12 @@ def _extra_https_redirects_from_env() -> frozenset[tuple[str, str]]:
     return frozenset(pairs)
 
 
+def _redirect_uri_raw(redirect_uri: AnyUrl | str) -> str:
+    if isinstance(redirect_uri, AnyUrl):
+        return redirect_uri.unicode_string()
+    return str(redirect_uri)
+
+
 def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
     """Return True when a DCR / authorize redirect_uri is safe to use.
 
@@ -95,12 +124,7 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
     - Loopback http (RFC 8252)
     - Allowlisted first-party https callbacks (+ env extras)
     """
-    raw = (
-        redirect_uri.unicode_string()
-        if isinstance(redirect_uri, AnyUrl)
-        else str(redirect_uri)
-    )
-    parsed = urlparse(raw)
+    parsed = urlparse(_redirect_uri_raw(redirect_uri))
     if parsed.username is not None or parsed.password is not None:
         return False
 
@@ -114,6 +138,7 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
     path = parsed.path or ""
 
     if scheme == "http":
+        # Exact loopback hosts only — reject *.localhost and other http hosts.
         return host in _LOOPBACK_HOSTS
 
     if scheme == "https":
@@ -126,6 +151,14 @@ def _redirect_uri_is_allowed(redirect_uri: AnyUrl | str) -> bool:
         )
 
     return False
+
+
+def _disallowed_redirect_description(redirect_uri: AnyUrl | str) -> str:
+    """Actionable OAuth error_description for a rejected redirect_uri."""
+    return (
+        f"redirect_uri is not allowed: {_redirect_uri_raw(redirect_uri)}. "
+        f"{_DISALLOWED_REDIRECT_GUIDANCE}"
+    )
 
 
 class CartesiaOAuthProvider(
@@ -144,14 +177,12 @@ class CartesiaOAuthProvider(
                 error="invalid_client_metadata",
                 error_description="redirect_uris is required",
             )
-        if not all(_redirect_uri_is_allowed(uri) for uri in client_info.redirect_uris):
-            raise RegistrationError(
-                error="invalid_client_metadata",
-                error_description=(
-                    "redirect_uris must be a native app URI scheme, "
-                    "loopback http, or an allowlisted https callback"
-                ),
-            )
+        for uri in client_info.redirect_uris:
+            if not _redirect_uri_is_allowed(uri):
+                raise RegistrationError(
+                    error="invalid_redirect_uri",
+                    error_description=_disallowed_redirect_description(uri),
+                )
         oauth_store.register_client(client_info)
 
     async def authorize(
@@ -162,7 +193,7 @@ class CartesiaOAuthProvider(
         if not _redirect_uri_is_allowed(params.redirect_uri):
             raise AuthorizeError(
                 error="invalid_request",
-                error_description="redirect_uri is not allowed",
+                error_description=_disallowed_redirect_description(params.redirect_uri),
             )
         session_id, connect_token = oauth_store.create_pending_session(
             client.client_id,
@@ -253,7 +284,9 @@ class CartesiaOAuthProvider(
     ) -> str:
         if not _redirect_uri_is_allowed(pending.params.redirect_uri):
             # Block completions for clients registered before allowlisting.
-            raise ValueError("redirect_uri is not allowed")
+            raise ValueError(
+                _disallowed_redirect_description(pending.params.redirect_uri)
+            )
         auth_code = oauth_store.issue_authorization_code(
             client_id=pending.client_id,
             params=pending.params,
@@ -273,12 +306,14 @@ class CartesiaOAuthProvider(
         return f"{redirect_base}{separator}{query}"
 
 
-def ensure_dynamic_client(client_id: str, redirect_uri: AnyUrl) -> OAuthClientInformationFull:
+def ensure_dynamic_client(
+    client_id: str, redirect_uri: AnyUrl
+) -> OAuthClientInformationFull:
     existing = oauth_store.get_client(client_id)
     if existing is not None:
         return existing
     if not _redirect_uri_is_allowed(redirect_uri):
-        raise ValueError("redirect_uri is not allowed")
+        raise ValueError(_disallowed_redirect_description(redirect_uri))
     client = OAuthClientInformationFull(
         client_id=client_id,
         client_secret=None,
@@ -290,15 +325,18 @@ def ensure_dynamic_client(client_id: str, redirect_uri: AnyUrl) -> OAuthClientIn
     return client
 
 
-def register_ephemeral_client(redirect_uri: str | None = None) -> OAuthClientInformationFull:
+def register_ephemeral_client(
+    redirect_uri: str | None = None,
+) -> OAuthClientInformationFull:
     client_id = secrets.token_urlsafe(16)
     redirect_uris = (
         [AnyUrl(redirect_uri)]
         if redirect_uri
         else [AnyUrl("cursor://anysphere.cursor-mcp/oauth/callback")]
     )
-    if not all(_redirect_uri_is_allowed(uri) for uri in redirect_uris):
-        raise ValueError("redirect_uri is not allowed")
+    for uri in redirect_uris:
+        if not _redirect_uri_is_allowed(uri):
+            raise ValueError(_disallowed_redirect_description(uri))
     client = OAuthClientInformationFull(
         client_id=client_id,
         client_secret=None,

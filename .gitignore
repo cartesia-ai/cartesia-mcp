@@ -17,3 +17,6 @@ wheels/
 
 # Local MCP smoke-test output
 test-output/
+
+# Node (MCP App player source in ui/)
+node_modules/
