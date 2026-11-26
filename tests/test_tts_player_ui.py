@@ -101,7 +101,7 @@ def test_apps_clients_get_the_request_back(
     assert result["language"] == "fr"
     assert result["volume"] == 1.5
     assert result["cartesia_version"] == CARTESIA_VERSION
-    assert result["emotion"] is None
+    assert "emotion" not in result
 
 
 @patch("cartesia_mcp.mcp_app.client")
@@ -112,5 +112,5 @@ def test_other_clients_keep_the_lean_response(
 
     result = asyncio.run(_generate(tmp_path, mode="legacy", apps=False))
 
-    # FastMCP dumps unset keys as null, so absence means "no value".
+    # Structured output omits unset keys; the player treats missing and null alike.
     assert {key for key, value in result.items() if value is not None} == {"file_path"}

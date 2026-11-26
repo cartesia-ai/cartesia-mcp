@@ -47,10 +47,8 @@ class DownloadedFileResult(typing.TypedDict):
 class ListVoicesResult(typing.TypedDict):
     """Paginated voice list returned by `list_voices`.
 
-    `next_page` is omitted by the tool when there is no further page, but FastMCP's
-    structured-output dump fills optional TypedDict fields with ``None``. The field
-    must therefore be nullable in the JSON Schema or clients reject the last page
-    with ``None is not of type 'string'``.
+    `next_page` is omitted when there is no further page. It stays nullable in the
+    JSON Schema so clients that send ``None`` instead of omitting it still validate.
     """
 
     data: typing.List[typing.Any]
