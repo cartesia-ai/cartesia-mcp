@@ -27,8 +27,7 @@ def _structured_content_for(result: dict) -> dict:
     """Mirror FastMCP FuncMetadata.convert_result structured dump path."""
     tool = _list_voices_tool()
     assert tool.fn_metadata.output_model is not None
-    validated = tool.fn_metadata.output_model.model_validate(result)
-    return validated.model_dump(mode="json", by_alias=True)
+    return tool.fn_metadata.convert_result(result).structured_content
 
 
 def _voice(**overrides: object) -> Voice:
@@ -60,7 +59,7 @@ def test_list_voices_output_schema_allows_null_next_page() -> None:
 
 @patch("cartesia_mcp.mcp_app.client")
 def test_list_voices_last_page_structured_output_validates(mock_client: MagicMock) -> None:
-    """Final pages omit next_page; FastMCP dump fills it as null."""
+    """Final pages omit next_page from both the result and the structured output."""
     schema = _list_voices_output_schema()
     page = MagicMock()
     page.data = [_voice()]
@@ -71,7 +70,7 @@ def test_list_voices_last_page_structured_output_validates(mock_client: MagicMoc
 
     assert "next_page" not in result
     structured = _structured_content_for(result)
-    assert structured["next_page"] is None
+    assert "next_page" not in structured
     assert structured["data"][0]["gender"] is None
     jsonschema.validate(instance=structured, schema=schema)
 
