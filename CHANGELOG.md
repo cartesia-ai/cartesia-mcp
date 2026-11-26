@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.2.0...cartesia-mcp-v1.3.0) (2026-11-26)
+
+
+### Features
+
+* remove the agent prompts that the agent skills replace ([#174](https://github.com/cartesia-ai/cartesia-mcp/issues/174)) ([d9a2d31](https://github.com/cartesia-ai/cartesia-mcp/commit/d9a2d31b78975ad1d8a91fa972a865757f3bf502))
+
+
+### Bug Fixes
+
+* address Codex plugin review findings ([#175](https://github.com/cartesia-ai/cartesia-mcp/issues/175)) ([4eee800](https://github.com/cartesia-ai/cartesia-mcp/commit/4eee800ff31a1d7522ea2f9d48e699f244723fce))
+
 ## [1.2.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.1.0...cartesia-mcp-v1.2.0) (2026-11-24)
 
 
