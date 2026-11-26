@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.3.0...cartesia-mcp-v1.3.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **deps:** burn down 41 of 42 vulnerability findings ([#163](https://github.com/cartesia-ai/cartesia-mcp/issues/163)) ([a607787](https://github.com/cartesia-ai/cartesia-mcp/commit/a60778783724b08b6bb4a210dbf03f41d3b1b082))
+
 ## [1.3.0](https://github.com/cartesia-ai/cartesia-mcp/compare/cartesia-mcp-v1.2.0...cartesia-mcp-v1.3.0) (2026-11-26)
 
 
