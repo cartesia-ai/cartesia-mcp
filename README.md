@@ -176,8 +176,6 @@ See [`cartesia_mcp/server.py`](./cartesia_mcp/server.py) for parameters and retu
 | --- | --- |
 | `generate_and_transcribe` | Synthesize text with a voice, then transcribe it back to verify |
 | `clone_and_localize` | Clone a voice from a `file_id`, then localize it to another language |
-| `create_voice_agent` | Build a Managed Agent from a plain-language description and share a Playground link |
-| `debug_agent_call` | Find why an agent call went wrong and propose a config fix |
 
 ## Releases
 

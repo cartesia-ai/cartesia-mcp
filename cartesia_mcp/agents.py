@@ -1,4 +1,4 @@
-"""Managed Agents tools and prompts: agents, calls, versions, knowledge base, webhooks, metrics, phone numbers, and batches."""
+"""Managed Agents tools: agents, calls, versions, knowledge base, webhooks, metrics, phone numbers, and batches."""
 
 import typing
 from pathlib import Path
@@ -2217,68 +2217,3 @@ def get_agent_usage(
         )
         .to_dict(mode="json")
     )
-
-
-@mcp.prompt(
-    title="Create a voice agent",
-    description="Build a Managed Agent from a plain-language description and share a link to try it.",
-)
-def create_voice_agent(description: str) -> str:
-    return (
-        f"Build a Cartesia Managed Agent for: {description!r}.\n"
-        "1. Ask at most two questions if a key detail is missing, such as the business "
-        "name, the facts the agent must know, or when it should transfer or hang up.\n"
-        "2. Call `list_agent_models` and pick a model id. Call `list_voices` with a query "
-        "that matches the persona and language, and pick a voice.\n"
-        "3. Write `config.instructions` for the role, goal, steps, what to collect, and "
-        "when to end or transfer. Set `config.initial_message` to what the agent says "
-        "first, or leave it unset to wait.\n"
-        "4. Use `{{variable}}` placeholders for anything that changes per caller and set "
-        "test values in `config.dynamic_variable_placeholders`.\n"
-        "5. Call `create_agent`, then give the user the `playground_url`. A config "
-        "change is live immediately. Try it there before assigning a phone number.\n"
-        "6. If the agent must look something up or take an action, call "
-        "`create_agent_tool`, then `attach_agent_tool`. Ending, transferring, "
-        "DTMF, and voicemail detection are `config.system_tools`.\n"
-        "If it must answer from the user's documents, call `create_knowledge_folder` "
-        "and `create_knowledge_documents`, then `attach_knowledge_folder` or "
-        "`attach_knowledge_document`.\n"
-        "7. After a test call, use `list_agent_calls`, `get_agent_call_logs`, and "
-        "`get_agent_call` to review it. Change instructions with `update_agent`. "
-        "Add or remove one tool or document with the attach and detach tools.\n"
-    )
-
-
-@mcp.prompt(
-    title="Debug a voice agent call",
-    description="Find why a Managed Agent call went wrong and propose a config fix.",
-)
-def debug_agent_call(agent_id: str = "", call_id: str = "") -> str:
-    if call_id and agent_id:
-        find_step = f"The call ID is {call_id!r} on agent {agent_id!r}."
-    elif call_id:
-        find_step = f"The call ID is {call_id!r}."
-    elif agent_id:
-        find_step = (
-            f"Call `list_agent_calls` with agent_id={agent_id!r} and pick the call the "
-            "user means (or the latest failed one)."
-        )
-    else:
-        find_step = (
-            "Call `list_agents` and pick the agent the user means. Then call "
-            "`list_agent_calls` for it and pick the call they mean (or the latest failed one)."
-        )
-    return (
-        f"{find_step}\n"
-        "Call `get_agent_call_logs` for that call first: the runtime logs show errors "
-        "and failed tool calls the transcript may not.\n"
-        "Then call `get_agent_call` and check `status`, `end_reason`, and "
-        "`error_message`, and read the turns for misunderstandings, interruptions, "
-        "failed tool calls, and slow `latency_ms`.\n"
-        "Call `get_agent_version` with the call's `agent_id` and "
-        "`agent_version_id` to read the config that ran.\n"
-        "Explain the cause, then propose the smallest config change. Apply it with "
-        "`update_agent` only after the user agrees."
-    )
-
-
